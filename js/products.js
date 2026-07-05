@@ -96,6 +96,16 @@ var MaterialsPage = {
               </div>
               <div class="form-row">
                 <div class="form-group">
+                  <label>Unit Price (₹)</label>
+                  <input type="number" class="form-control" id="prod-price" placeholder="e.g., 350" min="0" step="0.01">
+                </div>
+                <div class="form-group">
+                  <label>Rental Rate / Day (₹)</label>
+                  <input type="number" class="form-control" id="prod-rental" placeholder="e.g., 10" min="0" step="0.01">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
                   <label>Reorder Level</label>
                   <input type="number" class="form-control" id="prod-reorder" placeholder="50">
                 </div>
