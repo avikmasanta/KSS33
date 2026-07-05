@@ -98,6 +98,30 @@ var SitesPage = {
                 <p class="text-sm text-tertiary mb-2">Enter quantities to dispatch materials to this site immediately upon creation.</p>
                 <div id="site-initial-materials-list"></div>
               </div>
+              <div class="form-group" id="site-advance-payment-container" style="display:none;">
+                <hr style="margin: 15px 0;">
+                <label style="margin-bottom:6px;">💰 Advance Payment Received (Optional)</label>
+                <p class="text-sm text-tertiary mb-2">Log an initial payment from the customer at the time of site creation.</p>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Amount (₹)</label>
+                    <input type="number" class="form-control" id="site-advance-amount" placeholder="0.00" step="0.01" min="0">
+                  </div>
+                  <div class="form-group">
+                    <label>Payment Mode</label>
+                    <select class="form-control" id="site-advance-mode">
+                      <option value="Cash">Cash</option>
+                      <option value="Bank Transfer">Bank Transfer</option>
+                      <option value="Cheque">Cheque</option>
+                      <option value="UPI">UPI</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>Note</label>
+                  <input type="text" class="form-control" id="site-advance-note" placeholder="e.g. Advance payment, Token amount">
+                </div>
+              </div>
             </form>
           </div>
           <div class="modal-footer">
@@ -225,11 +249,15 @@ var SitesPage = {
       
       if (matContainer) {
         matContainer.style.display = 'block';
-        this.initItems = [{ materialId: '', quantity: '' }];
+        this.initItems = [{ materialId: '', quantity: '', used: '' }];
         this.renderInitItems();
       }
+      const advContainer = document.getElementById('site-advance-payment-container');
+      if (advContainer) advContainer.style.display = 'block';
     } else {
       if (matContainer) matContainer.style.display = 'none';
+      const advContainer = document.getElementById('site-advance-payment-container');
+      if (advContainer) advContainer.style.display = 'none';
     }
   },
 
@@ -245,8 +273,9 @@ var SitesPage = {
         <thead>
           <tr>
             <th>Material</th>
-            <th style="width: 30%">Qty</th>
-            <th style="width: 10%"></th>
+            <th style="width:22%">Qty Sent</th>
+            <th style="width:22%">Qty Used</th>
+            <th style="width:10%"></th>
           </tr>
         </thead>
         <tbody>
@@ -263,7 +292,10 @@ var SitesPage = {
             </select>
           </td>
           <td>
-            <input type="number" class="form-control" placeholder="0" min="1" value="${item.quantity}" onchange="SitesPage.onInitItemChange(${idx}, 'quantity', this.value)">
+            <input type="number" class="form-control" placeholder="Sent" min="1" value="${item.quantity}" onchange="SitesPage.onInitItemChange(${idx}, 'quantity', this.value)">
+          </td>
+          <td>
+            <input type="number" class="form-control" placeholder="Used" min="0" value="${item.used || ''}" onchange="SitesPage.onInitItemChange(${idx}, 'used', this.value)">
           </td>
           <td>
             ${this.initItems.length > 1 ? `<button type="button" class="btn btn-icon btn-ghost" onclick="SitesPage.removeInitItem(${idx})">${Icons.x}</button>` : ''}
@@ -289,7 +321,7 @@ var SitesPage = {
   },
 
   addInitItem() {
-    this.initItems.push({ materialId: '', quantity: '' });
+    this.initItems.push({ materialId: '', quantity: '', used: '' });
     this.renderInitItems();
   },
 
@@ -359,6 +391,28 @@ var SitesPage = {
           referenceNo: 'INIT-DISPATCH',
           notes: 'Initial material dispatch on site creation',
           items: items
+        });
+
+        // Mark used quantities immediately
+        const usedDate = new Date().toISOString();
+        this.initItems.forEach(item => {
+          const usedQty = parseFloat(item.used) || 0;
+          if (item.materialId && usedQty > 0) {
+            Store.SiteUsage.add({ siteId: newSite.id, materialId: item.materialId, quantity: usedQty, date: usedDate });
+          }
+        });
+      }
+
+      // Log advance payment if entered
+      const advAmt = parseFloat(document.getElementById('site-advance-amount')?.value) || 0;
+      if (advAmt > 0) {
+        Store.SitePayments.add({
+          siteId: newSite.id,
+          date: data.startDate || new Date().toISOString().split('T')[0],
+          amount: advAmt,
+          mode: document.getElementById('site-advance-mode')?.value || 'Cash',
+          reference: '',
+          note: document.getElementById('site-advance-note')?.value.trim() || 'Advance payment'
         });
       }
     }
