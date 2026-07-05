@@ -143,13 +143,11 @@ var OutgoingPage = {
               <thead>
                 <tr>
                   <th style="width:5%">#</th>
-                  <th style="width:25%">Material</th>
-                  <th style="width:12%">Qty</th>
-                  <th style="width:12%">Available</th>
-                  <th style="width:12%">Unit</th>
-                  <th style="width:14%">Rate (₹)</th>
-                  <th style="width:14%">Amount (₹)</th>
-                  <th style="width:6%"></th>
+                  <th style="width:35%">Material</th>
+                  <th style="width:15%">Qty</th>
+                  <th style="width:15%">Available</th>
+                  <th style="width:20%">Unit</th>
+                  <th style="width:10%"></th>
                 </tr>
               </thead>
               <tbody id="out-items-body">
@@ -169,8 +167,6 @@ var OutgoingPage = {
                       <td><input type="number" class="form-control" value="${item.quantity || ''}" placeholder="0" onchange="OutgoingPage.onItemChange(${idx}, 'quantity', this.value)"></td>
                       <td><span class="text-sm ${typeof available === 'number' && available < 0 ? 'text-danger' : ''}">${typeof available === 'number' ? available.toLocaleString('en-IN') : '-'}</span></td>
                       <td><span class="text-sm">${prod ? prod.unit : '-'}</span></td>
-                      <td><input type="number" class="form-control" value="${item.rate || ''}" placeholder="0.00" step="0.01" onchange="OutgoingPage.onItemChange(${idx}, 'rate', this.value)"></td>
-                      <td><strong>₹ ${(parseFloat(item.amount) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</strong></td>
                       <td>${items.length > 1 ? `<button class="btn btn-icon btn-ghost" onclick="OutgoingPage.removeItem(${idx})">${Icons.x}</button>` : ''}</td>
                     </tr>
                   `;
@@ -186,11 +182,6 @@ var OutgoingPage = {
         <div class="form-group mt-3">
           <label>Notes</label>
           <textarea class="form-control" id="out-notes" rows="2" placeholder="Material required for 2nd floor work...">${record ? record.notes || '' : ''}</textarea>
-        </div>
-
-        <div class="total-row">
-          <span class="total-label">Total Amount:</span>
-          <span class="total-value" style="color:var(--danger)">₹ ${totalAmount.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
         </div>
 
         <div class="flex justify-between mt-4">

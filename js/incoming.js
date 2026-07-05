@@ -163,12 +163,10 @@ var IncomingPage = {
               <thead>
                 <tr>
                   <th style="width:5%">#</th>
-                  <th style="width:30%">Material</th>
-                  <th style="width:15%">Quantity</th>
-                  <th style="width:15%">Unit</th>
-                  <th style="width:15%">Rate (₹)</th>
-                  <th style="width:15%">Amount (₹)</th>
-                  <th style="width:5%"></th>
+                  <th style="width:40%">Material</th>
+                  <th style="width:20%">Quantity</th>
+                  <th style="width:25%">Unit</th>
+                  <th style="width:10%"></th>
                 </tr>
               </thead>
               <tbody id="inc-items-body">
@@ -185,8 +183,6 @@ var IncomingPage = {
                       </td>
                       <td><input type="number" class="form-control" value="${item.quantity || ''}" placeholder="0" onchange="IncomingPage.onItemChange(${idx}, 'quantity', this.value)"></td>
                       <td><span class="text-sm">${prod ? prod.unit : '-'}</span></td>
-                      <td><input type="number" class="form-control" value="${item.rate || ''}" placeholder="0.00" step="0.01" onchange="IncomingPage.onItemChange(${idx}, 'rate', this.value)"></td>
-                      <td><strong>₹ ${(parseFloat(item.amount) || 0).toLocaleString('en-IN', {minimumFractionDigits:2})}</strong></td>
                       <td>${items.length > 1 ? `<button class="btn btn-icon btn-ghost" onclick="IncomingPage.removeItem(${idx})">${Icons.x}</button>` : ''}</td>
                     </tr>
                   `;
@@ -202,11 +198,6 @@ var IncomingPage = {
         <div class="form-group mt-3">
           <label>Notes</label>
           <textarea class="form-control" id="inc-notes" rows="2" placeholder="Additional notes...">${record ? record.notes || '' : ''}</textarea>
-        </div>
-
-        <div class="total-row">
-          <span class="total-label">Total Amount:</span>
-          <span class="total-value">₹ ${totalAmount.toLocaleString('en-IN', {minimumFractionDigits:2})}</span>
         </div>
 
         <div class="flex justify-between mt-4">
