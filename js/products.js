@@ -96,16 +96,6 @@ var MaterialsPage = {
               </div>
               <div class="form-row">
                 <div class="form-group">
-                  <label>Asset Price (₹)</label>
-                  <input type="number" class="form-control" id="prod-price" placeholder="0.00" step="0.01">
-                </div>
-                <div class="form-group">
-                  <label>Rental Rate / Day (₹)</label>
-                  <input type="number" class="form-control" id="prod-rental" placeholder="0.00" step="0.01">
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
                   <label>Reorder Level</label>
                   <input type="number" class="form-control" id="prod-reorder" placeholder="50">
                 </div>
@@ -196,15 +186,13 @@ var MaterialsPage = {
             <th>Category</th>
             <th>Unit</th>
             <th>Stock (Total)</th>
-            <th>Asset Price</th>
-            <th>Rental/Day</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           ${pageItems.length === 0 ? `
-            <tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text-tertiary)">No materials found</td></tr>
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-tertiary)">No materials found</td></tr>
           ` : pageItems.map((p, i) => `
             <tr>
               <td class="secondary">${start + i + 1}</td>
@@ -213,8 +201,6 @@ var MaterialsPage = {
               <td><span class="badge badge-neutral">${p.category || '-'}</span></td>
               <td>${p.unit || '-'}</td>
               <td><strong>${(overview.find(o => o.material.id === p.id)?.totalStock || 0).toLocaleString('en-IN')}</strong></td>
-              <td>${formatPrice(p.unitPrice)}</td>
-              <td>${formatPrice(p.rentalRate)}</td>
               <td><span class="badge ${p.status === 'Active' ? 'badge-success' : 'badge-warning'}">${p.status || 'Active'}</span></td>
               <td>
                 <div class="table-actions">
