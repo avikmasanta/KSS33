@@ -49,10 +49,12 @@ var SiteDetailsPage = {
       valStock += (bal * price);
     });
 
-    // Calculate Financials (Revenue, Expenses, Profit)
+    // Financial summary
     const revenue = Store.Inventory.getSiteRevenue(site.id);
     const expenses = Store.Inventory.getTotalSiteExpenses(site.id);
+    const totalPaid = Store.SitePayments.getTotalBySite(site.id);
     const profit = revenue - expenses;
+    const balanceDue = revenue - totalPaid;
 
     const fmt = (v) => '₹ ' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     const fmtQ = (v) => Number(v || 0).toLocaleString('en-IN');
@@ -64,7 +66,7 @@ var SiteDetailsPage = {
             <h2 style="margin: 0;">Site Dashboard: ${site.name}</h2>
             <span class="badge ${site.status === 'Completed' ? 'badge-info' : (site.status === 'Suspended' ? 'badge-warning' : 'badge-success')}">${site.status || 'Active'}</span>
           </div>
-          <p>Customer: <strong>${site.customerName || '-'}</strong> ${site.gstNumber ? ' • GST: ' + site.gstNumber : ''}</p>
+          <p>Customer: <strong>${site.customerName || '-'}</strong> ${site.gstNumber ? ' • GST: ' + site.gstNumber : ''} ${site.contactNumber ? ' • Ph: ' + site.contactNumber : ''}</p>
         </div>
         <div class="page-header-actions">
           <button class="btn btn-outline" onclick="App.navigate('sites')">
@@ -82,26 +84,42 @@ var SiteDetailsPage = {
           <button class="btn btn-primary" style="background:var(--success);border-color:var(--success)" onclick="OutgoingPage.newRecord('${site.id}'); App.navigate('outgoing');">
             ${Icons.box} Dispatch Material
           </button>
-          <button class="btn btn-primary" onclick="SiteDetailsPage.openExpenseModal()">
+          <button class="btn btn-primary" onclick="SiteDetailsPage.openPaymentModal()">
+            ${Icons.plus} Log Payment
+          </button>
+          <button class="btn btn-outline" onclick="SiteDetailsPage.openExpenseModal()">
             ${Icons.plus} Log Expense
           </button>
         </div>
       </div>
 
-      <!-- Financials Dashboard -->
-      <h3 style="margin-bottom: 1rem;">Financial Performance</h3>
-      <div class="stats-grid mb-4">
+      <!-- Money Summary -->
+      <h3 style="margin-bottom: 1rem;">💰 Site Money Summary</h3>
+      <div class="stats-grid mb-4" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
         <div class="stat-card" style="border-left: 4px solid var(--primary)">
-          <div class="stat-title">Total Revenue</div>
+          <div class="stat-title">Material Value (Used)</div>
           <div class="stat-value" style="color: var(--primary)">${fmt(revenue)}</div>
+          <div class="stat-sub">Based on qty used × price</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid var(--success)">
+          <div class="stat-title">Total Received (Paid)</div>
+          <div class="stat-value" style="color: var(--success)">${fmt(totalPaid)}</div>
+          <div class="stat-sub">Payments from customer</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid ${balanceDue > 0 ? 'var(--danger)' : 'var(--success)'}">
+          <div class="stat-title">Balance Due</div>
+          <div class="stat-value" style="color: ${balanceDue > 0 ? 'var(--danger)' : 'var(--success)'}">${fmt(balanceDue)}</div>
+          <div class="stat-sub">${balanceDue > 0 ? 'Amount still pending' : 'Fully paid ✓'}</div>
         </div>
         <div class="stat-card" style="border-left: 4px solid var(--danger)">
           <div class="stat-title">Total Expenses</div>
           <div class="stat-value" style="color: var(--danger)">${fmt(expenses)}</div>
+          <div class="stat-sub">Labour, transport etc.</div>
         </div>
         <div class="stat-card" style="border-left: 4px solid ${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">
           <div class="stat-title">Net Profit</div>
           <div class="stat-value" style="color: ${profit >= 0 ? 'var(--success)' : 'var(--danger)'}">${fmt(profit)}</div>
+          <div class="stat-sub">Used Value − Expenses</div>
         </div>
       </div>
 
@@ -125,6 +143,17 @@ var SiteDetailsPage = {
           </div>
           <div class="table-container" id="site-materials-table">
             ${this.renderMaterialsTable(site)}
+          </div>
+        </div>
+
+        <!-- Payment History -->
+        <div class="card mb-4">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>Payment History</h3>
+            <button class="btn btn-sm btn-primary" onclick="SiteDetailsPage.openPaymentModal()">${Icons.plus} Add Payment</button>
+          </div>
+          <div class="table-container" id="site-payments-table">
+            ${this.renderPaymentsTable(site)}
           </div>
         </div>
 
@@ -169,6 +198,54 @@ var SiteDetailsPage = {
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeActionModal()">Cancel</button>
             <button class="btn btn-primary" onclick="SiteDetailsPage.saveAction()">Save Updates</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Modal -->
+      <div class="modal-backdrop" id="payment-modal">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Log Payment Received</h3>
+            <button class="modal-close" onclick="SiteDetailsPage.closePaymentModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body">
+            <form id="payment-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Date *</label>
+                  <input type="date" class="form-control" id="pay-date" required>
+                </div>
+                <div class="form-group">
+                  <label>Amount (₹) *</label>
+                  <input type="number" class="form-control" id="pay-amount" required placeholder="0.00" step="0.01">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Payment Mode</label>
+                  <select class="form-control" id="pay-mode">
+                    <option value="Cash">Cash</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Reference / Cheque No.</label>
+                  <input type="text" class="form-control" id="pay-ref" placeholder="Optional">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Note</label>
+                <input type="text" class="form-control" id="pay-note" placeholder="e.g. Advance payment, Final settlement">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="SiteDetailsPage.closePaymentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="SiteDetailsPage.savePayment()">Save Payment</button>
           </div>
         </div>
       </div>
@@ -380,6 +457,83 @@ var SiteDetailsPage = {
     
     this.closeActionModal();
     this.refresh();
+  },
+
+  renderPaymentsTable(site) {
+    const payments = Store.SitePayments.getBySite(site.id);
+    payments.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (payments.length === 0) {
+      return '<div class="text-center text-tertiary" style="padding: 20px;">No payments recorded yet. Click "Log Payment" to add one.</div>';
+    }
+
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Mode</th>
+            <th>Reference</th>
+            <th>Note</th>
+            <th style="text-align:right">Amount (₹)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    payments.forEach(p => {
+      html += `
+        <tr>
+          <td>${new Date(p.date).toLocaleDateString('en-IN')}</td>
+          <td><span class="badge badge-success">${p.mode || 'Cash'}</span></td>
+          <td class="secondary">${p.reference || '-'}</td>
+          <td>${p.note || '-'}</td>
+          <td style="text-align:right; font-weight:600; color:var(--success)">₹ ${parseFloat(p.amount).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+          <td><button class="btn btn-icon btn-ghost" title="Delete" onclick="SiteDetailsPage.deletePayment('${p.id}')">${Icons.trash}</button></td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    return html;
+  },
+
+  openPaymentModal() {
+    document.getElementById('payment-modal').classList.add('active');
+    document.getElementById('payment-form').reset();
+    document.getElementById('pay-date').value = new Date().toISOString().split('T')[0];
+  },
+
+  closePaymentModal() {
+    document.getElementById('payment-modal').classList.remove('active');
+  },
+
+  savePayment() {
+    const data = {
+      siteId: this.siteId,
+      date: document.getElementById('pay-date').value,
+      amount: parseFloat(document.getElementById('pay-amount').value) || 0,
+      mode: document.getElementById('pay-mode').value,
+      reference: document.getElementById('pay-ref').value.trim(),
+      note: document.getElementById('pay-note').value.trim()
+    };
+
+    if (!data.date || data.amount <= 0) {
+      alert('Please enter a valid date and amount.');
+      return;
+    }
+
+    Store.SitePayments.add(data);
+    this.closePaymentModal();
+    this.refresh();
+  },
+
+  deletePayment(id) {
+    if (confirm('Delete this payment record?')) {
+      Store.SitePayments.remove(id);
+      this.refresh();
+    }
   },
 
   openExpenseModal() {

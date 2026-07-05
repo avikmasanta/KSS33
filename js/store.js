@@ -14,6 +14,7 @@ const Store = (() => {
     siteReturns: 'bm_site_returns',
     siteDamaged: 'bm_site_damaged',
     siteExpenses: 'bm_site_expenses',
+    sitePayments: 'bm_site_payments',
     user: 'bm_user',
     initialized: 'bm_initialized'
   };
@@ -133,7 +134,17 @@ const Store = (() => {
   // ---- Site Expenses ----
   const SiteExpenses = {
     getAll: () => getAll(KEYS.siteExpenses),
-    add: (item) => add(KEYS.siteExpenses, item)
+    add: (item) => add(KEYS.siteExpenses, item),
+    remove: (id) => remove(KEYS.siteExpenses, id)
+  };
+
+  // ---- Site Payments (Money received from customer) ----
+  const SitePayments = {
+    getAll: () => getAll(KEYS.sitePayments),
+    getBySite: (siteId) => getAll(KEYS.sitePayments).filter(p => p.siteId === siteId),
+    getTotalBySite: (siteId) => getAll(KEYS.sitePayments).filter(p => p.siteId === siteId).reduce((s, p) => s + (parseFloat(p.amount) || 0), 0),
+    add: (item) => add(KEYS.sitePayments, item),
+    remove: (id) => remove(KEYS.sitePayments, id)
   };
 
   // ---- Inventory Balance Logic ----
@@ -647,5 +658,5 @@ const Store = (() => {
     seed();
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, Inventory, Auth, seed, reset, uid };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Inventory, Auth, seed, reset, uid };
 })();
