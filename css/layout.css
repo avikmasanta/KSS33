@@ -6,6 +6,7 @@
 .app-shell {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
   background-color: var(--page-bg);
@@ -16,6 +17,7 @@
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
   height: 100vh;
+  height: 100dvh;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--sidebar-border);
   display: flex;
@@ -230,10 +232,17 @@
   .sidebar {
     position: fixed;
     left: -260px;
+    top: 0;
+    bottom: 0;
+    height: 100%;
+    z-index: 1000;
     transition: left var(--transition-slow);
   }
   .sidebar.open {
     left: 0;
+  }
+  .sidebar-overlay {
+    z-index: 999;
   }
   .mobile-header {
     display: flex;

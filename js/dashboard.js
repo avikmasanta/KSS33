@@ -42,7 +42,7 @@ var DashboardPage = {
       </div>
 
       <!-- Stats Cards (6 cols) -->
-      <div class="stats-grid" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 20px;">
+      <div class="stats-grid">
         <!-- Customers -->
         <div class="stat-card">
           <div class="stat-info">
@@ -113,7 +113,7 @@ var DashboardPage = {
       </div>
 
       <!-- Chart + Low Stock -->
-      <div class="dashboard-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 20px;">
+      <div class="dashboard-grid">
         <!-- Stock movements Chart -->
         <div class="card">
           <div class="card-header" style="border-bottom: none; padding-bottom: 0;">

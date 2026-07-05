@@ -36,8 +36,8 @@ var InventoryPage = {
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-body" style="padding-bottom:0">
+      <!-- Split Layout -->
+      <div class="split-layout">
           <div class="toolbar">
             <div class="toolbar-left">
               <div class="search-input">
