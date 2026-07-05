@@ -6,7 +6,7 @@ const Store = (() => {
   // Dynamic API URL detection: localhost vs. production URL
   const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000/api'
-    : 'https://kss33-backend.onrender.com/api'; // Fallback cloud production backend API
+    : 'https://kss33.onrender.com/api'; // Fallback cloud production backend API
 
   // In-memory collections data cache
   const cache = {
