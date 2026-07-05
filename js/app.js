@@ -15,8 +15,8 @@ var App = (() => {
     'site-details': { title: 'Site Details', subtitle: 'Detailed view of a site', icon: 'mapPin', module: 'SiteDetailsPage' }
   };
 
-  async function init() {
-    await Store.seed();
+  function init() {
+    Store.seed();
 
     if (!Store.Auth.isLoggedIn()) {
       document.getElementById('app-root').innerHTML = AuthPage.render();
@@ -35,7 +35,7 @@ var App = (() => {
     return window.location.hash.replace('#', '') || 'dashboard';
   }
 
-  async function navigate(page, params = null) {
+  function navigate(page, params = null) {
     if (!pages[page]) page = 'dashboard';
     window.location.hash = page;
 
@@ -45,33 +45,22 @@ var App = (() => {
     });
 
     const pageInfo = pages[page];
-
-    // Render page content with Loading state
     const content = document.getElementById('app-content');
-    content.innerHTML = `
-      <div class="fade-in" id="page-container">
-        <div style="display: flex; justify-content: center; align-items: center; height: 50vh;">
-          <div style="font-size: 1.5rem; color: var(--text-secondary);">Loading...</div>
-        </div>
-      </div>`;
+    content.innerHTML = '<div class="fade-in" id="page-container"></div>';
     const container = document.getElementById('page-container');
 
     const moduleName = pageInfo.module;
-    if (window[moduleName]) {
+    if (window[moduleName] && typeof window[moduleName].render === 'function') {
       if (params && typeof window[moduleName].setParams === 'function') {
         window[moduleName].setParams(params);
       }
-      
-      if (typeof window[moduleName].render === 'function') {
-        try {
-          const html = await window[moduleName].render();
-          container.innerHTML = html;
-          if (typeof window[moduleName].init === 'function') {
-            await window[moduleName].init();
-          }
-        } catch (err) {
-          container.innerHTML = `<div class="empty-state"><h3>Error loading page</h3><p>${err.message}</p></div>`;
+      try {
+        container.innerHTML = window[moduleName].render();
+        if (typeof window[moduleName].init === 'function') {
+          window[moduleName].init();
         }
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state"><h3>Error loading page</h3><p>${err.message}</p></div>`;
       }
     } else {
       container.innerHTML = `<div class="empty-state"><h3>Module not found</h3><p>The module ${moduleName} is not available.</p></div>`;

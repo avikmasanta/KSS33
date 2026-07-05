@@ -1,5 +1,5 @@
 /* ============================================
-   KSS33 Global Store (localStorage)
+   KSS33 Global Store (localStorage - synchronous)
    ============================================ */
 const Store = (() => {
 
@@ -27,14 +27,14 @@ const Store = (() => {
     return { success: true };
   }
 
-  // ---------- CRUD factory ----------
+  // ---------- CRUD factory (synchronous) ----------
   function makeStore(lsKey) {
     return {
-      getAll: async () => lsGet(lsKey),
-      getById: async (id) => lsGetOne(lsKey, id),
-      add: async (data) => lsAdd(lsKey, data),
-      update: async (id, data) => lsUpdate(lsKey, id, data),
-      remove: async (id) => lsRemove(lsKey, id)
+      getAll: () => lsGet(lsKey),
+      getById: (id) => lsGetOne(lsKey, id),
+      add: (data) => lsAdd(lsKey, data),
+      update: (id, data) => lsUpdate(lsKey, id, data),
+      remove: (id) => lsRemove(lsKey, id)
     };
   }
 
@@ -50,27 +50,22 @@ const Store = (() => {
 
   const SitePayments = {
     ...makeStore('bm_sitePayments'),
-    getBySite: async (siteId) => {
-      return lsGet('bm_sitePayments').filter(x => x.siteId === siteId);
-    },
-    getTotalBySite: async (siteId) => {
-      return lsGet('bm_sitePayments')
-        .filter(x => x.siteId === siteId)
-        .reduce((s, x) => s + (parseFloat(x.amount) || 0), 0);
-    }
+    getBySite: (siteId) => lsGet('bm_sitePayments').filter(x => x.siteId === siteId),
+    getTotalBySite: (siteId) => lsGet('bm_sitePayments')
+      .filter(x => x.siteId === siteId)
+      .reduce((s, x) => s + (parseFloat(x.amount) || 0), 0)
   };
 
   // ---- Sites (with cascade delete) ----
   const Sites = {
-    getAll: async () => lsGet('bm_sites'),
-    getById: async (id) => lsGetOne('bm_sites', id),
-    getByCustomer: async (customerId) => lsGet('bm_sites').filter(s => s.customerId === customerId),
-    add: async (s) => lsAdd('bm_sites', s),
-    update: async (id, s) => lsUpdate('bm_sites', id, s),
-    remove: async (id) => {
+    getAll: () => lsGet('bm_sites'),
+    getById: (id) => lsGetOne('bm_sites', id),
+    getByCustomer: (customerId) => lsGet('bm_sites').filter(s => s.customerId === customerId),
+    add: (s) => lsAdd('bm_sites', s),
+    update: (id, s) => lsUpdate('bm_sites', id, s),
+    remove: (id) => {
       lsRemove('bm_sites', id);
-      // Cascade delete all related records
-      ['bm_incoming', 'bm_outgoing', 'bm_siteUsage', 'bm_siteReturns', 'bm_siteDamaged', 'bm_siteExpenses', 'bm_sitePayments'].forEach(key => {
+      ['bm_incoming','bm_outgoing','bm_siteUsage','bm_siteReturns','bm_siteDamaged','bm_siteExpenses','bm_sitePayments'].forEach(key => {
         lsSet(key, lsGet(key).filter(x => x.siteId !== id && x.destinationSiteId !== id));
       });
       return { success: true };
@@ -96,7 +91,7 @@ const Store = (() => {
 
   // ---- Inventory Utility ----
   const Inventory = {
-    getRecentMovements: async (limit = 10) => {
+    getRecentMovements: (limit = 10) => {
       const allIncoming = lsGet('bm_incoming');
       const allOutgoing = lsGet('bm_outgoing');
       const materials   = lsGet('bm_materials');
@@ -131,7 +126,7 @@ const Store = (() => {
       return moves.slice(0, limit);
     },
 
-    getOverview: async () => {
+    getOverview: () => {
       const materials   = lsGet('bm_materials');
       const allIncoming = lsGet('bm_incoming');
       const allOutgoing = lsGet('bm_outgoing');
@@ -148,7 +143,7 @@ const Store = (() => {
       });
     },
 
-    getWarehouseCurrentBalance: async (materialId) => {
+    getWarehouseCurrentBalance: (materialId) => {
       const allIncoming = lsGet('bm_incoming');
       const allOutgoing = lsGet('bm_outgoing');
       let totalIn = 0;
@@ -162,12 +157,12 @@ const Store = (() => {
       return totalIn - totalOut;
     },
 
-    getSiteCurrentBalance: async (materialId, siteId) => {
-      const allOutgoing        = lsGet('bm_outgoing');
-      const allIncomingDirect  = lsGet('bm_incoming');
-      const siteReturns        = lsGet('bm_siteReturns');
-      const siteUsage          = lsGet('bm_siteUsage');
-      const siteDamaged        = lsGet('bm_siteDamaged');
+    getSiteCurrentBalance: (materialId, siteId) => {
+      const allOutgoing       = lsGet('bm_outgoing');
+      const allIncomingDirect = lsGet('bm_incoming');
+      const siteReturns       = lsGet('bm_siteReturns');
+      const siteUsage         = lsGet('bm_siteUsage');
+      const siteDamaged       = lsGet('bm_siteDamaged');
       let totalIn = 0;
       allOutgoing.filter(r => r.siteId === siteId).forEach(r => {
         (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
@@ -182,7 +177,7 @@ const Store = (() => {
       return totalIn - totalOut;
     },
 
-    getSiteTotalSent: async (materialId, siteId) => {
+    getSiteTotalSent: (materialId, siteId) => {
       const allOutgoing       = lsGet('bm_outgoing');
       const allIncomingDirect = lsGet('bm_incoming');
       let totalIn = 0;
@@ -197,9 +192,9 @@ const Store = (() => {
   };
 
   // ---- Seed default materials ----
-  async function seed() {
+  function seed() {
     if (lsGet('bm_materials').length > 0) return;
-    const materialsData = [
+    [
       { name: 'Cement (OPC 53)', sku: 'CEM-01', category: 'Raw Materials', unit: 'Bags', unitPrice: 350, reorderLevel: 100, status: 'Active' },
       { name: 'Steel TMT 12mm', sku: 'STL-12', category: 'Raw Materials', unit: 'MT', unitPrice: 55000, reorderLevel: 5, status: 'Active' },
       { name: 'Red Bricks', sku: 'BRK-01', category: 'Raw Materials', unit: 'Nos', unitPrice: 8, reorderLevel: 5000, status: 'Active' },
@@ -209,8 +204,7 @@ const Store = (() => {
       { name: 'Shuttering Ply 12mm', sku: 'PLY-12', category: 'Scaffolding', unit: 'SqFt', unitPrice: 45, reorderLevel: 500, status: 'Active' },
       { name: 'Balli', sku: 'BAL-01', category: 'Scaffolding', unit: 'Nos', unitPrice: 150, reorderLevel: 50, status: 'Active' },
       { name: 'Props', sku: 'PROP-01', category: 'Scaffolding', unit: 'Nos', unitPrice: 100, reorderLevel: 50, status: 'Active' }
-    ];
-    materialsData.forEach(m => lsAdd('bm_materials', m));
+    ].forEach(m => lsAdd('bm_materials', m));
   }
 
   return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Inventory, Auth, seed };

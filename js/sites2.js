@@ -8,7 +8,7 @@ var SitesPage = {
   perPage: 8,
   initItems: [],
 
-  async render() {
+  render() {
     return `
       <div class="page-header">
         <div class="page-header-title">
@@ -40,7 +40,7 @@ var SitesPage = {
           </div>
         </div>
         <div class="table-container" id="sites-table-container">
-          ${await this.renderTable()}
+          ${this.renderTable()}
         </div>
       </div>
 
@@ -115,13 +115,13 @@ var SitesPage = {
 
   init() {},
 
-  async renderTable() {
-    const allSites = await Store.Sites.getAll();
+  renderTable() {
+    const allSites = Store.Sites.getAll();
     const statusFilter = document.getElementById('site-status-filter')?.value || '';
 
     const filtered = allSites.filter(s => {
       const st = this.searchTerm.toLowerCase();
-      const matchSearch = !st || 
+      const matchSearch = !st ||
         (s.name || '').toLowerCase().includes(st) ||
         (s.customerName || '').toLowerCase().includes(st) ||
         (s.gstNumber || '').toLowerCase().includes(st) ||
@@ -201,48 +201,48 @@ var SitesPage = {
     `;
   },
 
-  async refresh() {
+  refresh() {
     const container = document.getElementById('sites-table-container');
-    if (container) container.innerHTML = await this.renderTable();
+    if (container) container.innerHTML = this.renderTable();
   },
 
-  async onSearch(val) {
+  onSearch(val) {
     this.searchTerm = val;
     this.currentPage = 1;
-    await this.refresh();
+    this.refresh();
   },
 
-  async goPage(page) {
+  goPage(page) {
     this.currentPage = page;
-    await this.refresh();
+    this.refresh();
   },
 
-  async openModal(editId) {
+  openModal(editId) {
     document.getElementById('site-modal').classList.add('active');
     document.getElementById('site-modal-title').textContent = editId ? 'Edit Site' : 'Add Site';
-    
+
     const matContainer = document.getElementById('site-initial-materials-container');
 
     if (!editId) {
       document.getElementById('site-form').reset();
       document.getElementById('site-id').value = '';
-      
+
       if (matContainer) {
         matContainer.style.display = 'block';
         this.initItems = [{ materialId: '', quantity: '', returned: '' }];
-        await this.renderInitItems();
+        this.renderInitItems();
       }
     } else {
       if (matContainer) matContainer.style.display = 'none';
     }
   },
 
-  async renderInitItems() {
+  renderInitItems() {
     const list = document.getElementById('site-initial-materials-list');
     if (!list) return;
-    
-    const materials = await Store.Materials.getAll();
-    const overview = await Store.Inventory.getOverview();
+
+    const materials = Store.Materials.getAll();
+    const overview = Store.Inventory.getOverview();
 
     let html = `
       <table class="inline-table w-100 mb-2">
@@ -256,7 +256,7 @@ var SitesPage = {
         </thead>
         <tbody>
     `;
-    
+
     this.initItems.forEach((item, idx) => {
       const stock = item.materialId ? (overview.find(o => o.material.id === item.materialId)?.warehouseStock || 0) : '-';
       html += `
@@ -279,39 +279,39 @@ var SitesPage = {
         </tr>
       `;
     });
-    
+
     html += `
         </tbody>
       </table>
       <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-size: 0.9rem;" onclick="SitesPage.addInitItem()">${Icons.plus} Add Material</a>
     `;
-    
+
     list.innerHTML = html;
   },
 
-  async onInitItemChange(idx, field, value) {
+  onInitItemChange(idx, field, value) {
     if (this.initItems[idx]) {
       this.initItems[idx][field] = value;
-      await this.renderInitItems();
+      this.renderInitItems();
     }
   },
 
-  async addInitItem() {
+  addInitItem() {
     this.initItems.push({ materialId: '', quantity: '', returned: '' });
-    await this.renderInitItems();
+    this.renderInitItems();
   },
 
-  async removeInitItem(idx) {
+  removeInitItem(idx) {
     this.initItems.splice(idx, 1);
-    await this.renderInitItems();
+    this.renderInitItems();
   },
 
   closeModal() {
     document.getElementById('site-modal').classList.remove('active');
   },
 
-  async edit(id) {
-    const s = await Store.Sites.getById(id);
+  edit(id) {
+    const s = Store.Sites.getById(id);
     if (!s) return;
     document.getElementById('site-id').value = s.id;
     document.getElementById('site-name').value = s.name || '';
@@ -322,10 +322,10 @@ var SitesPage = {
     document.getElementById('site-start-date').value = s.startDate || '';
     document.getElementById('site-address').value = s.address || '';
     document.getElementById('site-budget').value = s.budget || '';
-    await this.openModal(id);
+    this.openModal(id);
   },
 
-  async save() {
+  save() {
     const id = document.getElementById('site-id').value;
     const data = {
       name: document.getElementById('site-name').value.trim(),
@@ -341,15 +341,16 @@ var SitesPage = {
     if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }
 
     if (id) {
-      await Store.Sites.update(id, data);
+      Store.Sites.update(id, data);
     } else {
-      const newSite = await Store.Sites.add(data);
-      
+      const newSite = Store.Sites.add(data);
+
       // Process initial materials
-      for (const item of this.initItems) {
+      let items = [];
+      this.initItems.forEach(item => {
         const qty = parseFloat(item.quantity) || 0;
         if (item.materialId && qty > 0) {
-          const material = await Store.Materials.getById(item.materialId);
+          const material = Store.Materials.getById(item.materialId);
           if (material) {
             items.push({
               materialId: material.id,
@@ -359,10 +360,10 @@ var SitesPage = {
             });
           }
         }
-      }
-      
+      });
+
       if (items.length > 0) {
-        await Store.Outgoing.add({
+        Store.Outgoing.add({
           siteId: newSite.id,
           date: data.startDate || new Date().toISOString().split('T')[0],
           referenceNo: 'INIT-DISPATCH',
@@ -372,23 +373,23 @@ var SitesPage = {
 
         // Mark returned quantities immediately
         const returnedDate = new Date().toISOString();
-        for (const item of this.initItems) {
+        this.initItems.forEach(item => {
           const returnedQty = parseFloat(item.returned) || 0;
           if (item.materialId && returnedQty > 0) {
-            await Store.SiteReturns.add({ siteId: newSite.id, materialId: item.materialId, quantity: returnedQty, date: returnedDate });
+            Store.SiteReturns.add({ siteId: newSite.id, materialId: item.materialId, quantity: returnedQty, date: returnedDate });
           }
-        }
+        });
       }
     }
 
     this.closeModal();
-    await this.refresh();
+    this.refresh();
   },
 
-  async deleteSite(id) {
-    const s = await Store.Sites.getById(id);
+  deleteSite(id) {
+    const s = Store.Sites.getById(id);
     if (!s) return;
-    
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-backdrop active';
     overlay.style.zIndex = '9999';
@@ -411,10 +412,10 @@ var SitesPage = {
     document.getElementById('btn-cancel-del').onclick = () => {
       document.body.removeChild(overlay);
     };
-    
-    document.getElementById('btn-confirm-del').onclick = async () => {
-      await Store.Sites.remove(id);
-      await this.refresh();
+
+    document.getElementById('btn-confirm-del').onclick = () => {
+      Store.Sites.remove(id);
+      this.refresh();
       document.body.removeChild(overlay);
     };
   },
