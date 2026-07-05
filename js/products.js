@@ -185,14 +185,13 @@ var MaterialsPage = {
             <th>SKU / Code</th>
             <th>Category</th>
             <th>Unit</th>
-            <th>Stock (Total)</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           ${pageItems.length === 0 ? `
-            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-tertiary)">No materials found</td></tr>
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-tertiary)">No materials found</td></tr>
           ` : pageItems.map((p, i) => `
             <tr>
               <td class="secondary">${start + i + 1}</td>
@@ -200,7 +199,6 @@ var MaterialsPage = {
               <td>${p.sku || '-'}</td>
               <td><span class="badge badge-neutral">${p.category || '-'}</span></td>
               <td>${p.unit || '-'}</td>
-              <td><strong>${(overview.find(o => o.material.id === p.id)?.totalStock || 0).toLocaleString('en-IN')}</strong></td>
               <td><span class="badge ${p.status === 'Active' ? 'badge-success' : 'badge-warning'}">${p.status || 'Active'}</span></td>
               <td>
                 <div class="table-actions">
