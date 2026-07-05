@@ -42,63 +42,52 @@ var SiteDetailsPage = {
           </div>
           <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Location: ${site.address || '-'}</p>
         </div>
-        <div class="page-header-actions" style="display: flex; gap: 10px;">
+        <div class="page-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
           ${site.status !== 'Completed'
         ? `<button class="btn btn-secondary" onclick="SiteDetailsPage.openDispatchModal()">${Icons.arrowUpCircle} Log Dispatch</button>
                <button class="btn btn-primary" onclick="SiteDetailsPage.openReturnModal()">${Icons.arrowDownCircle} Log Return</button>
                <button class="btn btn-warning" onclick="SiteDetailsPage.openUsageModal()">${Icons.activity} Log Usage</button>
-               <button class="btn btn-success" onclick="SiteDetailsPage.markCompleted()">${Icons.check} Mark Completed</button>`
+               <button class="btn btn-success" onclick="SiteDetailsPage.openCollectModal()" style="background-color: var(--success); border-color: var(--success);">${Icons.trendingUp} Collect Money</button>
+               <button class="btn btn-outline" onclick="SiteDetailsPage.markCompleted()">${Icons.check} Mark Completed</button>`
         : `<button class="btn btn-warning" onclick="SiteDetailsPage.markActive()">${Icons.refreshCw} Reopen Site</button>`}
         </div>
       </div>
 
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
-        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
-          <div style="position: absolute; right: 10px; top: 10px; opacity: 0.15; transform: scale(4); pointer-events: none; font-size: 32px; font-weight: 800;">
-            ₹
-          </div>
-          <h3 style="margin:0 0 10px 0; font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-            <div style="width: 20px; height: 20px; font-weight: bold; font-size: 1.2rem; text-align: center; display: flex; align-items: center; justify-content: center;">₹</div> Site Budget
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; margin-bottom: 24px;">
+        <!-- Budget Card -->
+        <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; border-radius: 16px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
+          <div style="position: absolute; right: 10px; top: 10px; opacity: 0.1; transform: scale(3.5); pointer-events: none; font-size: 24px; font-weight: 800;">₹</div>
+          <h3 style="margin:0 0 8px 0; font-size: 0.9rem; font-weight: 600; color: rgba(255,255,255,0.7); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;">
+            Site Budget
           </h3>
-          <div style="font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);" id="site-total-budget">
+          <div style="font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px;" id="site-total-budget">
             ₹${(site.budget || 0).toLocaleString('en-IN')}
           </div>
-          <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">FINANCE</span>
-            Allocated budget for this site
-          </div>
+          <div style="font-size: 0.85rem; color: rgba(255,255,255,0.6);">Allocated budget cost</div>
         </div>
 
-        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
-          <div style="position: absolute; right: -10px; top: 10px; opacity: 0.15; transform: scale(4); pointer-events: none;">
-            ${Icons.arrowDownCircle}
-          </div>
-          <h3 style="margin:0 0 10px 0; font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-            <div style="width: 20px; height: 20px;">${Icons.arrowDownCircle}</div> Total Received
+        <!-- Payments Collected Card (Green) -->
+        <div style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); color: #166534; border-radius: 16px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(22, 101, 52, 0.05); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
+          <div style="position: absolute; right: 10px; top: 10px; opacity: 0.1; transform: scale(3.5); pointer-events: none; font-size: 24px; font-weight: 800;">₹</div>
+          <h3 style="margin:0 0 8px 0; font-size: 0.9rem; font-weight: 600; color: #166534; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;">
+            Payments Collected
           </h3>
-          <div style="font-size: 3.5rem; font-weight: 800; letter-spacing: -2px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);" id="site-total-dispatched">
-            0
+          <div style="font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; color: var(--success);" id="site-total-collected">
+            ₹0
           </div>
-          <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">INCOMING</span>
-            Total material received at this site
-          </div>
+          <div style="font-size: 0.85rem; color: #166534; opacity: 0.8;">Total money received from client</div>
         </div>
 
-        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
-          <div style="position: absolute; right: -10px; top: 10px; opacity: 0.15; transform: scale(4); pointer-events: none;">
-            ${Icons.arrowUpCircle}
-          </div>
-          <h3 style="margin:0 0 10px 0; font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-            <div style="width: 20px; height: 20px;">${Icons.arrowUpCircle}</div> Total Returned
+        <!-- Outstanding Remaining Card (Red / Green if clear) -->
+        <div id="site-outstanding-card" style="background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%); color: #991b1b; border-radius: 16px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(153, 27, 27, 0.05); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
+          <div style="position: absolute; right: 10px; top: 10px; opacity: 0.1; transform: scale(3.5); pointer-events: none; font-size: 24px; font-weight: 800;">₹</div>
+          <h3 style="margin:0 0 8px 0; font-size: 0.9rem; font-weight: 600; color: #991b1b; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 6px;">
+            Remaining Balance
           </h3>
-          <div style="font-size: 3.5rem; font-weight: 800; letter-spacing: -2px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);" id="site-total-returned">
-            0
+          <div style="font-size: 2.2rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; color: var(--danger);" id="site-total-remaining">
+            ₹0
           </div>
-          <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">OUTGOING</span>
-            Total material returned from this site
-          </div>
+          <div style="font-size: 0.85rem; color: #991b1b; opacity: 0.8;" id="site-total-remaining-label">Uncollected outstanding balance</div>
         </div>
       </div>
 
@@ -126,6 +115,16 @@ var SiteDetailsPage = {
         </div>
         <div>
           ${this.renderStockMovements(site)}
+        </div>
+      </div>
+
+      <!-- Payments History Card -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Payment Collection History</h3>
+        </div>
+        <div>
+          ${this.renderPaymentsLedger(site)}
         </div>
       </div>
       
@@ -240,6 +239,34 @@ var SiteDetailsPage = {
           </div>
         </div>
       </div>
+
+      <!-- Collect Money Modal -->
+      <div class="modal-backdrop" id="site-collect-modal">
+        <div class="modal" style="max-width: 500px;">
+          <div class="modal-header">
+            <h3>Collect Money (Payment)</h3>
+            <button class="modal-close" onclick="SiteDetailsPage.closeCollectModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Amount Collected (₹) *</label>
+              <input type="number" class="form-control" id="site-collect-amount" placeholder="0.00" min="1" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label>Date Collected *</label>
+              <input type="date" class="form-control" id="site-collect-date" value="${new Date().toISOString().split('T')[0]}" required>
+            </div>
+            <div class="form-group">
+              <label>Reference No / Mode (Optional)</label>
+              <input type="text" class="form-control" id="site-collect-ref" placeholder="e.g. Cash, Bank Transfer, Invoice #">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="SiteDetailsPage.closeCollectModal()">Cancel</button>
+            <button class="btn btn-success" onclick="SiteDetailsPage.savePayment()">Save Collection</button>
+          </div>
+        </div>
+      </div>
     `;
   },
 
@@ -333,6 +360,35 @@ var SiteDetailsPage = {
       if (elDisp) elDisp.innerText = Number(totalDispatched).toLocaleString('en-IN');
       if (elRet) elRet.innerText = Number(totalReturned).toLocaleString('en-IN');
       if (elUsed) elUsed.innerText = Number(totalUsed).toLocaleString('en-IN');
+
+      // Finance calculations
+      const payments = Store.SitePayments.getAll().filter(p => p.siteId === site.id);
+      const totalCollected = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+      const remainingBalance = (site.budget || 0) - totalCollected;
+
+      const elColl = document.getElementById('site-total-collected');
+      const elRem = document.getElementById('site-total-remaining');
+      const elRemLabel = document.getElementById('site-total-remaining-label');
+      const cardRem = document.getElementById('site-outstanding-card');
+
+      if (elColl) elColl.innerText = '₹' + Number(totalCollected).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+      if (elRem) elRem.innerText = '₹' + Number(Math.abs(remainingBalance)).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+      if (cardRem) {
+        if (remainingBalance > 0) {
+          cardRem.style.background = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+          cardRem.style.color = '#991b1b';
+          if (elRemLabel) elRemLabel.innerText = 'Outstanding balance to collect';
+        } else if (remainingBalance === 0) {
+          cardRem.style.background = 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)';
+          cardRem.style.color = '#166534';
+          if (elRemLabel) elRemLabel.innerText = 'Budget fully collected!';
+        } else {
+          cardRem.style.background = 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+          cardRem.style.color = '#1e3a8a';
+          if (elRemLabel) elRemLabel.innerText = 'Overpaid / Advance balance';
+        }
+      }
     }, 10);
 
     rows.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -825,6 +881,90 @@ var SiteDetailsPage = {
                 <td style="color: var(--danger); font-weight: 500;">${r.returned > 0 ? r.returned.toLocaleString('en-IN') : '-'} ${r.returned > 0 ? r.unit : ''}</td>
                 <td style="color: #d97706; font-weight: 500;">${r.used > 0 ? r.used.toLocaleString('en-IN') : '-'} ${r.used > 0 ? r.unit : ''}</td>
                 <td><strong style="color: var(--success); font-size: 1.05rem;">${r.remaining.toLocaleString('en-IN')}</strong> ${r.unit}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
+
+  openCollectModal() {
+    const modal = document.getElementById('site-collect-modal');
+    if (modal) modal.classList.add('active');
+  },
+
+  closeCollectModal() {
+    const modal = document.getElementById('site-collect-modal');
+    if (modal) {
+      modal.classList.remove('active');
+      document.getElementById('site-collect-amount').value = '';
+      document.getElementById('site-collect-ref').value = '';
+    }
+  },
+
+  savePayment() {
+    const amount = parseFloat(document.getElementById('site-collect-amount').value) || 0;
+    const date = document.getElementById('site-collect-date').value;
+    const reference = document.getElementById('site-collect-ref').value.trim();
+
+    if (amount <= 0 || !date) {
+      alert('Please enter a valid amount and date.');
+      return;
+    }
+
+    Store.SitePayments.add({
+      siteId: this.siteId,
+      amount: amount,
+      date: date,
+      reference: reference || 'Cash'
+    });
+
+    this.closeCollectModal();
+    this.refresh();
+  },
+
+  deletePayment(id) {
+    if (confirm('Are you sure you want to delete this payment record?')) {
+      Store.SitePayments.remove(id);
+      this.refresh();
+    }
+  },
+
+  renderPaymentsLedger(site) {
+    const payments = Store.SitePayments.getAll().filter(p => p.siteId === site.id);
+    payments.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (payments.length === 0) {
+      return `
+        <div class="empty-state" style="padding: 40px 20px; text-align: center;">
+          <p class="text-sm text-tertiary">No payments collected from client yet.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount Collected</th>
+              <th>Mode / Reference</th>
+              <th style="width: 10%; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${payments.map(p => `
+              <tr>
+                <td><strong>${new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></td>
+                <td style="color: var(--success); font-weight: 700;">₹${Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td><span class="badge badge-neutral">${p.reference || 'Cash'}</span></td>
+                <td style="text-align: center;">
+                  <button class="btn btn-icon btn-ghost" title="Delete Payment" onclick="SiteDetailsPage.deletePayment('${p.id}')">
+                    ${Icons.trash}
+                  </button>
+                </td>
               </tr>
             `).join('')}
           </tbody>
