@@ -267,7 +267,7 @@ var SitesPage = {
           <td>
             <select class="form-control" onchange="SitesPage.onInitItemChange(${idx}, 'materialId', this.value)">
               <option value="">Select Material...</option>
-              ${materials.map(m => `<option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>${m.name} (Avail: ${overview.find(o => o.material.id === m.id)?.warehouseStock || 0})</option>`).join('')}
+              ${materials.map(m => `<option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
             </select>
           </td>
           <td>
