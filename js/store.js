@@ -1,73 +1,204 @@
 /* ============================================
-   KSS33 Global Store (localStorage - synchronous)
+   KSS33 Global Store (MongoDB Atlas Cloud Sync)
    ============================================ */
 const Store = (() => {
 
-  // ---------- LocalStorage Helpers ----------
-  function lsGet(key) {
-    try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
-  }
-  function lsSet(key, data) { localStorage.setItem(key, JSON.stringify(data)); }
-  function lsGetOne(key, id) { return lsGet(key).find(x => x.id === id) || null; }
-  function lsAdd(key, data) {
-    const items = lsGet(key);
-    const item = { ...data, id: 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6) };
-    items.push(item);
-    lsSet(key, items);
-    return item;
-  }
-  function lsUpdate(key, id, data) {
-    const items = lsGet(key);
-    const idx = items.findIndex(x => x.id === id);
-    if (idx > -1) { items[idx] = { ...items[idx], ...data }; lsSet(key, items); return items[idx]; }
-    return null;
-  }
-  function lsRemove(key, id) {
-    lsSet(key, lsGet(key).filter(x => x.id !== id));
-    return { success: true };
+  // Dynamic API URL detection: localhost vs. production URL
+  const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000/api'
+    : 'https://kss33-backend.onrender.com/api'; // Fallback cloud production backend API
+
+  // In-memory collections data cache
+  const cache = {
+    customers: [],
+    sites: [],
+    materials: [],
+    incoming: [],
+    outgoing: [],
+    siteUsage: [],
+    siteReturns: [],
+    siteDamaged: [],
+    siteExpenses: [],
+    sitePayments: []
+  };
+
+  // Maps collection store key to cache object key and API endpoint
+  const endpointMap = {
+    bm_customers: { cacheKey: 'customers', url: 'customers' },
+    bm_sites: { cacheKey: 'sites', url: 'sites' },
+    bm_materials: { cacheKey: 'materials', url: 'materials' },
+    bm_incoming: { cacheKey: 'incoming', url: 'incoming' },
+    bm_outgoing: { cacheKey: 'outgoing', url: 'outgoing' },
+    bm_siteUsage: { cacheKey: 'siteUsage', url: 'siteUsage' },
+    bm_siteReturns: { cacheKey: 'siteReturns', url: 'siteReturns' },
+    bm_siteDamaged: { cacheKey: 'siteDamaged', url: 'siteDamaged' },
+    bm_siteExpenses: { cacheKey: 'siteExpenses', url: 'siteExpenses' },
+    bm_sitePayments: { cacheKey: 'sitePayments', url: 'sitePayments' }
+  };
+
+  // Load all collections from API
+  async function init() {
+    try {
+      const keys = Object.keys(endpointMap);
+      await Promise.all(keys.map(async (key) => {
+        const config = endpointMap[key];
+        try {
+          const res = await fetch(`${API_URL}/${config.url}`);
+          if (res.ok) {
+            cache[config.cacheKey] = await res.json();
+          } else {
+            throw new Error(`Failed HTTP status: ${res.status}`);
+          }
+        } catch (err) {
+          console.warn(`Failed to fetch ${config.url} from API:`, err);
+          // Fallback to localStorage if the backend is down
+          cache[config.cacheKey] = JSON.parse(localStorage.getItem(key)) || [];
+        }
+      }));
+
+      // Seed default materials if none exist in the database
+      if (cache.materials.length === 0) {
+        await seedDefaultMaterials();
+      }
+    } catch (e) {
+      console.error('Store init error:', e);
+    }
   }
 
-  // ---------- CRUD factory (synchronous) ----------
+  // Backup sync to localStorage for offline redundancy
+  function persistLocal(key, data) {
+    try {
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {}
+  }
+
+  // ---------- In-Memory Cache CRUD Operations with Backend Background Sync ----------
   function makeStore(lsKey) {
+    const config = endpointMap[lsKey];
+    const cacheKey = config.cacheKey;
+    const path = config.url;
+
     return {
-      getAll: () => lsGet(lsKey),
-      getById: (id) => lsGetOne(lsKey, id),
-      add: (data) => lsAdd(lsKey, data),
-      update: (id, data) => lsUpdate(lsKey, id, data),
-      remove: (id) => lsRemove(lsKey, id)
+      getAll: () => cache[cacheKey] || [],
+      getById: (id) => cache[cacheKey].find(x => x.id === id) || null,
+
+      add: (data) => {
+        // Generate a unique temporary ID
+        const id = 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        const newItem = { ...data, id };
+        
+        // 1. Instantly update in-memory cache and local backup
+        cache[cacheKey].push(newItem);
+        persistLocal(lsKey, cache[cacheKey]);
+
+        // 2. Async background HTTP POST call to MongoDB API
+        fetch(`${API_URL}/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+        .then(async (res) => {
+          if (res.ok) {
+            const savedItem = await res.json();
+            // Update the temporary ID with the official database ID in memory
+            const idx = cache[cacheKey].findIndex(x => x.id === id);
+            if (idx > -1) {
+              cache[cacheKey][idx] = savedItem;
+              persistLocal(lsKey, cache[cacheKey]);
+            }
+          }
+        })
+        .catch(err => console.error(`Error syncing ADD ${path}:`, err));
+
+        return newItem;
+      },
+
+      update: (id, data) => {
+        // 1. Instantly update in-memory cache
+        const idx = cache[cacheKey].findIndex(x => x.id === id);
+        if (idx > -1) {
+          cache[cacheKey][idx] = { ...cache[cacheKey][idx], ...data };
+          persistLocal(lsKey, cache[cacheKey]);
+
+          // 2. Async background HTTP PUT call
+          fetch(`${API_URL}/${path}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          }).catch(err => console.error(`Error syncing UPDATE ${path}:`, err));
+
+          return cache[cacheKey][idx];
+        }
+        return null;
+      },
+
+      remove: (id) => {
+        // 1. Instantly update in-memory cache
+        cache[cacheKey] = cache[cacheKey].filter(x => x.id !== id);
+        persistLocal(lsKey, cache[cacheKey]);
+
+        // 2. Async background HTTP DELETE call
+        fetch(`${API_URL}/${path}/${id}`, {
+          method: 'DELETE'
+        }).catch(err => console.error(`Error syncing DELETE ${path}:`, err));
+
+        return { success: true };
+      }
     };
   }
 
   // ---- Collections ----
-  const Customers    = makeStore('bm_customers');
-  const Materials    = makeStore('bm_materials');
-  const Incoming     = makeStore('bm_incoming');
-  const Outgoing     = makeStore('bm_outgoing');
-  const SiteUsage    = makeStore('bm_siteUsage');
-  const SiteReturns  = makeStore('bm_siteReturns');
-  const SiteDamaged  = makeStore('bm_siteDamaged');
-  const SiteExpenses = makeStore('bm_siteExpenses');
+  const CustomersStore = makeStore('bm_customers');
+  const SitesStore     = makeStore('bm_sites');
+  const MaterialsStore = makeStore('bm_materials');
+  const IncomingStore  = makeStore('bm_incoming');
+  const OutgoingStore  = makeStore('bm_outgoing');
+  const UsageStore     = makeStore('bm_siteUsage');
+  const ReturnsStore   = makeStore('bm_siteReturns');
+  const DamagedStore   = makeStore('bm_siteDamaged');
+  const ExpensesStore  = makeStore('bm_siteExpenses');
+  const PaymentsStore  = makeStore('bm_sitePayments');
+
+  const Customers    = CustomersStore;
+  const Materials    = MaterialsStore;
+  const Incoming     = IncomingStore;
+  const Outgoing     = OutgoingStore;
+  const SiteUsage    = UsageStore;
+  const SiteReturns  = ReturnsStore;
+  const SiteDamaged  = DamagedStore;
+  const SiteExpenses = ExpensesStore;
 
   const SitePayments = {
-    ...makeStore('bm_sitePayments'),
-    getBySite: (siteId) => lsGet('bm_sitePayments').filter(x => x.siteId === siteId),
-    getTotalBySite: (siteId) => lsGet('bm_sitePayments')
+    ...PaymentsStore,
+    getBySite: (siteId) => cache.sitePayments.filter(x => x.siteId === siteId),
+    getTotalBySite: (siteId) => cache.sitePayments
       .filter(x => x.siteId === siteId)
       .reduce((s, x) => s + (parseFloat(x.amount) || 0), 0)
   };
 
   // ---- Sites (with cascade delete) ----
   const Sites = {
-    getAll: () => lsGet('bm_sites'),
-    getById: (id) => lsGetOne('bm_sites', id),
-    getByCustomer: (customerId) => lsGet('bm_sites').filter(s => s.customerId === customerId),
-    add: (s) => lsAdd('bm_sites', s),
-    update: (id, s) => lsUpdate('bm_sites', id, s),
+    getAll: () => cache.sites,
+    getById: (id) => cache.sites.find(s => s.id === id) || null,
+    getByCustomer: (customerId) => cache.sites.filter(s => s.customerId === customerId),
+    add: (s) => SitesStore.add(s),
+    update: (id, s) => SitesStore.update(id, s),
     remove: (id) => {
-      lsRemove('bm_sites', id);
-      ['bm_incoming','bm_outgoing','bm_siteUsage','bm_siteReturns','bm_siteDamaged','bm_siteExpenses','bm_sitePayments'].forEach(key => {
-        lsSet(key, lsGet(key).filter(x => x.siteId !== id && x.destinationSiteId !== id));
+      // 1. Instantly update in-memory cache for sites
+      cache.sites = cache.sites.filter(s => s.id !== id);
+      persistLocal('bm_sites', cache.sites);
+
+      // Instantly remove all child records from memory
+      ['incoming','outgoing','siteUsage','siteReturns','siteDamaged','siteExpenses','sitePayments'].forEach(key => {
+        cache[key] = cache[key].filter(x => x.siteId !== id && x.destinationSiteId !== id);
+        persistLocal('bm_' + key, cache[key]);
       });
+
+      // 2. Async background cascade delete API call
+      fetch(`${API_URL}/sites/${id}/cascade`, {
+        method: 'DELETE'
+      }).catch(err => console.error(`Error cascade deleting site ${id}:`, err));
+
       return { success: true };
     }
   };
@@ -92,10 +223,10 @@ const Store = (() => {
   // ---- Inventory Utility ----
   const Inventory = {
     getRecentMovements: (limit = 10) => {
-      const allIncoming = lsGet('bm_incoming');
-      const allOutgoing = lsGet('bm_outgoing');
-      const materials   = lsGet('bm_materials');
-      const sites       = lsGet('bm_sites');
+      const allIncoming = cache.incoming;
+      const allOutgoing = cache.outgoing;
+      const materials   = cache.materials;
+      const sites       = cache.sites;
 
       let moves = [];
       allIncoming.forEach(r => {
@@ -127,9 +258,9 @@ const Store = (() => {
     },
 
     getOverview: () => {
-      const materials   = lsGet('bm_materials');
-      const allIncoming = lsGet('bm_incoming');
-      const allOutgoing = lsGet('bm_outgoing');
+      const materials   = cache.materials;
+      const allIncoming = cache.incoming;
+      const allOutgoing = cache.outgoing;
       return materials.map(material => {
         let totalIn = 0;
         allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
@@ -144,8 +275,8 @@ const Store = (() => {
     },
 
     getWarehouseCurrentBalance: (materialId) => {
-      const allIncoming = lsGet('bm_incoming');
-      const allOutgoing = lsGet('bm_outgoing');
+      const allIncoming = cache.incoming;
+      const allOutgoing = cache.outgoing;
       let totalIn = 0;
       allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
         (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
@@ -158,11 +289,11 @@ const Store = (() => {
     },
 
     getSiteCurrentBalance: (materialId, siteId) => {
-      const allOutgoing       = lsGet('bm_outgoing');
-      const allIncomingDirect = lsGet('bm_incoming');
-      const siteReturns       = lsGet('bm_siteReturns');
-      const siteUsage         = lsGet('bm_siteUsage');
-      const siteDamaged       = lsGet('bm_siteDamaged');
+      const allOutgoing       = cache.outgoing;
+      const allIncomingDirect = cache.incoming;
+      const siteReturns       = cache.siteReturns;
+      const siteUsage         = cache.siteUsage;
+      const siteDamaged       = cache.siteDamaged;
       let totalIn = 0;
       allOutgoing.filter(r => r.siteId === siteId).forEach(r => {
         (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
@@ -178,8 +309,8 @@ const Store = (() => {
     },
 
     getSiteTotalSent: (materialId, siteId) => {
-      const allOutgoing       = lsGet('bm_outgoing');
-      const allIncomingDirect = lsGet('bm_incoming');
+      const allOutgoing       = cache.outgoing;
+      const allIncomingDirect = cache.incoming;
       let totalIn = 0;
       allOutgoing.filter(r => r.siteId === siteId).forEach(r => {
         (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
@@ -191,39 +322,39 @@ const Store = (() => {
     },
 
     getSiteUsage: (materialId, siteId) => {
-      return lsGet('bm_siteUsage')
+      return cache.siteUsage
         .filter(r => r.siteId === siteId && r.materialId === materialId)
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteReturns: (materialId, siteId) => {
-      return lsGet('bm_siteReturns')
+      return cache.siteReturns
         .filter(r => r.siteId === siteId && r.materialId === materialId)
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteDamaged: (materialId, siteId) => {
-      return lsGet('bm_siteDamaged')
+      return cache.siteDamaged
         .filter(r => r.siteId === siteId && r.materialId === materialId)
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteRevenue: (siteId) => {
-      return lsGet('bm_sitePayments')
+      return cache.sitePayments
         .filter(p => p.siteId === siteId)
         .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     },
 
     getTotalSiteExpenses: (siteId) => {
-      return lsGet('bm_siteExpenses')
+      return cache.siteExpenses
         .filter(e => e.siteId === siteId)
         .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
     },
 
     getLedger: (materialId, dateFrom, dateTo) => {
-      const allIncoming = lsGet('bm_incoming');
-      const allOutgoing = lsGet('bm_outgoing');
-      const sites = lsGet('bm_sites');
+      const allIncoming = cache.incoming;
+      const allOutgoing = cache.outgoing;
+      const sites = cache.sites;
       let entries = [];
       allIncoming.forEach(r => {
         (r.items || []).forEach(i => {
@@ -253,10 +384,9 @@ const Store = (() => {
     }
   };
 
-  // ---- Seed default materials ----
-  function seed() {
-    if (lsGet('bm_materials').length > 0) return;
-    [
+  // Seeding helper to post default materials to DB
+  async function seedDefaultMaterials() {
+    const defaults = [
       { name: 'Cement (OPC 53)', sku: 'CEM-01', category: 'Raw Materials', unit: 'Bags', unitPrice: 350, reorderLevel: 100, status: 'Active' },
       { name: 'Steel TMT 12mm', sku: 'STL-12', category: 'Raw Materials', unit: 'MT', unitPrice: 55000, reorderLevel: 5, status: 'Active' },
       { name: 'Red Bricks', sku: 'BRK-01', category: 'Raw Materials', unit: 'Nos', unitPrice: 8, reorderLevel: 5000, status: 'Active' },
@@ -266,8 +396,24 @@ const Store = (() => {
       { name: 'Shuttering Ply 12mm', sku: 'PLY-12', category: 'Scaffolding', unit: 'SqFt', unitPrice: 45, reorderLevel: 500, status: 'Active' },
       { name: 'Balli', sku: 'BAL-01', category: 'Scaffolding', unit: 'Nos', unitPrice: 150, reorderLevel: 50, status: 'Active' },
       { name: 'Props', sku: 'PROP-01', category: 'Scaffolding', unit: 'Nos', unitPrice: 100, reorderLevel: 50, status: 'Active' }
-    ].forEach(m => lsAdd('bm_materials', m));
+    ];
+
+    await Promise.all(defaults.map(async (m) => {
+      try {
+        const res = await fetch(`${API_URL}/materials`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(m)
+        });
+        if (res.ok) {
+          cache.materials.push(await res.json());
+        }
+      } catch (err) {
+        console.error('Error seeding material:', err);
+      }
+    }));
+    persistLocal('bm_materials', cache.materials);
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Inventory, Auth, seed };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Inventory, Auth, init };
 })();

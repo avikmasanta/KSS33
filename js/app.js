@@ -15,8 +15,19 @@ var App = (() => {
     'site-details': { title: 'Site Details', subtitle: 'Detailed view of a site', icon: 'mapPin', module: 'SiteDetailsPage' }
   };
 
-  function init() {
-    Store.seed();
+  async function init() {
+    // 1. Initialize Store and connect to cloud DB
+    await Store.init();
+
+    // 2. Hide database loader overlay with a smooth fade-out animation
+    const loader = document.getElementById('db-loader-screen');
+    if (loader) {
+      loader.style.opacity = '0';
+      loader.style.visibility = 'hidden';
+      setTimeout(() => {
+        loader.style.display = 'none';
+      }, 400);
+    }
 
     if (!Store.Auth.isLoggedIn()) {
       document.getElementById('app-root').innerHTML = AuthPage.render();
@@ -27,6 +38,21 @@ var App = (() => {
     if (!App.eventsBound) {
       bindEvents();
       App.eventsBound = true;
+
+      // 3. Set up periodic background auto-sync every 30 seconds
+      setInterval(async () => {
+        const hashBefore = getHash();
+        await Store.init();
+        const currentHash = getHash();
+        if (currentHash === hashBefore) {
+          const moduleName = pages[currentHash]?.module;
+          if (window[moduleName] && typeof window[moduleName].refresh === 'function') {
+            window[moduleName].refresh();
+          } else {
+            navigate(currentHash);
+          }
+        }
+      }, 30000);
     }
     navigate(getHash());
   }
