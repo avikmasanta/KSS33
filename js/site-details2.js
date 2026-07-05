@@ -162,11 +162,15 @@ var SiteDetailsPage = {
               <label>Quantity Dispatched</label>
               <input type="number" class="form-control" id="site-dispatch-qty" placeholder="Quantity" min="1">
             </div>
-            <div class="form-group">
-              <label>Date</label>
-              <input type="date" class="form-control" id="site-dispatch-date" value="${new Date().toISOString().split('T')[0]}">
-            </div>
-          </div>
+             <div class="form-group">
+               <label>Ticket Number</label>
+               <input type="text" class="form-control" id="site-dispatch-ticket" placeholder="e.g. TKT-1001">
+             </div>
+             <div class="form-group">
+               <label>Date</label>
+               <input type="date" class="form-control" id="site-dispatch-date" value="${new Date().toISOString().split('T')[0]}">
+             </div>
+           </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeDispatchModal()">Cancel</button>
             <button class="btn btn-secondary" onclick="SiteDetailsPage.saveDispatch()">Save Dispatch</button>
@@ -498,6 +502,7 @@ var SiteDetailsPage = {
       modal.classList.remove('active');
       document.getElementById('site-dispatch-material').value = '';
       document.getElementById('site-dispatch-qty').value = '';
+      document.getElementById('site-dispatch-ticket').value = '';
     }
   },
 
@@ -505,6 +510,7 @@ var SiteDetailsPage = {
     const materialId = document.getElementById('site-dispatch-material').value;
     const qty = parseFloat(document.getElementById('site-dispatch-qty').value) || 0;
     const date = document.getElementById('site-dispatch-date').value;
+    const ticketNo = document.getElementById('site-dispatch-ticket').value.trim();
 
     if (!materialId || qty <= 0 || !date) {
       alert('Please select a material, specify a valid quantity, and choose a date.');
@@ -515,7 +521,7 @@ var SiteDetailsPage = {
     Store.Outgoing.add({
       siteId: this.siteId,
       date: date,
-      referenceNo: 'SITE-DISPATCH',
+      referenceNo: ticketNo || ('DISP-' + Date.now().toString().slice(-6)),
       notes: 'Dispatched from site dashboard',
       items: [{
         materialId: materialId,
