@@ -3,11 +3,11 @@
    ============================================ */
 
 var DashboardPage = {
-  render() {
-    const movements = Store.Inventory.getRecentMovements(10);
-    const incoming = Store.Incoming.getAll();
-    const outgoing = Store.Outgoing.getAll();
-    const sites = Store.Sites.getAll();
+  async render() {
+    const movements = await Store.Inventory.getRecentMovements(10);
+    const incoming = await Store.Incoming.getAll();
+    const outgoing = await Store.Outgoing.getAll();
+    const sites = await Store.Sites.getAll();
 
     const activeSites = sites.filter(s => s.status === 'Active').length;
     const completedSites = sites.filter(s => s.status === 'Completed').length;
@@ -131,21 +131,21 @@ var DashboardPage = {
     `;
   },
 
-  init() {
-    this.drawStockChart();
+  async init() {
+    await this.drawStockChart();
     
     // Fix canvas stretching on window resize
     if (!this._resizeBound) {
-      window.addEventListener('resize', () => {
+      window.addEventListener('resize', async () => {
         if (window.location.hash === '' || window.location.hash === '#dashboard') {
-          this.drawStockChart();
+          await this.drawStockChart();
         }
       });
       this._resizeBound = true;
     }
   },
 
-  drawStockChart() {
+  async drawStockChart() {
     const canvas = document.getElementById('stock-chart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -170,8 +170,8 @@ var DashboardPage = {
       dates.push(d.toISOString().split('T')[0]);
     }
 
-    const incoming = Store.Incoming.getAll();
-    const outgoing = Store.Outgoing.getAll();
+    const incoming = await Store.Incoming.getAll();
+    const outgoing = await Store.Outgoing.getAll();
 
     const data = dates.map(date => {
       let inQty = 0;
