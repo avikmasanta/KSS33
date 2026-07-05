@@ -357,6 +357,12 @@ select.form-control {
   gap: 16px;
 }
 
+@media (max-width: 768px) {
+  .form-row, .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ==== MODALS ==== */
 .modal-backdrop {
   display: none;
