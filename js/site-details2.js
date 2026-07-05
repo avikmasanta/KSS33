@@ -40,7 +40,7 @@ var SiteDetailsPage = {
             <h2 style="margin: 0;">${site.name}</h2>
             <span class="badge ${site.status === 'Active' ? 'badge-success' : site.status === 'Completed' ? 'badge-info' : 'badge-warning'}">${site.status}</span>
           </div>
-          <p style="margin-top: 4px; color: var(--text-secondary);">Customer: <strong>${site.customerName || '-'}</strong> | Location: ${site.address || '-'}</p>
+          <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Location: ${site.address || '-'}</p>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px;">
           ${site.status !== 'Completed'
@@ -103,8 +103,16 @@ var SiteDetailsPage = {
       </div>
 
       <div class="card">
-        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
-          <h3 style="font-size: 1.1rem; color: #0f172a;">Stock Movements</h3>
+        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+          <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Stock Movements</h3>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-outline" onclick="SiteDetailsPage.exportExcel()" style="display: inline-flex; align-items: center; gap: 6px;">
+              ${Icons.download} Excel
+            </button>
+            <button class="btn btn-sm btn-outline" onclick="SiteDetailsPage.exportPDF()" style="display: inline-flex; align-items: center; gap: 6px;">
+              ${Icons.fileText} PDF
+            </button>
+          </div>
         </div>
         <div>
           ${this.renderStockMovements(site)}
@@ -558,5 +566,208 @@ var SiteDetailsPage = {
 
     this.closeUsageModal();
     this.refresh();
+  },
+
+  exportExcel() {
+    const site = Store.Sites.getById(this.siteId);
+    if (!site) return;
+    
+    const materials = Store.Materials.getAll();
+    const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
+    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
+    const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
+    const siteUsage = Store.SiteUsage.getAll().filter(r => r.siteId === site.id);
+
+    const rows = [];
+    allOutgoing.forEach(record => {
+      record.items.forEach(item => {
+        const mat = materials.find(m => m.id === item.materialId);
+        rows.push({ date: record.date, type: 'Received', material: mat ? mat.name : '-', qty: parseFloat(item.quantity) || 0, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+      });
+    });
+    allIncomingDirect.forEach(record => {
+      record.items.forEach(item => {
+        const mat = materials.find(m => m.id === item.materialId);
+        rows.push({ date: record.date, type: 'Received (Direct)', material: mat ? mat.name : '-', qty: parseFloat(item.quantity) || 0, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+      });
+    });
+    siteReturns.forEach(record => {
+      const mat = materials.find(m => m.id === record.materialId);
+      rows.push({ date: record.date, type: 'Returned', material: mat ? mat.name : '-', qty: parseFloat(record.quantity) || 0, unit: mat ? mat.unit : '', ref: 'SITE-RETURN', note: 'Returned from site' });
+    });
+    siteUsage.forEach(record => {
+      const mat = materials.find(m => m.id === record.materialId);
+      rows.push({ date: record.date, type: 'Used', material: mat ? mat.name : '-', qty: parseFloat(record.quantity) || 0, unit: mat ? mat.unit : '', ref: 'SITE-USAGE', note: record.notes || 'Consumed at site' });
+    });
+
+    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    let csv = `Site Report - ${site.name}\n`;
+    csv += `Site ID,${site.id}\n`;
+    csv += `Customer,${site.customerName || '-'}\n`;
+    csv += `Location,${site.address || '-'}\n`;
+    csv += `Budget,${site.budget || 0}\n\n`;
+    
+    csv += 'Date,Type,Material,Quantity,Unit,Reference,Notes\n';
+    rows.forEach(r => {
+      csv += `${r.date},"${r.type}","${r.material}",${r.qty},"${r.unit}","${r.ref}","${r.note}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `site_report_${site.name.replace(/\s+/g, '_')}.csv`);
+    a.click();
+  },
+
+  exportPDF() {
+    const site = Store.Sites.getById(this.siteId);
+    if (!site) return;
+
+    const materials = Store.Materials.getAll();
+    const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
+    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
+    const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
+    const siteUsage = Store.SiteUsage.getAll().filter(r => r.siteId === site.id);
+
+    const rows = [];
+    let totalReceived = 0;
+    let totalReturned = 0;
+    let totalUsed = 0;
+
+    allOutgoing.forEach(record => {
+      record.items.forEach(item => {
+        const mat = materials.find(m => m.id === item.materialId);
+        const qty = parseFloat(item.quantity) || 0;
+        totalReceived += qty;
+        rows.push({ date: record.date, type: 'Received', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+      });
+    });
+    allIncomingDirect.forEach(record => {
+      record.items.forEach(item => {
+        const mat = materials.find(m => m.id === item.materialId);
+        const qty = parseFloat(item.quantity) || 0;
+        totalReceived += qty;
+        rows.push({ date: record.date, type: 'Received (Direct)', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+      });
+    });
+    siteReturns.forEach(record => {
+      const mat = materials.find(m => m.id === record.materialId);
+      const qty = parseFloat(record.quantity) || 0;
+      totalReturned += qty;
+      rows.push({ date: record.date, type: 'Returned', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: 'SITE-RETURN', note: 'Returned from site' });
+    });
+    siteUsage.forEach(record => {
+      const mat = materials.find(m => m.id === record.materialId);
+      const qty = parseFloat(record.quantity) || 0;
+      totalUsed += qty;
+      rows.push({ date: record.date, type: 'Used', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: 'SITE-USAGE', note: record.notes || 'Consumed at site' });
+    });
+
+    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+      <head>
+        <title>Site Report - ${site.name}</title>
+        <style>
+          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; padding: 40px; line-height: 1.5; }
+          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
+          .title { font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; }
+          .meta { font-size: 14px; color: #64748b; margin-top: 5px; }
+          .meta strong { color: #334155; }
+          .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 35px; }
+          .stat-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #f8fafc; }
+          .stat-title { font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
+          .stat-value { font-size: 20px; font-weight: 700; color: #0f172a; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { background: #f1f5f9; text-align: left; padding: 12px 10px; font-size: 13px; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1; }
+          td { padding: 12px 10px; font-size: 13px; border-bottom: 1px solid #e2e8f0; color: #334155; }
+          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
+          .badge-received { background: #dcfce7; color: #15803d; }
+          .badge-returned { background: #fee2e2; color: #b91c1c; }
+          .badge-used { background: #fef3c7; color: #b45309; }
+          @media print {
+            body { padding: 0; }
+            button { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="title">SITE REPORT: ${site.name}</div>
+            <div class="meta">
+              Site ID: <strong>${site.id}</strong> | 
+              Customer: <strong>${site.customerName || '-'}</strong> | 
+              Location: <strong>${site.address || '-'}</strong> |
+              Status: <strong>${site.status}</strong>
+            </div>
+          </div>
+          <div style="text-align: right;">
+            <div style="font-size: 12px; color: #64748b;">Generated on</div>
+            <div style="font-weight: 600; font-size: 14px;">${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-title">Allocated Budget</div>
+            <div class="stat-value">₹${(site.budget || 0).toLocaleString('en-IN')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Total Received</div>
+            <div class="stat-value">${totalReceived.toLocaleString('en-IN')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Total Used</div>
+            <div class="stat-value">${totalUsed.toLocaleString('en-IN')}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-title">Total Returned</div>
+            <div class="stat-value">${totalReturned.toLocaleString('en-IN')}</div>
+          </div>
+        </div>
+
+        <h3>Stock Movement Ledger</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Material</th>
+              <th>Quantity</th>
+              <th>Reference No</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const badgeClass = r.type === 'Returned' ? 'badge-returned' : r.type === 'Used' ? 'badge-used' : 'badge-received';
+              return `
+                <tr>
+                  <td>${new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                  <td><span class="badge \${badgeClass}">${r.type}</span></td>
+                  <td><strong>${r.material}</strong></td>
+                  <td>${r.qty.toLocaleString('en-IN')} ${r.unit}</td>
+                  <td>${r.ref}</td>
+                  <td>${r.note}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
   }
 };

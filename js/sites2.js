@@ -167,7 +167,10 @@ var SitesPage = {
             return `
               <tr>
                 <td class="secondary">${start + i + 1}</td>
-                <td><strong>${s.name}</strong></td>
+                <td>
+                  <strong>${s.name}</strong>
+                  <div style="font-size:0.75rem; color:var(--text-tertiary); font-family:monospace; margin-top:2px;">ID: ${s.id}</div>
+                </td>
                 <td>
                   <div><strong>${s.customerName || '-'}</strong></div>
                   <div class="text-sm text-tertiary">Ph: ${s.contactNumber || '-'}</div>
