@@ -875,5 +875,87 @@ var SiteDetailsPage = {
     `;
   },
 
+  openCollectModal() {
+    const modal = document.getElementById('site-collect-modal');
+    if (modal) modal.classList.add('active');
+  },
 
+  closeCollectModal() {
+    const modal = document.getElementById('site-collect-modal');
+    if (modal) {
+      modal.classList.remove('active');
+      document.getElementById('site-collect-amount').value = '';
+      document.getElementById('site-collect-ref').value = '';
+    }
+  },
+
+  savePayment() {
+    const amount = parseFloat(document.getElementById('site-collect-amount').value) || 0;
+    const date = document.getElementById('site-collect-date').value;
+    const reference = document.getElementById('site-collect-ref').value.trim();
+
+    if (amount <= 0 || !date) {
+      alert('Please enter a valid amount and date.');
+      return;
+    }
+
+    Store.SitePayments.add({
+      siteId: this.siteId,
+      amount: amount,
+      date: date,
+      reference: reference || 'Cash'
+    });
+
+    this.closeCollectModal();
+    this.refresh();
+  },
+
+  deletePayment(id) {
+    if (confirm('Are you sure you want to delete this payment record?')) {
+      Store.SitePayments.remove(id);
+      this.refresh();
+    }
+  },
+
+  renderPaymentsLedger(site) {
+    const payments = Store.SitePayments.getAll().filter(p => p.siteId === site.id);
+    payments.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (payments.length === 0) {
+      return `
+        <div class="empty-state" style="padding: 40px 20px; text-align: center;">
+          <p class="text-sm text-tertiary">No payments collected from client yet.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount Collected</th>
+              <th>Mode / Reference</th>
+              <th style="width: 10%; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${payments.map(p => `
+              <tr>
+                <td><strong>${new Date(p.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</strong></td>
+                <td style="color: var(--success); font-weight: 700;">₹${Number(p.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                <td><span class="badge badge-neutral">${p.reference || 'Cash'}</span></td>
+                <td style="text-align: center;">
+                  <button class="btn btn-icon btn-ghost" title="Delete Payment" onclick="SiteDetailsPage.deletePayment('${p.id}')">
+                    ${Icons.trash}
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
 };
