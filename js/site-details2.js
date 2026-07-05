@@ -53,19 +53,19 @@ var SiteDetailsPage = {
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
-        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3); position: relative; overflow: hidden; transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'" onclick="SiteDetailsPage.openCollectModal()">
           <div style="position: absolute; right: 10px; top: 10px; opacity: 0.15; transform: scale(4); pointer-events: none; font-size: 32px; font-weight: 800;">
             ₹
           </div>
           <h3 style="margin:0 0 10px 0; font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-            <div style="width: 20px; height: 20px; font-weight: bold; font-size: 1.2rem; text-align: center; display: flex; align-items: center; justify-content: center;">₹</div> Site Budget
+            <div style="width: 20px; height: 20px; font-weight: bold; font-size: 1.2rem; text-align: center; display: flex; align-items: center; justify-content: center;">₹</div> Collect Budget
           </h3>
           <div style="font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);" id="site-total-budget">
             ₹${(site.budget || 0).toLocaleString('en-IN')}
           </div>
           <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">FINANCE</span>
-            Allocated budget for this site
+            <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">COLLECT</span>
+            Click to record collected payments
           </div>
         </div>
 
@@ -126,6 +126,16 @@ var SiteDetailsPage = {
         </div>
         <div>
           ${this.renderStockMovements(site)}
+        </div>
+      </div>
+
+      <!-- Payments History Card -->
+      <div class="card" style="margin-top: 24px;">
+        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Payment Collection History</h3>
+        </div>
+        <div>
+          ${this.renderPaymentsLedger(site)}
         </div>
       </div>
 
@@ -244,6 +254,33 @@ var SiteDetailsPage = {
       </div>
 
 
+      <!-- Collect Money Modal -->
+      <div class="modal-backdrop" id="site-collect-modal">
+        <div class="modal" style="max-width: 500px;">
+          <div class="modal-header">
+            <h3>Collect Money (Payment)</h3>
+            <button class="modal-close" onclick="SiteDetailsPage.closeCollectModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Amount Collected (₹) *</label>
+              <input type="number" class="form-control" id="site-collect-amount" placeholder="0.00" min="1" step="0.01" required>
+            </div>
+            <div class="form-group">
+              <label>Date Collected *</label>
+              <input type="date" class="form-control" id="site-collect-date" value="${new Date().toISOString().split('T')[0]}" required>
+            </div>
+            <div class="form-group">
+              <label>Reference No / Mode (Optional)</label>
+              <input type="text" class="form-control" id="site-collect-ref" placeholder="e.g. Cash, Bank Transfer, Invoice #">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="SiteDetailsPage.closeCollectModal()">Cancel</button>
+            <button class="btn btn-success" onclick="SiteDetailsPage.savePayment()">Save Collection</button>
+          </div>
+        </div>
+      </div>
     `;
   },
 
