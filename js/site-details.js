@@ -49,6 +49,14 @@ var SiteDetailsPage = {
       valStock += (bal * price);
     });
 
+    // Money tracking
+    const totalPaid = Store.SitePayments.getTotalBySite(site.id);
+    const totalMaterialSent = materials.reduce((sum, m) => {
+      return sum + Store.Inventory.getSiteTotalSent(m.id, site.id) * (parseFloat(m.unitPrice) || 0);
+    }, 0);
+    const balanceDue = totalMaterialSent - totalPaid;
+
+    const fmt = (v) => '₹ ' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
     const fmtQ = (v) => Number(v || 0).toLocaleString('en-IN');
 
     return `
@@ -76,21 +84,46 @@ var SiteDetailsPage = {
           <button class="btn btn-primary" style="background:var(--success);border-color:var(--success)" onclick="OutgoingPage.newRecord('${site.id}'); App.navigate('outgoing');">
             ${Icons.box} Dispatch Material
           </button>
+          <button class="btn btn-primary" onclick="SiteDetailsPage.openPaymentModal()">
+            ${Icons.plus} Log Payment
+          </button>
+        </div>
+      </div>
+
+      <!-- Money Summary -->
+      <h3 style="margin-bottom: 1rem;">💰 Money Summary</h3>
+      <div class="stats-grid mb-4" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
+        <div class="stat-card" style="border-left: 4px solid var(--primary)">
+          <div class="stat-title">Total Material Value Sent</div>
+          <div class="stat-value" style="color: var(--primary)">${fmt(totalMaterialSent)}</div>
+          <div class="stat-sub">All dispatched stock value</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid var(--success)">
+          <div class="stat-title">Total Received (Paid)</div>
+          <div class="stat-value" style="color: var(--success)">${fmt(totalPaid)}</div>
+          <div class="stat-sub">Payments from customer</div>
+        </div>
+        <div class="stat-card" style="border-left: 4px solid ${balanceDue > 0 ? 'var(--danger)' : 'var(--success)'}">
+          <div class="stat-title">Balance Due</div>
+          <div class="stat-value" style="color: ${balanceDue > 0 ? 'var(--danger)' : 'var(--success)'}">${fmt(Math.abs(balanceDue))}</div>
+          <div class="stat-sub">${balanceDue > 0 ? 'Amount still pending' : (balanceDue < 0 ? 'Overpaid' : 'Fully settled ✓')}</div>
         </div>
       </div>
 
       <!-- Material Summary Dashboard -->
-      <h3 style="margin-bottom: 1rem;">Material Summary</h3>
-      <div class="stats-grid mb-4" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-        <div class="stat-card"><div class="stat-title">Total Sent</div><div class="stat-value" style="font-size:1.5rem">${fmtQ(qtySent)}</div></div>
-        <div class="stat-card"><div class="stat-title">Total Used</div><div class="stat-value" style="font-size:1.5rem">${fmtQ(qtyUsed)}</div></div>
-        <div class="stat-card"><div class="stat-title">Total Returned</div><div class="stat-value" style="font-size:1.5rem">${fmtQ(qtyReturned)}</div></div>
-        <div class="stat-card"><div class="stat-title">Total Damaged</div><div class="stat-value" style="color: var(--danger); font-size:1.5rem">${fmtQ(qtyDamaged)}</div></div>
-        <div class="stat-card"><div class="stat-title">Remaining Quantity</div><div class="stat-value" style="font-size:1.5rem">${fmtQ(qtyStock)}</div></div>
+      <h3 style="margin-bottom: 1rem;">📦 Stock Summary</h3>
+      <div class="stats-grid mb-4" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+        <div class="stat-card"><div class="stat-title">Total Sent</div><div class="stat-value" style="font-size:1.4rem">${fmtQ(qtySent)}</div></div>
+        <div class="stat-card"><div class="stat-title">Total Used</div><div class="stat-value" style="font-size:1.4rem">${fmtQ(qtyUsed)}</div></div>
+        <div class="stat-card"><div class="stat-title">Returned</div><div class="stat-value" style="font-size:1.4rem">${fmtQ(qtyReturned)}</div></div>
+        <div class="stat-card"><div class="stat-title">Damaged</div><div class="stat-value" style="color:var(--danger);font-size:1.4rem">${fmtQ(qtyDamaged)}</div></div>
+        <div class="stat-card"><div class="stat-title">Remaining at Site</div><div class="stat-value" style="color:var(--primary);font-size:1.4rem">${fmtQ(qtyStock)}</div></div>
       </div>
 
-      <div style="margin-bottom: 20px;">
-        <!-- Material Balances -->
+      <!-- Tables -->
+      <div style="display:flex; flex-direction:column; gap:20px; margin-bottom:20px;">
+
+        <!-- Material Inventory -->
         <div class="card">
           <div class="card-header">
             <h3>Site Material Inventory</h3>
@@ -99,6 +132,28 @@ var SiteDetailsPage = {
             ${this.renderMaterialsTable(site)}
           </div>
         </div>
+
+        <!-- Incoming / Outgoing Stock Movements -->
+        <div class="card">
+          <div class="card-header">
+            <h3>📋 Stock Movements (Incoming &amp; Outgoing)</h3>
+          </div>
+          <div class="table-container">
+            ${this.renderStockMovements(site)}
+          </div>
+        </div>
+
+        <!-- Payment History -->
+        <div class="card">
+          <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3>💳 Payment History</h3>
+            <button class="btn btn-sm btn-primary" onclick="SiteDetailsPage.openPaymentModal()">${Icons.plus} Add Payment</button>
+          </div>
+          <div class="table-container" id="site-payments-table">
+            ${this.renderPaymentsTable(site)}
+          </div>
+        </div>
+
       </div>
 
       <!-- Action Modal -->
@@ -130,6 +185,54 @@ var SiteDetailsPage = {
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeActionModal()">Cancel</button>
             <button class="btn btn-primary" onclick="SiteDetailsPage.saveAction()">Save Updates</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Modal -->
+      <div class="modal-backdrop" id="payment-modal">
+        <div class="modal">
+          <div class="modal-header">
+            <h3>Log Payment Received</h3>
+            <button class="modal-close" onclick="SiteDetailsPage.closePaymentModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body">
+            <form id="payment-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Date *</label>
+                  <input type="date" class="form-control" id="pay-date" required>
+                </div>
+                <div class="form-group">
+                  <label>Amount (₹) *</label>
+                  <input type="number" class="form-control" id="pay-amount" required placeholder="0.00" step="0.01">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Payment Mode</label>
+                  <select class="form-control" id="pay-mode">
+                    <option value="Cash">Cash</option>
+                    <option value="Bank Transfer">Bank Transfer</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Reference / Cheque No.</label>
+                  <input type="text" class="form-control" id="pay-ref" placeholder="Optional">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>Note</label>
+                <input type="text" class="form-control" id="pay-note" placeholder="e.g. Advance, Final settlement">
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="SiteDetailsPage.closePaymentModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="SiteDetailsPage.savePayment()">Save Payment</button>
           </div>
         </div>
       </div>
@@ -177,6 +280,148 @@ var SiteDetailsPage = {
   },
 
   init() {},
+
+  renderStockMovements(site) {
+    const materials = Store.Materials.getAll();
+    const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
+    const allIncoming = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
+
+    const rows = [];
+
+    allOutgoing.forEach(record => {
+      record.items.forEach(item => {
+        const mat = materials.find(m => m.id === item.materialId);
+        rows.push({
+          date: record.date,
+          type: 'Outgoing',
+          material: mat ? mat.name : '-',
+          unit: mat ? mat.unit : '',
+          qty: parseFloat(item.quantity) || 0,
+          ref: record.referenceNo || '-',
+          note: record.notes || '-'
+        });
+      });
+    });
+
+    allIncoming.forEach(record => {
+      record.items.forEach(item => {
+        const mat = materials.find(m => m.id === item.materialId);
+        rows.push({
+          date: record.date,
+          type: 'Incoming',
+          material: mat ? mat.name : '-',
+          unit: mat ? mat.unit : '',
+          qty: parseFloat(item.quantity) || 0,
+          ref: record.referenceNo || record.invoiceNo || '-',
+          note: record.notes || '-'
+        });
+      });
+    });
+
+    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    if (rows.length === 0) {
+      return '<div class="text-center text-tertiary" style="padding:20px">No stock movements recorded for this site yet.</div>';
+    }
+
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Material</th>
+            <th>Qty</th>
+            <th>Unit</th>
+            <th>Reference</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    rows.forEach(r => {
+      const isIn = r.type === 'Incoming';
+      html += `
+        <tr>
+          <td>${new Date(r.date).toLocaleDateString('en-IN')}</td>
+          <td><span class="badge ${isIn ? 'badge-success' : 'badge-danger'}">${r.type}</span></td>
+          <td><strong>${r.material}</strong></td>
+          <td style="font-weight:600; color:${isIn ? 'var(--success)' : 'var(--danger)'}">${isIn ? '+' : '-'}${r.qty.toLocaleString('en-IN')}</td>
+          <td class="secondary">${r.unit}</td>
+          <td class="secondary">${r.ref}</td>
+        </tr>
+      `;
+    });
+    html += '</tbody></table>';
+    return html;
+  },
+
+  renderPaymentsTable(site) {
+    const payments = Store.SitePayments.getBySite(site.id);
+    payments.sort((a, b) => new Date(b.date) - new Date(a.date));
+    if (payments.length === 0) {
+      return '<div class="text-center text-tertiary" style="padding:20px">No payments recorded. Click "Add Payment" to log one.</div>';
+    }
+    let html = `
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Mode</th>
+            <th>Reference</th>
+            <th>Note</th>
+            <th style="text-align:right">Amount (₹)</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    payments.forEach(p => {
+      html += `
+        <tr>
+          <td>${new Date(p.date).toLocaleDateString('en-IN')}</td>
+          <td><span class="badge badge-success">${p.mode || 'Cash'}</span></td>
+          <td class="secondary">${p.reference || '-'}</td>
+          <td>${p.note || '-'}</td>
+          <td style="text-align:right; font-weight:600; color:var(--success)">₹ ${parseFloat(p.amount).toLocaleString('en-IN', {minimumFractionDigits:2})}</td>
+          <td><button class="btn btn-icon btn-ghost" onclick="SiteDetailsPage.deletePayment('${p.id}')">${Icons.trash}</button></td>
+        </tr>
+      `;
+    });
+    html += '</tbody></table>';
+    return html;
+  },
+
+  openPaymentModal() {
+    document.getElementById('payment-modal').classList.add('active');
+    document.getElementById('payment-form').reset();
+    document.getElementById('pay-date').value = new Date().toISOString().split('T')[0];
+  },
+
+  closePaymentModal() {
+    document.getElementById('payment-modal').classList.remove('active');
+  },
+
+  savePayment() {
+    const data = {
+      siteId: this.siteId,
+      date: document.getElementById('pay-date').value,
+      amount: parseFloat(document.getElementById('pay-amount').value) || 0,
+      mode: document.getElementById('pay-mode').value,
+      reference: document.getElementById('pay-ref').value.trim(),
+      note: document.getElementById('pay-note').value.trim()
+    };
+    if (!data.date || data.amount <= 0) { alert('Please enter a valid date and amount.'); return; }
+    Store.SitePayments.add(data);
+    this.closePaymentModal();
+    this.refresh();
+  },
+
+  deletePayment(id) {
+    if (confirm('Delete this payment record?')) {
+      Store.SitePayments.remove(id);
+      this.refresh();
+    }
+  },
 
   renderMaterialsTable(site) {
     const materials = Store.Materials.getAll();
