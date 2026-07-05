@@ -37,11 +37,11 @@ var DashboardPage = {
       <!-- Stats & Quick Actions -->
       <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 24px;">
         <!-- Sites Stat Card -->
-        <div class="stat-card" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; border: none;">
+        <div class="stat-card" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; border: none; cursor: pointer;" onclick="App.navigate('sites')">
           <div class="stat-info">
             <div class="label" style="color: #94a3b8; border: none;">Active Sites</div>
             <div class="value" style="color: white; margin-top:4px;">${activeSites} <span style="font-size:1rem;color:#64748b; font-weight: 500;">/ ${totalSites}</span></div>
-            <div class="sub" style="color: #cbd5e1; margin-top:12px; font-weight: 500;">${completedSites} completed</div>
+            <div class="sub" style="color: #cbd5e1; margin-top:12px; font-weight: 500;">${completedSites} completed &rarr; View All</div>
           </div>
           <div class="stat-icon" style="background: rgba(255,255,255,0.1); color: white;">
             ${Icons.mapPin}
