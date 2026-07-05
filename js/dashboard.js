@@ -202,6 +202,16 @@ var DashboardPage = {
 
   init() {
     this.drawStockChart();
+    
+    // Fix canvas stretching on window resize
+    if (!this._resizeBound) {
+      window.addEventListener('resize', () => {
+        if (window.location.hash === '' || window.location.hash === '#dashboard') {
+          this.drawStockChart();
+        }
+      });
+      this._resizeBound = true;
+    }
   },
 
   drawStockChart() {
@@ -209,10 +219,17 @@ var DashboardPage = {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // Set actual size for sharp rendering
+    // Set actual size for sharp rendering (account for Retina displays)
+    const dpr = window.devicePixelRatio || 1;
     const rect = canvas.parentElement.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = 280;
+    
+    canvas.width = rect.width * dpr;
+    canvas.height = 280 * dpr;
+    ctx.scale(dpr, dpr);
+    
+    // Fix canvas CSS so it doesn't get distorted
+    canvas.style.width = '100%';
+    canvas.style.height = '280px';
 
     // We need to show movements for the last 7 days grouped by date
     const dates = [];
@@ -237,8 +254,8 @@ var DashboardPage = {
       return { date: date.substring(5), inQty, outQty }; // 'MM-DD'
     });
 
-    const w = canvas.width;
-    const h = canvas.height;
+    const w = rect.width;
+    const h = 280;
     const padding = { top: 20, right: 20, bottom: 40, left: 60 };
     const chartW = w - padding.left - padding.right;
     const chartH = h - padding.top - padding.bottom;
