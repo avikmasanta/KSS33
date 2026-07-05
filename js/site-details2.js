@@ -102,6 +102,16 @@ var SiteDetailsPage = {
         </div>
       </div>
 
+      <!-- Current Site Stock Card -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Current Site Stock</h3>
+        </div>
+        <div>
+          ${this.renderSiteInventory(site)}
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Stock Movements</h3>
@@ -763,5 +773,63 @@ var SiteDetailsPage = {
       </html>
     `);
     printWindow.document.close();
+  },
+
+  renderSiteInventory(site) {
+    const materials = Store.Materials.getAll();
+    const rows = [];
+
+    materials.forEach(m => {
+      const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+      const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+      const used = Store.Inventory.getSiteUsage(m.id, site.id);
+      const remaining = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
+
+      if (sent > 0 || returned > 0 || used > 0 || remaining > 0) {
+        rows.push({
+          material: m.name,
+          unit: m.unit,
+          sent,
+          returned,
+          used,
+          remaining
+        });
+      }
+    });
+
+    if (rows.length === 0) {
+      return `
+        <div class="empty-state" style="padding: 40px 20px; text-align: center;">
+          <p class="text-sm text-tertiary">No materials dispatched to this site yet.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Total Sent</th>
+              <th style="color: var(--danger)">Returned</th>
+              <th style="color: #d97706">Used</th>
+              <th style="color: var(--success); font-weight: 700;">Remaining Balance</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => `
+              <tr>
+                <td><strong>${r.material}</strong></td>
+                <td>${r.sent.toLocaleString('en-IN')} ${r.unit}</td>
+                <td style="color: var(--danger); font-weight: 500;">${r.returned > 0 ? r.returned.toLocaleString('en-IN') : '-'} ${r.returned > 0 ? r.unit : ''}</td>
+                <td style="color: #d97706; font-weight: 500;">${r.used > 0 ? r.used.toLocaleString('en-IN') : '-'} ${r.used > 0 ? r.unit : ''}</td>
+                <td><strong style="color: var(--success); font-size: 1.05rem;">${r.remaining.toLocaleString('en-IN')}</strong> ${r.unit}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 };

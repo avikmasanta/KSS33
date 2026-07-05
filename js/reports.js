@@ -120,33 +120,24 @@ var ReportsPage = {
       }
 
       case 'site-stock': {
-        const overview = Store.Inventory.getOverview();
         const sites = Store.Sites.getAll();
         content = `
           <div class="card slide-up">
-            <div class="card-header">
-              <h3>Site Stock Report</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h3 style="margin: 0;">Site Stock Report</h3>
+                <p class="text-sm text-tertiary" style="margin-top: 4px; margin-bottom: 0;">Track materials dispatched, returned and remaining at each site.</p>
+              </div>
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <select class="form-control" style="width: 220px;" id="report-site-select" onchange="ReportsPage.onSiteReportChange(this.value)">
+                  <option value="all">All Sites (Overview)</option>
+                  ${sites.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                </select>
+                <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              </div>
             </div>
-            <div class="table-container">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    ${sites.map(s => `<th>${s.name}</th>`).join('')}
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${overview.map(o => `
-                    <tr>
-                      <td><strong>${o.product.name}</strong></td>
-                      ${sites.map(s => `<td>${formatNum(o.siteStocks[s.id] || 0)}</td>`).join('')}
-                      <td><strong>${formatNum(o.totalSiteStock)}</strong></td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+            <div class="card-body" id="site-stock-report-body" style="padding-top: 15px;">
+              ${this.renderSiteStockAllOverview()}
             </div>
           </div>
         `;
@@ -433,5 +424,112 @@ var ReportsPage = {
 
     output.innerHTML = content;
     output.scrollIntoView({ behavior: 'smooth' });
+  },
+
+  onSiteReportChange(val) {
+    const container = document.getElementById('site-stock-report-body');
+    if (!container) return;
+    if (val === 'all') {
+      container.innerHTML = this.renderSiteStockAllOverview();
+    } else {
+      container.innerHTML = this.renderSiteStockSingle(val);
+    }
+  },
+
+  renderSiteStockAllOverview() {
+    const materials = Store.Materials.getAll();
+    const sites = Store.Sites.getAll();
+    const formatNum = (v) => Number(v || 0).toLocaleString('en-IN');
+
+    return `
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              ${sites.map(s => `<th style="text-align: center;">${s.name}<br><span style="font-size:10px; font-weight:normal; color:var(--text-tertiary);">Remaining (Returned)</span></th>`).join('')}
+              <th style="text-align: right;">Total Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${materials.map(m => {
+              let totalRemaining = 0;
+              const cols = sites.map(s => {
+                const remaining = Store.Inventory.getSiteCurrentBalance(m.id, s.id);
+                const returned = Store.Inventory.getSiteReturns(m.id, s.id);
+                totalRemaining += remaining;
+                return `<td style="text-align: center;">
+                  <strong>${formatNum(remaining)}</strong>
+                  <span style="font-size:11px; color:var(--danger); margin-left: 4px;">(${formatNum(returned)})</span>
+                </td>`;
+              }).join('');
+
+              if (totalRemaining === 0 && !sites.some(s => Store.Inventory.getSiteTotalSent(m.id, s.id) > 0)) {
+                return ''; // skip unused materials
+              }
+
+              return `
+                <tr>
+                  <td><strong>${m.name}</strong> <span style="font-size:11px; color:var(--text-secondary);">(${m.unit})</span></td>
+                  ${cols}
+                  <td style="text-align: right; font-weight: 700;">${formatNum(totalRemaining)} ${m.unit}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
+
+  renderSiteStockSingle(siteId) {
+    const site = Store.Sites.getById(siteId);
+    if (!site) return '<p class="text-center text-tertiary">Site not found.</p>';
+
+    const materials = Store.Materials.getAll();
+    const formatNum = (v) => Number(v || 0).toLocaleString('en-IN');
+
+    let rows = '';
+    materials.forEach(m => {
+      const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+      const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+      const used = Store.Inventory.getSiteUsage(m.id, site.id);
+      const remaining = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
+
+      if (sent > 0 || returned > 0 || used > 0 || remaining > 0) {
+        rows += `
+          <tr>
+            <td><strong>${m.name}</strong></td>
+            <td>${formatNum(sent)} ${m.unit}</td>
+            <td style="color: var(--danger); font-weight: 500;">${returned > 0 ? formatNum(returned) : '-'} ${returned > 0 ? m.unit : ''}</td>
+            <td style="color: #d97706; font-weight: 500;">${used > 0 ? formatNum(used) : '-'} ${used > 0 ? m.unit : ''}</td>
+            <td><strong style="color: var(--success); font-size:1.05rem;">${formatNum(remaining)}</strong> ${m.unit}</td>
+          </tr>
+        `;
+      }
+    });
+
+    return `
+      <div style="margin-bottom: 15px;">
+        <h4 style="margin: 0; color: var(--text-primary); font-size: 1rem;">Site: ${site.name}</h4>
+        <p class="text-sm text-tertiary" style="margin-top: 4px;">Customer: ${site.customerName || '-'} | Location: ${site.address || '-'}</p>
+      </div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th>Total Dispatched (Sent)</th>
+              <th style="color: var(--danger)">Returned</th>
+              <th style="color: #d97706">Used</th>
+              <th style="color: var(--success)">Remaining Balance at Site</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows || '<tr><td colspan="5" class="text-center text-tertiary" style="padding: 30px;">No materials recorded at this site.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 };
