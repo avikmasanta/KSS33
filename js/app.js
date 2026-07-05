@@ -15,8 +15,8 @@ var App = (() => {
     'site-details': { title: 'Site Details', subtitle: 'Detailed view of a site', icon: 'mapPin', module: 'SiteDetailsPage' }
   };
 
-  function init() {
-    Store.seed();
+  async function init() {
+    await Store.seed();
 
     if (!Store.Auth.isLoggedIn()) {
       document.getElementById('app-root').innerHTML = AuthPage.render();
@@ -35,7 +35,7 @@ var App = (() => {
     return window.location.hash.replace('#', '') || 'dashboard';
   }
 
-  function navigate(page) {
+  async function navigate(page, params = null) {
     if (!pages[page]) page = 'dashboard';
     window.location.hash = page;
 
@@ -46,19 +46,35 @@ var App = (() => {
 
     const pageInfo = pages[page];
 
-    // Render page content
+    // Render page content with Loading state
     const content = document.getElementById('app-content');
-    content.innerHTML = '<div class="fade-in" id="page-container"></div>';
+    content.innerHTML = `
+      <div class="fade-in" id="page-container">
+        <div style="display: flex; justify-content: center; align-items: center; height: 50vh;">
+          <div style="font-size: 1.5rem; color: var(--text-secondary);">Loading...</div>
+        </div>
+      </div>`;
     const container = document.getElementById('page-container');
 
     const moduleName = pageInfo.module;
-    if (window[moduleName] && typeof window[moduleName].render === 'function') {
-      container.innerHTML = window[moduleName].render();
-      if (typeof window[moduleName].init === 'function') {
-        window[moduleName].init();
+    if (window[moduleName]) {
+      if (params && typeof window[moduleName].setParams === 'function') {
+        window[moduleName].setParams(params);
+      }
+      
+      if (typeof window[moduleName].render === 'function') {
+        try {
+          const html = await window[moduleName].render();
+          container.innerHTML = html;
+          if (typeof window[moduleName].init === 'function') {
+            await window[moduleName].init();
+          }
+        } catch (err) {
+          container.innerHTML = `<div class="empty-state"><h3>Error loading page</h3><p>${err.message}</p></div>`;
+        }
       }
     } else {
-      container.innerHTML = `<div class="empty-state"><h3>Module Loading...</h3><p>${pageInfo.title} module</p></div>`;
+      container.innerHTML = `<div class="empty-state"><h3>Module not found</h3><p>The module ${moduleName} is not available.</p></div>`;
     }
 
     // Close mobile sidebar
@@ -74,9 +90,6 @@ var App = (() => {
       { key: 'dashboard', label: 'Dashboard', icon: 'home' },
       { key: 'sites', label: 'Sites', icon: 'mapPin' },
       { key: 'materials', label: 'Materials', icon: 'package' },
-      { key: 'incoming', label: 'Incoming Stock', icon: 'arrowDownCircle' },
-      { key: 'outgoing', label: 'Outgoing Stock', icon: 'arrowUpCircle' },
-      { key: 'inventory', label: 'Inventory', icon: 'box' },
       { key: 'reports', label: 'Reports', icon: 'barChart' }
     ];
 

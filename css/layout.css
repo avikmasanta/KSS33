@@ -25,6 +25,7 @@
   z-index: var(--z-sidebar);
   transition: width var(--transition-slow), min-width var(--transition-slow);
   overflow: hidden;
+  box-shadow: 4px 0 24px rgba(0,0,0,0.02); /* Soft shadow for sidebar */
 }
 
 .sidebar-brand {
@@ -90,13 +91,15 @@
 .nav-item:hover {
   background: var(--sidebar-bg-light);
   color: var(--sidebar-text-hover);
+  transform: translateX(4px); /* Premium hover shift */
 }
 
 .nav-item.active {
   background: var(--sidebar-active-bg);
   color: var(--sidebar-active-text);
-  border-left: 3px solid var(--sidebar-active-border);
-  border-radius: 0 6px 6px 0;
+  border-radius: 8px; /* Softer radius */
+  font-weight: var(--font-weight-bold);
+  box-shadow: 0 2px 10px rgba(234, 88, 12, 0.1);
 }
 
 .nav-item svg {

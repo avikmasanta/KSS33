@@ -8,7 +8,7 @@ var SitesPage = {
   perPage: 8,
   initItems: [],
 
-  render() {
+  async render() {
     return `
       <div class="page-header">
         <div class="page-header-title">
@@ -40,7 +40,7 @@ var SitesPage = {
           </div>
         </div>
         <div class="table-container" id="sites-table-container">
-          ${this.renderTable()}
+          ${await this.renderTable()}
         </div>
       </div>
 
@@ -89,6 +89,10 @@ var SitesPage = {
                 </div>
               </div>
               <div class="form-group">
+                <label>Site Budget / Cost (₹)</label>
+                <input type="number" class="form-control" id="site-budget" placeholder="0.00" min="0" step="1">
+              </div>
+              <div class="form-group">
                 <label>Location / Address</label>
                 <input type="text" class="form-control" id="site-address" placeholder="Site address or location">
               </div>
@@ -111,8 +115,8 @@ var SitesPage = {
 
   init() {},
 
-  renderTable() {
-    const allSites = Store.Sites.getAll();
+  async renderTable() {
+    const allSites = await Store.Sites.getAll();
     const statusFilter = document.getElementById('site-status-filter')?.value || '';
 
     const filtered = allSites.filter(s => {
@@ -197,23 +201,23 @@ var SitesPage = {
     `;
   },
 
-  refresh() {
+  async refresh() {
     const container = document.getElementById('sites-table-container');
-    if (container) container.innerHTML = this.renderTable();
+    if (container) container.innerHTML = await this.renderTable();
   },
 
-  onSearch(val) {
+  async onSearch(val) {
     this.searchTerm = val;
     this.currentPage = 1;
-    this.refresh();
+    await this.refresh();
   },
 
-  goPage(page) {
+  async goPage(page) {
     this.currentPage = page;
-    this.refresh();
+    await this.refresh();
   },
 
-  openModal(editId) {
+  async openModal(editId) {
     document.getElementById('site-modal').classList.add('active');
     document.getElementById('site-modal-title').textContent = editId ? 'Edit Site' : 'Add Site';
     
@@ -226,27 +230,27 @@ var SitesPage = {
       if (matContainer) {
         matContainer.style.display = 'block';
         this.initItems = [{ materialId: '', quantity: '', returned: '' }];
-        this.renderInitItems();
+        await this.renderInitItems();
       }
     } else {
       if (matContainer) matContainer.style.display = 'none';
     }
   },
 
-  renderInitItems() {
+  async renderInitItems() {
     const list = document.getElementById('site-initial-materials-list');
     if (!list) return;
     
-    const materials = Store.Materials.getAll();
-    const overview = Store.Inventory.getOverview();
+    const materials = await Store.Materials.getAll();
+    const overview = await Store.Inventory.getOverview();
 
     let html = `
       <table class="inline-table w-100 mb-2">
         <thead>
           <tr>
             <th>Material</th>
-            <th style="width:22%">Qty Sent</th>
-            <th style="width:22%">Qty Returned</th>
+            <th style="width:22%; color: var(--success)">Received at Site</th>
+            <th style="width:22%; color: var(--danger)">Returned from Site</th>
             <th style="width:10%"></th>
           </tr>
         </thead>
@@ -264,7 +268,7 @@ var SitesPage = {
             </select>
           </td>
           <td>
-            <input type="number" class="form-control" placeholder="Sent" min="1" value="${item.quantity}" onchange="SitesPage.onInitItemChange(${idx}, 'quantity', this.value)">
+            <input type="number" class="form-control" placeholder="Received" min="1" value="${item.quantity}" onchange="SitesPage.onInitItemChange(${idx}, 'quantity', this.value)">
           </td>
           <td>
             <input type="number" class="form-control" placeholder="Returned" min="0" value="${item.returned || ''}" onchange="SitesPage.onInitItemChange(${idx}, 'returned', this.value)">
@@ -285,29 +289,29 @@ var SitesPage = {
     list.innerHTML = html;
   },
 
-  onInitItemChange(idx, field, value) {
+  async onInitItemChange(idx, field, value) {
     if (this.initItems[idx]) {
       this.initItems[idx][field] = value;
-      this.renderInitItems();
+      await this.renderInitItems();
     }
   },
 
-  addInitItem() {
+  async addInitItem() {
     this.initItems.push({ materialId: '', quantity: '', returned: '' });
-    this.renderInitItems();
+    await this.renderInitItems();
   },
 
-  removeInitItem(idx) {
+  async removeInitItem(idx) {
     this.initItems.splice(idx, 1);
-    this.renderInitItems();
+    await this.renderInitItems();
   },
 
   closeModal() {
     document.getElementById('site-modal').classList.remove('active');
   },
 
-  edit(id) {
-    const s = Store.Sites.getById(id);
+  async edit(id) {
+    const s = await Store.Sites.getById(id);
     if (!s) return;
     document.getElementById('site-id').value = s.id;
     document.getElementById('site-name').value = s.name || '';
@@ -317,10 +321,11 @@ var SitesPage = {
     document.getElementById('site-status').value = s.status || 'Active';
     document.getElementById('site-start-date').value = s.startDate || '';
     document.getElementById('site-address').value = s.address || '';
-    this.openModal(id);
+    document.getElementById('site-budget').value = s.budget || '';
+    await this.openModal(id);
   },
 
-  save() {
+  async save() {
     const id = document.getElementById('site-id').value;
     const data = {
       name: document.getElementById('site-name').value.trim(),
@@ -329,22 +334,22 @@ var SitesPage = {
       contactNumber: document.getElementById('site-contact').value.trim(),
       status: document.getElementById('site-status').value,
       startDate: document.getElementById('site-start-date').value,
-      address: document.getElementById('site-address').value.trim()
+      address: document.getElementById('site-address').value.trim(),
+      budget: parseFloat(document.getElementById('site-budget').value) || 0
     };
 
     if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }
 
     if (id) {
-      Store.Sites.update(id, data);
+      await Store.Sites.update(id, data);
     } else {
-      const newSite = Store.Sites.add(data);
+      const newSite = await Store.Sites.add(data);
       
       // Process initial materials
-      let items = [];
-      this.initItems.forEach(item => {
+      for (const item of this.initItems) {
         const qty = parseFloat(item.quantity) || 0;
         if (item.materialId && qty > 0) {
-          const material = Store.Materials.getById(item.materialId);
+          const material = await Store.Materials.getById(item.materialId);
           if (material) {
             items.push({
               materialId: material.id,
@@ -354,10 +359,10 @@ var SitesPage = {
             });
           }
         }
-      });
+      }
       
       if (items.length > 0) {
-        Store.Outgoing.add({
+        await Store.Outgoing.add({
           siteId: newSite.id,
           date: data.startDate || new Date().toISOString().split('T')[0],
           referenceNo: 'INIT-DISPATCH',
@@ -367,21 +372,21 @@ var SitesPage = {
 
         // Mark returned quantities immediately
         const returnedDate = new Date().toISOString();
-        this.initItems.forEach(item => {
+        for (const item of this.initItems) {
           const returnedQty = parseFloat(item.returned) || 0;
           if (item.materialId && returnedQty > 0) {
-            Store.SiteReturns.add({ siteId: newSite.id, materialId: item.materialId, quantity: returnedQty, date: returnedDate });
+            await Store.SiteReturns.add({ siteId: newSite.id, materialId: item.materialId, quantity: returnedQty, date: returnedDate });
           }
-        });
+        }
       }
     }
 
     this.closeModal();
-    this.refresh();
+    await this.refresh();
   },
 
-  deleteSite(id) {
-    const s = Store.Sites.getById(id);
+  async deleteSite(id) {
+    const s = await Store.Sites.getById(id);
     if (!s) return;
     
     const overlay = document.createElement('div');
@@ -407,9 +412,9 @@ var SitesPage = {
       document.body.removeChild(overlay);
     };
     
-    document.getElementById('btn-confirm-del').onclick = () => {
-      Store.Sites.remove(id);
-      this.refresh();
+    document.getElementById('btn-confirm-del').onclick = async () => {
+      await Store.Sites.remove(id);
+      await this.refresh();
       document.body.removeChild(overlay);
     };
   },

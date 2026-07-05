@@ -4,32 +4,25 @@
 
 var DashboardPage = {
   render() {
-    const stats = Store.Inventory.getStats();
-    const movements = Store.Inventory.getRecentMovements(8);
-    const overview = Store.Inventory.getOverview();
-    const sites = Store.Sites.getAll();
-    const customers = Store.Customers.getAll();
-    const materials = Store.Materials.getAll();
+    const movements = Store.Inventory.getRecentMovements(10);
     const incoming = Store.Incoming.getAll();
     const outgoing = Store.Outgoing.getAll();
+    const sites = Store.Sites.getAll();
 
-    // Calculate totals for new cards
-    let warehouseUnits = 0;
-    overview.forEach(o => { warehouseUnits += o.warehouseStock; });
+    const activeSites = sites.filter(s => s.status === 'Active').length;
+    const completedSites = sites.filter(s => s.status === 'Completed').length;
+    const totalSites = sites.length;
 
-    let movementsCount = 0;
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    [...incoming, ...outgoing].forEach(r => {
-      if (new Date(r.date) >= sevenDaysAgo) {
-        movementsCount += r.items.reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
-      }
-    });
+    let totalIncoming = 0;
+    incoming.forEach(r => r.items.forEach(i => totalIncoming += (parseFloat(i.quantity) || 0)));
+
+    let totalOutgoing = 0;
+    outgoing.forEach(r => r.items.forEach(i => totalOutgoing += (parseFloat(i.quantity) || 0)));
 
     const formatNum = (v) => Number(v).toLocaleString('en-IN');
     const formatDate = (d) => {
       const dt = new Date(d);
-      return dt.toISOString().split('T')[0]; // YYYY-MM-DD
+      return dt.toISOString().split('T')[0];
     };
 
     return `
@@ -37,124 +30,62 @@ var DashboardPage = {
       <div class="page-header" style="margin-bottom: 24px;">
         <div class="page-header-title">
           <h2>Operations Dashboard</h2>
-          <p>Real-time overview of stock, sites and recent movements.</p>
+          <p>Real-time overview of stock, sites, and recent movements.</p>
         </div>
       </div>
 
-      <!-- Stats Cards (6 cols) -->
-      <div class="stats-grid">
-        <!-- Customers -->
-        <div class="stat-card">
+      <!-- Stats & Quick Actions -->
+      <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 24px;">
+        <!-- Sites Stat Card -->
+        <div class="stat-card" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: white; border: none;">
           <div class="stat-info">
-            <div class="label">CUSTOMERS</div>
-            <div class="value">${customers.length}</div>
+            <div class="label" style="color: #94a3b8; border: none;">Active Sites</div>
+            <div class="value" style="color: white; margin-top:4px;">${activeSites} <span style="font-size:1rem;color:#64748b; font-weight: 500;">/ ${totalSites}</span></div>
+            <div class="sub" style="color: #cbd5e1; margin-top:12px; font-weight: 500;">${completedSites} completed</div>
           </div>
-          <div class="stat-icon outline">
-            ${Icons.users}
-          </div>
-        </div>
-        
-        <!-- Active Sites -->
-        <div class="stat-card">
-          <div class="stat-info">
-            <div class="label">ACTIVE SITES</div>
-            <div class="value">${sites.filter(s => s.status === 'Active').length}</div>
-            <div class="sub">${sites.length} total</div>
-          </div>
-          <div class="stat-icon outline">
+          <div class="stat-icon" style="background: rgba(255,255,255,0.1); color: white;">
             ${Icons.mapPin}
           </div>
         </div>
-        
-        <!-- Materials -->
-        <div class="stat-card">
+
+        <!-- Quick Action: Incoming -->
+        <div class="stat-card" style="cursor: pointer; display: flex; align-items: center;" onclick="App.navigate('incoming')">
           <div class="stat-info">
-            <div class="label">PRODUCTS</div>
-            <div class="value">${materials.length}</div>
+            <div class="label" style="color: var(--incoming-color);">Quick Action</div>
+            <div class="value" style="font-size: 1.15rem; margin-top: 6px; letter-spacing: -0.3px;">Incoming Stock</div>
+            <div class="sub" style="margin-top: 10px;">Log received materials</div>
           </div>
-          <div class="stat-icon outline">
-            ${Icons.package}
+          <div class="stat-icon" style="background: var(--incoming-bg); color: var(--incoming-color); transform: scale(1.1);">
+            ${Icons.arrowDownCircle}
           </div>
         </div>
-        
-        <!-- Warehouse Units -->
-        <div class="stat-card">
+
+        <!-- Quick Action: Outgoing -->
+        <div class="stat-card" style="cursor: pointer; display: flex; align-items: center;" onclick="App.navigate('outgoing')">
           <div class="stat-info">
-            <div class="label">WAREHOUSE UNITS</div>
-            <div class="value">${formatNum(warehouseUnits)}</div>
-            <div class="sub">Aggregate across SKUs</div>
+            <div class="label" style="color: var(--outgoing-color);">Quick Action</div>
+            <div class="value" style="font-size: 1.15rem; margin-top: 6px; letter-spacing: -0.3px;">Outgoing Stock</div>
+            <div class="sub" style="margin-top: 10px;">Dispatch materials to site</div>
           </div>
-          <div class="stat-icon outline">
-            ${Icons.box}
-          </div>
-        </div>
-        
-        <!-- Low-Stock -->
-        <div class="stat-card">
-          <div class="stat-info">
-            <div class="label">LOW-STOCK</div>
-            <div class="value" style="color: ${stats.lowStockItems.length > 0 ? 'var(--danger)' : 'var(--success)'}">${stats.lowStockItems.length}</div>
-          </div>
-          <div class="stat-icon outline">
-            ${Icons.alertTriangle}
-          </div>
-        </div>
-        
-        <!-- Movements (7D) -->
-        <div class="stat-card">
-          <div class="stat-info">
-            <div class="label">MOVEMENTS (7D)</div>
-            <div class="value">${formatNum(movementsCount)}</div>
-          </div>
-          <div class="stat-icon outline">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          <div class="stat-icon" style="background: var(--outgoing-bg); color: var(--outgoing-color); transform: scale(1.1);">
+            ${Icons.arrowUpCircle}
           </div>
         </div>
       </div>
 
-      <!-- Chart + Low Stock -->
-      <div class="dashboard-grid">
-        <!-- Stock movements Chart -->
-        <div class="card">
-          <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
-            <div class="chart-header">
-              <div>
-                <h3 style="font-size: 1.1rem; color: #0f172a; margin-bottom: 4px;">Stock movements (last 7 days)</h3>
-                <p style="font-size: 0.8rem; color: #64748b;">Incoming vs Outgoing quantities.</p>
-              </div>
-            </div>
-          </div>
-          <div class="card-body">
-            <div class="chart-container">
-              <canvas id="stock-chart" height="280"></canvas>
+      <!-- Chart (Full Width) -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+          <div class="chart-header">
+            <div>
+              <h3 style="font-size: 1.1rem; color: #0f172a; margin-bottom: 4px;">Stock movements trend (last 7 days)</h3>
+              <p style="font-size: 0.8rem; color: #64748b;">Daily comparison of dispatched vs returned quantities.</p>
             </div>
           </div>
         </div>
-
-        <!-- Low Stock Alert -->
-        <div class="card">
-          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid var(--border-color);">
-            <h3 style="font-size: 1.1rem; color: #0f172a;">Low-stock alerts</h3>
-            <span class="stat-top-badge" style="background: ${stats.lowStockItems.length > 0 ? '#fee2e2' : '#dcfce7'}; color: ${stats.lowStockItems.length > 0 ? '#991b1b' : '#166534'}; padding: 4px 8px; font-size: 0.75rem;">${stats.lowStockItems.length}</span>
-          </div>
-          <div class="card-body" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 260px;">
-            ${stats.lowStockItems.length === 0 
-              ? `<div style="text-align: center;">
-                   <h4 style="font-size: 1rem; color: #0f172a; margin-bottom: 8px;">All stocked up</h4>
-                   <p style="font-size: 0.85rem; color: #64748b;">No items below threshold.</p>
-                 </div>`
-              : `<div style="width: 100%; height: 100%; overflow-y: auto;">
-                  ${stats.lowStockItems.map(item => `
-                    <div class="alert-item" style="border-bottom: 1px solid var(--border-light); padding: 12px 0;">
-                      <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-weight: 500; font-size: 0.9rem;">${item.material.name}</span>
-                        <span style="color: var(--danger); font-weight: 600;">${formatNum(item.warehouseStock)}</span>
-                      </div>
-                      <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 4px;">Reorder: ${formatNum(item.reorderLevel)}</div>
-                    </div>
-                  `).join('')}
-                 </div>`
-            }
+        <div class="card-body">
+          <div class="chart-container" style="width: 100%;">
+            <canvas id="stock-chart" height="280"></canvas>
           </div>
         </div>
       </div>

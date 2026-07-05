@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 8px 18px;
+  padding: 10px 20px; /* Slightly larger padding for premium feel */
   border-radius: var(--input-radius);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -16,6 +16,11 @@
   white-space: nowrap;
   line-height: 1.4;
   border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.btn:active {
+  transform: translateY(1px);
 }
 
 .btn svg {
@@ -96,9 +101,16 @@
 /* ==== CARDS ==== */
 .card {
   background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
   box-shadow: var(--card-shadow);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--card-shadow-hover);
 }
 
 .card-header {
@@ -127,17 +139,22 @@
 /* ==== STAT CARDS (New Minimalist Design) ==== */
 .stat-card {
   background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--card-border);
   border-radius: var(--card-radius);
-  padding: 20px;
+  padding: 24px; /* More breathing room */
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  transition: border-color var(--transition-fast);
+  transition: all var(--transition-base);
+  box-shadow: var(--card-shadow);
 }
 
 .stat-card:hover {
   border-color: #cbd5e1;
+  box-shadow: var(--card-shadow-hover);
+  transform: translateY(-2px);
 }
 
 .stat-info {
@@ -381,7 +398,7 @@ select.form-control {
 }
 
 .modal {
-  background: var(--card-bg);
+  background: #ffffff;
   border-radius: var(--card-radius);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   width: 100%;
