@@ -124,7 +124,7 @@ var SiteDetailsPage = {
               <select class="form-control" id="site-dispatch-material">
                 <option value="">Select material to dispatch...</option>
                 ${materials.map(m => {
-          const warehouseStock = Store.Inventory.getWarehouseStock(m.id);
+          const warehouseStock = Store.Inventory.getWarehouseCurrentBalance(m.id);
           return `<option value="${m.id}">${m.name} (Warehouse: ${warehouseStock})</option>`;
         }).join('')}
               </select>
@@ -452,7 +452,7 @@ var SiteDetailsPage = {
       return;
     }
 
-    const warehouseStock = Store.Inventory.getWarehouseStock(materialId);
+    const warehouseStock = Store.Inventory.getWarehouseCurrentBalance(materialId);
     if (qty > warehouseStock) {
       alert(`You cannot dispatch more than what is currently in the warehouse (${warehouseStock}).`);
       return;

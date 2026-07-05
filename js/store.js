@@ -188,6 +188,68 @@ const Store = (() => {
         (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
       });
       return totalIn;
+    },
+
+    getSiteUsage: (materialId, siteId) => {
+      return lsGet('bm_siteUsage')
+        .filter(r => r.siteId === siteId && r.materialId === materialId)
+        .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
+    },
+
+    getSiteReturns: (materialId, siteId) => {
+      return lsGet('bm_siteReturns')
+        .filter(r => r.siteId === siteId && r.materialId === materialId)
+        .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
+    },
+
+    getSiteDamaged: (materialId, siteId) => {
+      return lsGet('bm_siteDamaged')
+        .filter(r => r.siteId === siteId && r.materialId === materialId)
+        .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
+    },
+
+    getSiteRevenue: (siteId) => {
+      return lsGet('bm_sitePayments')
+        .filter(p => p.siteId === siteId)
+        .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+    },
+
+    getTotalSiteExpenses: (siteId) => {
+      return lsGet('bm_siteExpenses')
+        .filter(e => e.siteId === siteId)
+        .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    },
+
+    getLedger: (materialId, dateFrom, dateTo) => {
+      const allIncoming = lsGet('bm_incoming');
+      const allOutgoing = lsGet('bm_outgoing');
+      const sites = lsGet('bm_sites');
+      let entries = [];
+      allIncoming.forEach(r => {
+        (r.items || []).forEach(i => {
+          if (i.materialId !== materialId) return;
+          if (dateFrom && r.date < dateFrom) return;
+          if (dateTo && r.date > dateTo) return;
+          const site = sites.find(s => s.id === r.destinationSiteId);
+          entries.push({ date: r.date, type: 'Incoming', destination: r.destinationType === 'site' && site ? site.name : 'Warehouse', quantity: parseFloat(i.quantity) || 0, referenceNo: r.referenceNo || '', notes: r.notes || '' });
+        });
+      });
+      allOutgoing.forEach(r => {
+        (r.items || []).forEach(i => {
+          if (i.materialId !== materialId) return;
+          if (dateFrom && r.date < dateFrom) return;
+          if (dateTo && r.date > dateTo) return;
+          const site = sites.find(s => s.id === r.siteId);
+          entries.push({ date: r.date, type: 'Outgoing', destination: site ? site.name : 'Site', quantity: parseFloat(i.quantity) || 0, referenceNo: r.referenceNo || '', notes: r.notes || '' });
+        });
+      });
+      entries.sort((a, b) => new Date(a.date) - new Date(b.date));
+      let balance = 0;
+      return entries.map(e => {
+        if (e.type === 'Incoming' && e.destination === 'Warehouse') balance += e.quantity;
+        else if (e.type === 'Outgoing') balance -= e.quantity;
+        return { ...e, balance };
+      });
     }
   };
 
