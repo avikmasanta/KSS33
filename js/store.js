@@ -3,10 +3,10 @@
    ============================================ */
 const Store = (() => {
 
-  // Dynamic API URL detection: localhost vs. production URL
-  const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  // Dynamic API URL: localhost uses local server, production uses Vercel serverless API
+  const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
     ? 'http://localhost:5000/api'
-    : 'https://kss33.onrender.com/api'; // Fallback cloud production backend API
+    : '/api'; // Vercel serverless API — same domain, zero cold starts!
 
   // In-memory collections data cache
   const cache = {
