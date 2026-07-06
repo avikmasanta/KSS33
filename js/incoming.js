@@ -19,7 +19,7 @@ var IncomingPage = {
         const site = sites.find(s => s.id === r.siteId);
         const mat = materials.find(m => m.id === r.materialId);
         
-        const siteStr = site ? site.name.toLowerCase() : '';
+        const siteStr = site ? (site.name + ' ' + (site.tokenNumber || '')).toLowerCase() : '';
         const matStr = mat ? mat.name.toLowerCase() : '';
 
         return siteStr.includes(st) ||
@@ -61,9 +61,9 @@ var IncomingPage = {
               const sku = mat && mat.sku ? mat.sku : '';
               
               return `
-                <div class="list-item" style="cursor: default;">
+                <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer;" onclick="IncomingPage.selectRecord('${r.id}')">
                   <div class="flex items-center justify-between">
-                    <div class="item-title">${siteName}</div>
+                    <div class="item-title">${siteName} <span style="font-size: 0.8em; color: var(--text-tertiary);">(${site ? site.tokenNumber || '-' : '-'})</span></div>
                     <span class="badge badge-incoming">Returned</span>
                   </div>
                   <div class="item-sub">${matName} ${sku} • Qty: ${r.quantity}</div>
@@ -109,7 +109,56 @@ var IncomingPage = {
   renderForm() {
     const materials = Store.Materials.getAll();
     const sites = Store.Sites.getAll();
-    const record = this.selectedId ? Store.Incoming.getById(this.selectedId) : null;
+    const returnRecord = this.selectedId ? Store.SiteReturns.getById(this.selectedId) : null;
+
+    if (returnRecord) {
+      const site = sites.find(s => s.id === returnRecord.siteId);
+      const mat = materials.find(m => m.id === returnRecord.materialId);
+      
+      return `
+        <div class="details-view" style="padding: 20px; background: #f8fafc; border-radius: 8px;">
+          <h4 style="margin-top: 0; color: #0f172a; margin-bottom: 16px;">Site Return Details</h4>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+            <div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Site Name</div>
+              <div style="font-weight: 500;">${site ? site.name : 'Unknown'}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Token Number</div>
+              <div style="font-weight: 500;">${site && site.tokenNumber ? site.tokenNumber : '-'}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Date</div>
+              <div style="font-weight: 500;">${new Date(returnRecord.date).toLocaleDateString()}</div>
+            </div>
+            <div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Material</div>
+              <div style="font-weight: 500;">${mat ? mat.name : 'Unknown'} (${mat ? mat.sku : ''})</div>
+            </div>
+            <div>
+              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Quantity Returned</div>
+              <div style="font-weight: 500; font-size: 1.1rem; color: #0f172a;">${returnRecord.quantity} ${mat ? mat.unit : ''}</div>
+            </div>
+          </div>
+          
+          ${returnRecord.notes ? `
+          <div style="margin-top: 16px;">
+            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Notes</div>
+            <div style="padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem;">
+              ${returnRecord.notes}
+            </div>
+          </div>
+          ` : ''}
+          
+          <div class="mt-4">
+            <button class="btn btn-outline" onclick="IncomingPage.newRecord()">Close View</button>
+          </div>
+        </div>
+      `;
+    }
+
+    const record = null; // We no longer edit Incoming records from this list since it's just returns now.
 
     const items = record ? record.items : this.formItems;
     const totalAmount = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
@@ -260,10 +309,6 @@ var IncomingPage = {
 
   selectRecord(id) {
     this.selectedId = id;
-    const record = Store.Incoming.getById(id);
-    if (record) {
-      this.formItems = [...record.items];
-    }
     const container = document.getElementById('page-container');
     if (container) {
       container.innerHTML = this.render();
