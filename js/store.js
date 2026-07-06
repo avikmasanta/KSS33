@@ -40,11 +40,18 @@ const Store = (() => {
   function initFromLocal() {
     const CACHE_VERSION = 'kss33_v4';
     if (localStorage.getItem('bm_cache_version') !== CACHE_VERSION) {
+      // Clear old cache keys if version mismatch
+      Object.keys(endpointMap).forEach(key => localStorage.removeItem(key));
       localStorage.setItem('bm_cache_version', CACHE_VERSION);
     }
     Object.keys(endpointMap).forEach(key => {
       const config = endpointMap[key];
-      cache[config.cacheKey] = JSON.parse(localStorage.getItem(key)) || [];
+      try {
+        cache[config.cacheKey] = JSON.parse(localStorage.getItem(key)) || [];
+      } catch (err) {
+        console.error('Error parsing localStorage for', key, err);
+        cache[config.cacheKey] = [];
+      }
     });
   }
 

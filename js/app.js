@@ -17,7 +17,11 @@ var App = (() => {
 
   async function init() {
     // 1. Initialize Store and connect to cloud DB
-    await Store.init();
+    try {
+      await Store.init();
+    } catch (err) {
+      console.error('Failed to initialize Store:', err);
+    }
 
     // 2. Hide database loader overlay with a smooth fade-out animation
     const loader = document.getElementById('db-loader-screen');
