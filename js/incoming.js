@@ -151,7 +151,8 @@ var IncomingPage = {
           </div>
           ` : ''}
           
-          <div class="mt-4">
+          <div class="mt-4" style="display: flex; gap: 8px;">
+            ${site ? `<button class="btn btn-primary" onclick="App.navigate('site-details', '${site.id}')">${Icons.box} Go to Dashboard</button>` : ''}
             <button class="btn btn-outline" onclick="IncomingPage.newRecord()">Close View</button>
           </div>
         </div>
