@@ -36,55 +36,68 @@ const Store = (() => {
     bm_sitePayments: { cacheKey: 'sitePayments', url: 'sitePayments' }
   };
 
-  // Load all collections from API
-  async function init() {
-    // Version-based cache purge: if version changes, wipe stale localStorage data
+  // Phase 1: Load from localStorage INSTANTLY (zero wait)
+  function initFromLocal() {
     const CACHE_VERSION = 'kss33_v4';
     if (localStorage.getItem('bm_cache_version') !== CACHE_VERSION) {
       localStorage.setItem('bm_cache_version', CACHE_VERSION);
     }
-
-    try {
-      const keys = Object.keys(endpointMap);
-      await Promise.all(keys.map(async (key) => {
-        const config = endpointMap[key];
-        const localData = JSON.parse(localStorage.getItem(key)) || [];
-        try {
-          // 10 second timeout so slow Render cold-starts don't block the UI
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 10000);
-          const res = await fetch(`${API_URL}/${config.url}`, { signal: controller.signal });
-          clearTimeout(timer);
-
-          if (res.ok) {
-            const cloudData = await res.json();
-            // Only trust cloud data if it has records, OR local is also empty
-            if (cloudData.length > 0 || localData.length === 0) {
-              cache[config.cacheKey] = cloudData;
-              persistLocal(key, cloudData);
-            } else {
-              // Cloud returned empty but we have local data — keep local data
-              cache[config.cacheKey] = localData;
-            }
-          } else {
-            throw new Error(`Failed HTTP status: ${res.status}`);
-          }
-        } catch (err) {
-          console.warn(`Failed to fetch ${config.url} from API:`, err.message);
-          // Fallback to localStorage if the backend is down or timed out
-          cache[config.cacheKey] = localData;
-        }
-      }));
-
-      // Seed default materials if none exist anywhere
-      if (cache.materials.length === 0) {
-        await seedDefaultMaterials();
-      }
-    } catch (e) {
-      console.error('Store init error:', e);
-    }
+    Object.keys(endpointMap).forEach(key => {
+      const config = endpointMap[key];
+      cache[config.cacheKey] = JSON.parse(localStorage.getItem(key)) || [];
+    });
   }
 
+  // Phase 2: Sync with cloud in background, refresh UI silently when done
+  async function syncFromCloud() {
+    const keys = Object.keys(endpointMap);
+    let anyUpdated = false;
+
+    await Promise.all(keys.map(async (key) => {
+      const config = endpointMap[key];
+      const localData = cache[config.cacheKey];
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        const res = await fetch(`${API_URL}/${config.url}`, { signal: controller.signal });
+        clearTimeout(timer);
+
+        if (res.ok) {
+          const cloudData = await res.json();
+          if (cloudData.length > 0 || localData.length === 0) {
+            cache[config.cacheKey] = cloudData;
+            persistLocal(key, cloudData);
+            anyUpdated = true;
+          }
+        }
+      } catch (err) {
+        // Backend unavailable — keep using local data silently
+      }
+    }));
+
+    // Seed materials if completely empty
+    if (cache.materials.length === 0) {
+      await seedDefaultMaterials();
+      anyUpdated = true;
+    }
+
+    return anyUpdated;
+  }
+
+  // Main init: instant local load, then background cloud sync
+  async function init() {
+    initFromLocal();
+    // Background cloud sync — does NOT block the UI
+    syncFromCloud().then(updated => {
+      if (updated) {
+        // Silently refresh current page with fresh cloud data
+        const hash = window.location.hash.replace('#', '') || 'dashboard';
+        if (window.App && typeof window.App.navigate === 'function') {
+          window.App.navigate(hash);
+        }
+      }
+    });
+  }
 
   // Backup sync to localStorage for offline redundancy
   function persistLocal(key, data) {
