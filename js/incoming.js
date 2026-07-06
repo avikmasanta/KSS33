@@ -8,7 +8,7 @@ var IncomingPage = {
   formItems: [{ materialId: '', quantity: '', rate: '', amount: 0 }],
 
   render() {
-    let records = Store.Incoming.getAll().sort((a, b) => new Date(b.date) - new Date(a.date));
+    let records = Store.SiteReturns.getAll().sort((a, b) => new Date(b.date) - new Date(a.date));
     
     const materials = Store.Materials.getAll();
     const sites = Store.Sites.getAll();
@@ -16,22 +16,14 @@ var IncomingPage = {
     if (this.searchTerm) {
       const st = this.searchTerm.toLowerCase();
       records = records.filter(r => {
-        let destStr = r.destinationType === 'warehouse' ? 'warehouse' : '';
-        if (r.destinationType === 'site' && r.destinationSiteId) {
-          const site = sites.find(s => s.id === r.destinationSiteId);
-          if (site) destStr = (site.name + ' ' + (site.customerName || '')).toLowerCase();
-        }
+        const site = sites.find(s => s.id === r.siteId);
+        const mat = materials.find(m => m.id === r.materialId);
         
-        const materialNames = (r.items || []).map(i => {
-           const m = materials.find(mat => mat.id === i.materialId);
-           return m ? m.name.toLowerCase() : '';
-        }).join(' ');
+        const siteStr = site ? site.name.toLowerCase() : '';
+        const matStr = mat ? mat.name.toLowerCase() : '';
 
-        return (r.supplier || '').toLowerCase().includes(st) ||
-               (r.invoiceNo || '').toLowerCase().includes(st) ||
-               (r.referenceNo || '').toLowerCase().includes(st) ||
-               destStr.includes(st) ||
-               materialNames.includes(st) ||
+        return siteStr.includes(st) ||
+               matStr.includes(st) ||
                (r.date || '').includes(st);
       });
     }
@@ -61,20 +53,21 @@ var IncomingPage = {
           </div>
           <div id="incoming-list">
             ${records.map(r => {
-              const totalAmt = (r.items || []).reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
-              let destStr = 'Warehouse';
-              if (r.destinationType === 'site' && r.destinationSiteId) {
-                const site = sites.find(s => s.id === r.destinationSiteId);
-                if (site) destStr = `Site: ${site.name} (${site.customerName || 'Unknown'})`;
-              }
+              const site = sites.find(s => s.id === r.siteId);
+              const mat = materials.find(m => m.id === r.materialId);
+              
+              const siteName = site ? site.name : 'Unknown Site';
+              const matName = mat ? mat.name : 'Unknown Material';
+              const sku = mat && mat.sku ? mat.sku : '';
+              
               return `
-                <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" onclick="IncomingPage.selectRecord('${r.id}')">
+                <div class="list-item" style="cursor: default;">
                   <div class="flex items-center justify-between">
-                    <div class="item-title">${r.supplier || 'Unknown Supplier'}</div>
-                    <span class="badge badge-incoming">Incoming</span>
+                    <div class="item-title">${siteName}</div>
+                    <span class="badge badge-incoming">Returned</span>
                   </div>
-                  <div class="item-sub">${r.invoiceNo || r.referenceNo || '-'} • ${destStr} • ${new Date(r.date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</div>
-                  <div class="item-sub" style="font-weight:600;color:var(--text-primary)">₹ ${totalAmt.toLocaleString('en-IN', {minimumFractionDigits:2})}</div>
+                  <div class="item-sub">${matName} ${sku} • Qty: ${r.quantity}</div>
+                  <div class="item-sub" style="font-weight:600;color:var(--text-primary)">${new Date(r.date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</div>
                 </div>
               `;
             }).join('')}
@@ -96,10 +89,7 @@ var IncomingPage = {
   },
 
   init() {
-    const records = Store.Incoming.getAll();
-    if (records.length > 0 && !this.selectedId && !this.searchTerm) {
-      this.selectedId = records[records.length - 1].id;
-    }
+    this.selectedId = null; // Always show a blank form on the right for NEW supplier purchases
   },
 
   onSearch(e) {
