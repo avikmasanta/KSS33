@@ -119,7 +119,36 @@ const Store = (() => {
   // Main init: instant local load, then silent background cloud sync
   async function init() {
     initFromLocal();
-    syncFromCloud(); // Fire and forget — never blocks UI, never auto-navigates
+    syncFromCloud().then(() => {
+      // Clean up any orphaned records (from before cascade delete was implemented)
+      const validSiteIds = new Set(cache.sites.map(s => s.id));
+      
+      const cleanOrphans = (store, cacheKey, siteIdField = 'siteId') => {
+        if (!cache[cacheKey]) return;
+        cache[cacheKey].forEach(record => {
+          const sId = record[siteIdField];
+          if (sId && !validSiteIds.has(sId)) {
+            store.remove(record.id);
+          }
+        });
+      };
+
+      cleanOrphans(OutgoingStore, 'outgoing');
+      cleanOrphans(ReturnsStore, 'siteReturns');
+      cleanOrphans(UsageStore, 'siteUsage');
+      cleanOrphans(DamagedStore, 'siteDamaged');
+      cleanOrphans(ExpensesStore, 'siteExpenses');
+      cleanOrphans(PaymentsStore, 'sitePayments');
+      
+      // Incoming has destinationSiteId
+      if (cache.incoming) {
+        cache.incoming.forEach(record => {
+          if (record.destinationType === 'site' && record.destinationSiteId && !validSiteIds.has(record.destinationSiteId)) {
+            IncomingStore.remove(record.id);
+          }
+        });
+      }
+    }); // Fire and forget
   }
 
 
