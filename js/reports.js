@@ -7,11 +7,7 @@ var ReportsPage = {
     const reports = [
       { id: 'stock-summary', title: 'Stock Summary Report', desc: 'Current stock levels across all products', icon: 'box', color: '#3b82f6', colorBg: '#dbeafe' },
       { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' },
-      { id: 'site-stock', title: 'Site Stock Report', desc: 'Stock distributed across all sites', icon: 'mapPin', color: '#f59e0b', colorBg: '#fef3c7' },
-      { id: 'utilization', title: 'Material Utilization', desc: 'Site-wise utilization & tracking', icon: 'pieChart', color: '#ef4444', colorBg: '#fee2e2' },
-      { id: 'profit-dashboard', title: 'Profit Dashboard', desc: 'Revenue, Expenses, and Profitability', icon: 'trendingUp', color: '#8b5cf6', colorBg: '#ede9fe' },
-      { id: 'product-report', title: 'Product Report', desc: 'Detailed product catalog', icon: 'package', color: '#06b6d4', colorBg: '#cffafe' },
-      { id: 'supplier-report', title: 'Supplier Report', desc: 'Supplier-wise purchase history', icon: 'truck', color: '#64748b', colorBg: '#f1f5f9' }
+      { id: 'site-stock', title: 'Site Stock Report', desc: 'Stock distributed across all sites', icon: 'mapPin', color: '#f59e0b', colorBg: '#fef3c7' }
     ];
 
     return `
