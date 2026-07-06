@@ -16,8 +16,6 @@
   <link rel="stylesheet" href="css/layout.css?v=5">
   <link rel="stylesheet" href="css/pages.css?v=3">
   <link rel="stylesheet" href="css/responsive.css?v=1">
-  <!-- Tom Select CSS for searchable dropdowns -->
-  <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
   <style>
     @keyframes db-spin {
       to { transform: rotate(360deg); }
@@ -56,26 +54,5 @@
   <script src="js/ledger.js?v=7"></script>
   <script src="js/reports.js?v=6"></script>
   <script src="js/app.js?v=9"></script>
-
-  <!-- Tom Select JS -->
-  <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
-  
-  <script>
-    // Automatically initialize TomSelect on elements with class 'searchable-select'
-    const observer = new MutationObserver((mutations) => {
-      if (typeof TomSelect !== 'undefined') {
-        document.querySelectorAll('select.searchable-select:not(.tomselected)').forEach(el => {
-          new TomSelect(el, {
-            create: false,
-            sortField: {
-              field: "text",
-              direction: "asc"
-            }
-          });
-        });
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
-  </script>
 </body>
 </html>
