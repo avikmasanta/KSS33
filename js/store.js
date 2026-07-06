@@ -246,6 +246,15 @@ const Store = (() => {
       return SitesStore.update(id, { status: 'Archived', archivedAt: new Date().toISOString() });
     },
     hardDelete: async (id) => {
+      // Cascade delete all associated records
+      Outgoing.getAll().filter(r => r.siteId === id).forEach(r => Outgoing.remove(r.id));
+      Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === id).forEach(r => Incoming.remove(r.id));
+      SiteReturns.getAll().filter(r => r.siteId === id).forEach(r => SiteReturns.remove(r.id));
+      SiteUsage.getAll().filter(r => r.siteId === id).forEach(r => SiteUsage.remove(r.id));
+      SiteDamaged.getAll().filter(r => r.siteId === id).forEach(r => SiteDamaged.remove(r.id));
+      SiteExpenses.getAll().filter(r => r.siteId === id).forEach(r => SiteExpenses.remove(r.id));
+      SitePayments.getAll().filter(r => r.siteId === id).forEach(r => SitePayments.remove(r.id));
+
       // Perform a real deletion from the database
       return await SitesStore.remove(id);
     }
