@@ -174,7 +174,7 @@ var SiteDetailsPage = {
           <div class="modal-body">
             <div class="form-group">
               <label>Material</label>
-              <select class="form-control" id="site-dispatch-material">
+              <select class="form-control searchable-select" id="site-dispatch-material">
                 <option value="">Select material to dispatch...</option>
                 ${Object.keys(materials.reduce((acc, m) => {
                   acc[m.category] = acc[m.category] || [];
@@ -217,7 +217,7 @@ var SiteDetailsPage = {
           <div class="modal-body">
             <div class="form-group">
               <label>Material</label>
-              <select class="form-control" id="site-return-material">
+              <select class="form-control searchable-select" id="site-return-material">
                 <option value="">Select material to return...</option>
                 ${Object.keys(materials.reduce((acc, m) => {
                   const siteStock = Store.Inventory.getSiteCurrentBalance(m.id, site.id);

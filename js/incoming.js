@@ -222,7 +222,7 @@ var IncomingPage = {
                     <tr>
                       <td>${idx + 1}</td>
                       <td>
-                        <select class="form-control" onchange="IncomingPage.onItemChange(${idx}, 'materialId', this.value)">
+                        <select class="form-control searchable-select" onchange="IncomingPage.onItemChange(${idx}, 'materialId', this.value)">
                           <option value="">Select Material</option>
                           ${Object.keys(materials.reduce((acc, m) => {
                             acc[m.category] = acc[m.category] || [];

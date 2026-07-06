@@ -280,9 +280,17 @@ var SitesPage = {
       html += `
         <tr>
           <td>
-            <select class="form-control" onchange="SitesPage.onInitItemChange(${idx}, 'materialId', this.value)">
+            <select class="form-control searchable-select" onchange="SitesPage.onInitItemChange(${idx}, 'materialId', this.value)">
               <option value="">Select Material...</option>
-              ${materials.map(m => `<option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+              ${Object.keys(materials.reduce((acc, m) => {
+                acc[m.category] = acc[m.category] || [];
+                acc[m.category].push(m);
+                return acc;
+              }, {})).map(cat => `
+                <optgroup label="${cat}">
+                  ${materials.filter(m => m.category === cat).map(m => `<option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
+                </optgroup>
+              `).join('')}
             </select>
           </td>
           <td>
