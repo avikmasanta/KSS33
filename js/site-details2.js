@@ -634,7 +634,7 @@ var SiteDetailsPage = {
           .title { font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; }
           .meta { font-size: 14px; color: #64748b; margin-top: 5px; }
           .meta strong { color: #334155; }
-          .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 35px; }
+          .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 35px; }
           .stat-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #f8fafc; }
           .stat-title { font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
           .stat-value { font-size: 20px; font-weight: 700; color: #0f172a; }
@@ -676,10 +676,6 @@ var SiteDetailsPage = {
           <div class="stat-card">
             <div class="stat-title">Total Received</div>
             <div class="stat-value">${totalReceived.toLocaleString('en-IN')}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Total Used</div>
-            <div class="stat-value">${totalUsed.toLocaleString('en-IN')}</div>
           </div>
           <div class="stat-card">
             <div class="stat-title">Total Returned</div>
