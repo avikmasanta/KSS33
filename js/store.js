@@ -39,10 +39,8 @@ const Store = (() => {
   // Load all collections from API
   async function init() {
     // Version-based cache purge: if version changes, wipe stale localStorage data
-    const CACHE_VERSION = 'kss33_v3';
+    const CACHE_VERSION = 'kss33_v4';
     if (localStorage.getItem('bm_cache_version') !== CACHE_VERSION) {
-      const keysToWipe = Object.keys(endpointMap);
-      keysToWipe.forEach(k => localStorage.removeItem(k));
       localStorage.setItem('bm_cache_version', CACHE_VERSION);
     }
 
@@ -50,23 +48,35 @@ const Store = (() => {
       const keys = Object.keys(endpointMap);
       await Promise.all(keys.map(async (key) => {
         const config = endpointMap[key];
+        const localData = JSON.parse(localStorage.getItem(key)) || [];
         try {
-          const res = await fetch(`${API_URL}/${config.url}`);
+          // 10 second timeout so slow Render cold-starts don't block the UI
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10000);
+          const res = await fetch(`${API_URL}/${config.url}`, { signal: controller.signal });
+          clearTimeout(timer);
+
           if (res.ok) {
-            cache[config.cacheKey] = await res.json();
-            // Keep localStorage in sync with latest cloud data
-            persistLocal(key, cache[config.cacheKey]);
+            const cloudData = await res.json();
+            // Only trust cloud data if it has records, OR local is also empty
+            if (cloudData.length > 0 || localData.length === 0) {
+              cache[config.cacheKey] = cloudData;
+              persistLocal(key, cloudData);
+            } else {
+              // Cloud returned empty but we have local data — keep local data
+              cache[config.cacheKey] = localData;
+            }
           } else {
             throw new Error(`Failed HTTP status: ${res.status}`);
           }
         } catch (err) {
-          console.warn(`Failed to fetch ${config.url} from API:`, err);
-          // Fallback to localStorage if the backend is down
-          cache[config.cacheKey] = JSON.parse(localStorage.getItem(key)) || [];
+          console.warn(`Failed to fetch ${config.url} from API:`, err.message);
+          // Fallback to localStorage if the backend is down or timed out
+          cache[config.cacheKey] = localData;
         }
       }));
 
-      // Seed default materials if none exist in the database
+      // Seed default materials if none exist anywhere
       if (cache.materials.length === 0) {
         await seedDefaultMaterials();
       }
@@ -74,6 +84,7 @@ const Store = (() => {
       console.error('Store init error:', e);
     }
   }
+
 
   // Backup sync to localStorage for offline redundancy
   function persistLocal(key, data) {
