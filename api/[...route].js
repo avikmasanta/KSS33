@@ -67,8 +67,9 @@ module.exports = async function handler(req, res) {
     return json(res, 500, { error: 'DB connection failed: ' + err.message });
   }
 
-  // Parse URL: /api/sites, /api/sites/123, /api/sites/123/cascade
-  const segments = (req.query.route || []);
+  // Parse URL path directly: /api/sites, /api/sites/123, /api/sites/123/cascade
+  const rawPath = req.url.split('?')[0]; // strip query string
+  const segments = rawPath.replace(/^\/api\/?/, '').split('/').filter(Boolean);
   const collection = segments[0];
   const id = segments[1];
   const action = segments[2]; // e.g. "cascade"
