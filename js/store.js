@@ -287,6 +287,8 @@ const Store = (() => {
       const materials   = cache.materials;
       const sites       = cache.sites;
 
+      const allIncoming = cache.incoming;
+
       let moves = [];
       // Show Site Returns as Incoming
       allReturns.forEach(r => {
@@ -299,6 +301,19 @@ const Store = (() => {
           quantity: r.quantity, id: r.id
         });
       });
+      // Show Warehouse purchases as Incoming
+      allIncoming.forEach(r => {
+        (r.items || []).forEach(i => {
+          const mat = materials.find(m => m.id === i.materialId);
+          moves.push({
+            date: r.date, type: 'Incoming', destinationType: 'warehouse',
+            destination: 'Warehouse',
+            material: mat ? mat.name : 'Unknown', sku: mat ? mat.sku : '',
+            quantity: i.quantity, id: r.id
+          });
+        });
+      });
+      // Show Outgoing
       allOutgoing.forEach(r => {
         (r.items || []).forEach(i => {
           const mat = materials.find(m => m.id === i.materialId);
