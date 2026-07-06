@@ -87,6 +87,28 @@ const Store = (() => {
     if (cache.materials.length === 0) {
       await seedDefaultMaterials();
     }
+
+    // Auto-delete archived sites older than 3 days
+    cleanupOldArchives();
+  }
+
+  function cleanupOldArchives() {
+    const now = new Date();
+    const threeDays = 3 * 24 * 60 * 60 * 1000;
+    cache.sites.forEach(site => {
+      if (site.status === 'Archived' && site.archivedAt) {
+        const archivedDate = new Date(site.archivedAt);
+        if (now - archivedDate > threeDays) {
+          // Permanently delete site and all its dependencies
+          console.log(`Auto-deleting archived site: ${site.id}`);
+          fetch(`${API_URL}/sites/${site.id}?action=cascade`, { method: 'DELETE' }).catch(console.error);
+          
+          // Remove from local cache
+          cache.sites = cache.sites.filter(s => s.id !== site.id);
+          persistLocal('bm_sites', cache.sites);
+        }
+      }
+    });
   }
 
   // Main init: instant local load, then silent background cloud sync
@@ -215,8 +237,8 @@ const Store = (() => {
     add: (s) => SitesStore.add(s),
     update: (id, s) => SitesStore.update(id, s),
     remove: (id) => {
-      // Soft Delete: update status to 'Archived' instead of hard deleting
-      return SitesStore.update(id, { status: 'Archived' });
+      // Soft Delete: update status to 'Archived' and set archivedAt timestamp
+      return SitesStore.update(id, { status: 'Archived', archivedAt: new Date().toISOString() });
     }
   };
 
