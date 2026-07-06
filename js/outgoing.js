@@ -168,7 +168,15 @@ var OutgoingPage = {
                       <td>
                         <select class="form-control" onchange="OutgoingPage.onItemChange(${idx}, 'materialId', this.value)">
                           <option value="">Select Material</option>
-                          ${materials.map(p => `<option value="${p.id}" ${item.materialId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+                          ${Object.keys(materials.reduce((acc, m) => {
+                            acc[m.category] = acc[m.category] || [];
+                            acc[m.category].push(m);
+                            return acc;
+                          }, {})).map(cat => `
+                            <optgroup label="${cat}">
+                              ${materials.filter(m => m.category === cat).map(p => `<option value="${p.id}" ${item.materialId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}
+                            </optgroup>
+                          `).join('')}
                         </select>
                       </td>
                       <td><input type="number" class="form-control" value="${item.quantity || ''}" placeholder="0" onchange="OutgoingPage.onItemChange(${idx}, 'quantity', this.value)"></td>

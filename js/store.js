@@ -87,6 +87,11 @@ const Store = (() => {
     if (cache.materials.length === 0) {
       await seedDefaultMaterials();
     }
+    
+    // TEMPORARY: Force wipe and re-seed with new materials if the old ones exist
+    if (cache.materials.some(m => m.name === 'Cement (OPC 53)')) {
+      await seedDefaultMaterials(true);
+    }
 
     // Auto-delete archived sites older than 3 days
     cleanupOldArchives();
@@ -434,17 +439,32 @@ const Store = (() => {
   };
 
   // Seeding helper to post default materials to DB
-  async function seedDefaultMaterials() {
+  async function seedDefaultMaterials(force = false) {
+    if (force) {
+      // Wipe existing materials
+      await Promise.all(cache.materials.map(async (m) => {
+        try {
+          await fetch(`${API_URL}/materials/${m.id}`, { method: 'DELETE' });
+        } catch(e) {}
+      }));
+      cache.materials = [];
+    }
+
     const defaults = [
-      { name: 'Cement (OPC 53)', sku: 'CEM-01', category: 'Raw Materials', unit: 'Bags', unitPrice: 350, reorderLevel: 100, status: 'Active' },
-      { name: 'Steel TMT 12mm', sku: 'STL-12', category: 'Raw Materials', unit: 'MT', unitPrice: 55000, reorderLevel: 5, status: 'Active' },
-      { name: 'Red Bricks', sku: 'BRK-01', category: 'Raw Materials', unit: 'Nos', unitPrice: 8, reorderLevel: 5000, status: 'Active' },
-      { name: 'River Sand', sku: 'SND-01', category: 'Raw Materials', unit: 'CFT', unitPrice: 60, reorderLevel: 1000, status: 'Active' },
-      { name: 'Cuplock Vertical 3m', sku: 'CUP-V3', category: 'Scaffolding', unit: 'Nos', unitPrice: 800, reorderLevel: 100, status: 'Active' },
-      { name: 'Cuplock Ledger 1.5m', sku: 'CUP-L1', category: 'Scaffolding', unit: 'Nos', unitPrice: 400, reorderLevel: 200, status: 'Active' },
-      { name: 'Shuttering Ply 12mm', sku: 'PLY-12', category: 'Scaffolding', unit: 'SqFt', unitPrice: 45, reorderLevel: 500, status: 'Active' },
-      { name: 'Balli', sku: 'BAL-01', category: 'Scaffolding', unit: 'Nos', unitPrice: 150, reorderLevel: 50, status: 'Active' },
-      { name: 'Props', sku: 'PROP-01', category: 'Scaffolding', unit: 'Nos', unitPrice: 100, reorderLevel: 50, status: 'Active' }
+      { name: 'Shuttering plate 2\'x4\'', sku: 'SHUT-2x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Shuttering plate 18"x4\'', sku: 'SHUT-18x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Shuttering plate 15"x4\'', sku: 'SHUT-15x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Shuttering plate 12"x4\'', sku: 'SHUT-12x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Shuttering plate 9"x4\'', sku: 'SHUT-9x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Shuttering plate 6"x4\'', sku: 'SHUT-6x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      
+      { name: 'Channels', sku: 'CHAN', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Balli', sku: 'BAL', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Props', sku: 'PROP', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Pipe', sku: 'PIPE', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Ledger', sku: 'LEDG', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      
+      { name: 'Miscellaneous', sku: 'MISC', category: 'General', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' }
     ];
 
     await Promise.all(defaults.map(async (m) => {

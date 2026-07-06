@@ -176,9 +176,15 @@ var SiteDetailsPage = {
               <label>Material</label>
               <select class="form-control" id="site-dispatch-material">
                 <option value="">Select material to dispatch...</option>
-                ${materials.map(m => {
-          return `<option value="${m.id}">${m.name}</option>`;
-        }).join('')}
+                ${Object.keys(materials.reduce((acc, m) => {
+                  acc[m.category] = acc[m.category] || [];
+                  acc[m.category].push(m);
+                  return acc;
+                }, {})).map(cat => `
+                  <optgroup label="${cat}">
+                    ${materials.filter(m => m.category === cat).map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
+                  </optgroup>
+                `).join('')}
               </select>
             </div>
             <div class="form-group">
@@ -213,14 +219,25 @@ var SiteDetailsPage = {
               <label>Material</label>
               <select class="form-control" id="site-return-material">
                 <option value="">Select material to return...</option>
-                ${materials.map(m => {
-          const siteStock = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
-          if (siteStock > 0) {
-            const totalSent = Store.Inventory.getSiteTotalSent(m.id, site.id);
-            return `<option value="${m.id}">${m.name} (At site: ${siteStock} | Total Dispatched: ${totalSent})</option>`;
-          }
-          return '';
-        }).join('')}
+                ${Object.keys(materials.reduce((acc, m) => {
+                  const siteStock = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
+                  if (siteStock > 0) {
+                    acc[m.category] = acc[m.category] || [];
+                    acc[m.category].push(m);
+                  }
+                  return acc;
+                }, {})).map(cat => `
+                  <optgroup label="${cat}">
+                    ${materials.filter(m => m.category === cat).map(m => {
+                      const siteStock = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
+                      if (siteStock > 0) {
+                        const totalSent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+                        return `<option value="${m.id}">${m.name} (At site: ${siteStock} | Total Dispatched: ${totalSent})</option>`;
+                      }
+                      return '';
+                    }).join('')}
+                  </optgroup>
+                `).join('')}
               </select>
             </div>
             <div class="form-group">
