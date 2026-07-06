@@ -100,12 +100,6 @@ var MaterialsPage = {
                   <input type="number" class="form-control" id="prod-price" placeholder="e.g., 350" min="0" step="0.01">
                 </div>
                 <div class="form-group">
-                  <label>Rental Rate / Day (₹)</label>
-                  <input type="number" class="form-control" id="prod-rental" placeholder="e.g., 10" min="0" step="0.01">
-                </div>
-              </div>
-              <div class="form-row">
-                <div class="form-group">
                   <label>Reorder Level</label>
                   <input type="number" class="form-control" id="prod-reorder" placeholder="50">
                 </div>
@@ -278,7 +272,6 @@ var MaterialsPage = {
     document.getElementById('prod-category').value = p.category || 'Other';
     document.getElementById('prod-unit').value = p.unit || 'Bag';
     document.getElementById('prod-price').value = p.unitPrice || '';
-    document.getElementById('prod-rental').value = p.rentalRate || '';
     document.getElementById('prod-reorder').value = p.reorderLevel || '';
     document.getElementById('prod-status').value = p.status || 'Active';
     this.openModal(id);
@@ -292,7 +285,6 @@ var MaterialsPage = {
       category: document.getElementById('prod-category').value,
       unit: document.getElementById('prod-unit').value,
       unitPrice: parseFloat(document.getElementById('prod-price').value) || 0,
-      rentalRate: parseFloat(document.getElementById('prod-rental').value) || 0,
       reorderLevel: parseInt(document.getElementById('prod-reorder').value) || 50,
       status: document.getElementById('prod-status').value
     };
