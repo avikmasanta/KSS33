@@ -30,6 +30,9 @@ function createCrudRoutes(modelName, Model) {
   // Create
   r.post('/', async (req, res) => {
     try {
+      if (req.body.id) {
+        req.body._id = req.body.id;
+      }
       if (!req.body.createdAt) req.body.createdAt = new Date().toISOString().split('T')[0];
       const newItem = new Model(req.body);
       const saved = await newItem.save();

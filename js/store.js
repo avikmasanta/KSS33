@@ -95,7 +95,7 @@ const Store = (() => {
         fetch(`${API_URL}/${path}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify(newItem)
         })
         .then(async (res) => {
           if (res.ok) {
