@@ -14,6 +14,7 @@ const schemaOptions = {
 };
 
 const CustomerSchema = new mongoose.Schema({
+  _id: String,
   name: String,
   email: String,
   phone: String,
@@ -24,6 +25,7 @@ const CustomerSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const SiteSchema = new mongoose.Schema({
+  _id: String,
   customerId: String,
   name: String,
   customerName: String,
@@ -37,6 +39,7 @@ const SiteSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const MaterialSchema = new mongoose.Schema({
+  _id: String,
   name: String,
   sku: String,
   category: String,
@@ -48,6 +51,7 @@ const MaterialSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const IncomingSchema = new mongoose.Schema({
+  _id: String,
   date: String,
   referenceNo: String,
   vendorName: String,
@@ -63,6 +67,7 @@ const IncomingSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const OutgoingSchema = new mongoose.Schema({
+  _id: String,
   date: String,
   referenceNo: String,
   siteId: String,
@@ -75,6 +80,7 @@ const OutgoingSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const SiteUsageSchema = new mongoose.Schema({
+  _id: String,
   siteId: String,
   materialId: String,
   quantity: Number,
@@ -84,6 +90,7 @@ const SiteUsageSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const SiteReturnsSchema = new mongoose.Schema({
+  _id: String,
   siteId: String,
   materialId: String,
   quantity: Number,
@@ -93,6 +100,7 @@ const SiteReturnsSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const SiteDamagedSchema = new mongoose.Schema({
+  _id: String,
   siteId: String,
   materialId: String,
   quantity: Number,
@@ -102,6 +110,7 @@ const SiteDamagedSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const SiteExpensesSchema = new mongoose.Schema({
+  _id: String,
   siteId: String,
   date: String,
   amount: Number,
@@ -111,6 +120,7 @@ const SiteExpensesSchema = new mongoose.Schema({
 }, schemaOptions);
 
 const SitePaymentsSchema = new mongoose.Schema({
+  _id: String,
   siteId: String,
   date: String,
   amount: Number,
