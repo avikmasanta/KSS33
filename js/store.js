@@ -48,14 +48,12 @@ const Store = (() => {
     });
   }
 
-  // Phase 2: Sync with cloud in background, refresh UI silently when done
+  // Phase 2: Sync with cloud in background — silently updates cache + localStorage
   async function syncFromCloud() {
     const keys = Object.keys(endpointMap);
-    let anyUpdated = false;
 
     await Promise.all(keys.map(async (key) => {
       const config = endpointMap[key];
-      const localData = cache[config.cacheKey];
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 15000);
@@ -64,40 +62,32 @@ const Store = (() => {
 
         if (res.ok) {
           const cloudData = await res.json();
-          if (cloudData.length > 0 || localData.length === 0) {
+          // Read CURRENT localStorage at response time (not at sync start — avoids race condition)
+          const currentLocal = JSON.parse(localStorage.getItem(key)) || [];
+          // Only replace local with cloud if cloud has data, or local is also empty
+          // This prevents an empty/stale cloud response from wiping fresh local data
+          if (cloudData.length > 0 || currentLocal.length === 0) {
             cache[config.cacheKey] = cloudData;
             persistLocal(key, cloudData);
-            anyUpdated = true;
           }
         }
       } catch (err) {
-        // Backend unavailable — keep using local data silently
+        // Network error — silently keep local data
       }
     }));
 
-    // Seed materials if completely empty
+    // Seed default materials if completely empty everywhere
     if (cache.materials.length === 0) {
       await seedDefaultMaterials();
-      anyUpdated = true;
     }
-
-    return anyUpdated;
   }
 
-  // Main init: instant local load, then background cloud sync
+  // Main init: instant local load, then silent background cloud sync
   async function init() {
     initFromLocal();
-    // Background cloud sync — does NOT block the UI
-    syncFromCloud().then(updated => {
-      if (updated) {
-        // Silently refresh current page with fresh cloud data
-        const hash = window.location.hash.replace('#', '') || 'dashboard';
-        if (window.App && typeof window.App.navigate === 'function') {
-          window.App.navigate(hash);
-        }
-      }
-    });
+    syncFromCloud(); // Fire and forget — never blocks UI, never auto-navigates
   }
+
 
   // Backup sync to localStorage for offline redundancy
   function persistLocal(key, data) {
