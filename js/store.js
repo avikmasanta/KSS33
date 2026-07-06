@@ -203,21 +203,32 @@ const Store = (() => {
     }
   };
 
-  // ---- Auth ----
   const Auth = {
-    isLoggedIn: () => !!localStorage.getItem('bm_user'),
-    getUser: () => {
-      const stored = localStorage.getItem('bm_user');
-      return stored ? JSON.parse(stored) : { name: 'Harsh' };
-    },
-    login: (password) => {
-      if (password === 'kss33') {
-        localStorage.setItem('bm_user', JSON.stringify({ name: 'Harsh', role: 'admin' }));
-        return true;
+    login(email, password) {
+      const users = [
+        { email: 'admin@kss33.com', password: 'admin123', name: 'Admin User', role: 'Admin' },
+        { email: 'manager@kss33.com', password: 'manager123', name: 'Site Manager', role: 'Manager' },
+        { email: 'staff@kss33.com', password: 'staff123', name: 'Staff Member', role: 'Staff' }
+      ];
+      const user = users.find(u => u.email === email && u.password === password);
+      if (user) {
+        const session = { ...user };
+        delete session.password;
+        localStorage.setItem('bm_user', JSON.stringify(session));
+        return session;
       }
-      return false;
+      return null;
     },
-    logout: () => { localStorage.removeItem('bm_user'); }
+    getUser() {
+      try { return JSON.parse(localStorage.getItem('bm_user')); }
+      catch { return null; }
+    },
+    logout() {
+      localStorage.removeItem('bm_user');
+    },
+    isLoggedIn() {
+      return !!this.getUser();
+    }
   };
 
   // ---- Inventory Utility ----
