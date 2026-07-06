@@ -575,8 +575,31 @@ var SiteDetailsPage = {
     
     csv += 'Date,Type,Material,Quantity,Unit,Reference,Notes\n';
     rows.forEach(r => {
-      csv += `${r.date},"${r.type}","${r.material}",${r.qty},"${r.unit}","${r.ref}","${r.note}"\n`;
+      csv += `${r.date},"${r.type}","${r.material}",${r.qty},"${r.unit}","${r.ref}","${r.note.replace(/\n/g, ' ')}"\n`;
     });
+
+    const payments = Store.SitePayments.getAll().filter(p => p.siteId === site.id);
+    if (payments.length > 0) {
+      csv += '\n\nPAYMENT HISTORY\n';
+      csv += 'Date,Amount,Payment Mode,Reference,Notes\n';
+      payments.forEach(p => {
+        csv += `${p.date},${p.amount},"${p.paymentMode}","${(p.reference || '-').replace(/\n/g, ' ')}","${(p.notes || '-').replace(/\n/g, ' ')}"\n`;
+      });
+    }
+
+    let hasStock = false;
+    let stockCsv = '\n\nCURRENT INVENTORY AT SITE\n';
+    stockCsv += 'Material,Category,Unit,Total Received,Total Returned,Current Balance\n';
+    materials.forEach(m => {
+      const balance = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
+      if (balance > 0) {
+        hasStock = true;
+        const totalReceived = Store.Inventory.getSiteTotalSent(m.id, site.id);
+        const totalReturned = Store.Inventory.getSiteReturns(m.id, site.id);
+        stockCsv += `"${m.name}","${m.category}","${m.unit}",${totalReceived},${totalReturned},${balance}\n`;
+      }
+    });
+    if (hasStock) csv += stockCsv;
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);

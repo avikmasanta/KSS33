@@ -132,6 +132,7 @@ var SitesPage = {
       const matchSearch = !st ||
         (s.name || '').toLowerCase().includes(st) ||
         (s.customerName || '').toLowerCase().includes(st) ||
+        (s.tokenNumber || '').toLowerCase().includes(st) ||
         (s.gstNumber || '').toLowerCase().includes(st) ||
         (s.contactNumber || '').toLowerCase().includes(st) ||
         (s.address || '').toLowerCase().includes(st);
