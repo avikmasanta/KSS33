@@ -880,7 +880,6 @@ var SiteDetailsPage = {
               <th>Material</th>
               <th>Total Sent</th>
               <th style="color: var(--danger)">Returned</th>
-              <th style="color: #d97706">Used</th>
               <th style="color: var(--success); font-weight: 700;">Remaining Balance</th>
             </tr>
           </thead>
@@ -890,7 +889,6 @@ var SiteDetailsPage = {
                 <td><strong>${r.material}</strong></td>
                 <td>${r.sent.toLocaleString('en-IN')} ${r.unit}</td>
                 <td style="color: var(--danger); font-weight: 500;">${r.returned > 0 ? r.returned.toLocaleString('en-IN') : '-'} ${r.returned > 0 ? r.unit : ''}</td>
-                <td style="color: #d97706; font-weight: 500;">${r.used > 0 ? r.used.toLocaleString('en-IN') : '-'} ${r.used > 0 ? r.unit : ''}</td>
                 <td><strong style="color: var(--success); font-size: 1.05rem;">${r.remaining.toLocaleString('en-IN')}</strong> ${r.unit}</td>
               </tr>
             `).join('')}
