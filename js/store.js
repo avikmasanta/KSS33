@@ -38,6 +38,14 @@ const Store = (() => {
 
   // Load all collections from API
   async function init() {
+    // Version-based cache purge: if version changes, wipe stale localStorage data
+    const CACHE_VERSION = 'kss33_v3';
+    if (localStorage.getItem('bm_cache_version') !== CACHE_VERSION) {
+      const keysToWipe = Object.keys(endpointMap);
+      keysToWipe.forEach(k => localStorage.removeItem(k));
+      localStorage.setItem('bm_cache_version', CACHE_VERSION);
+    }
+
     try {
       const keys = Object.keys(endpointMap);
       await Promise.all(keys.map(async (key) => {
@@ -46,6 +54,8 @@ const Store = (() => {
           const res = await fetch(`${API_URL}/${config.url}`);
           if (res.ok) {
             cache[config.cacheKey] = await res.json();
+            // Keep localStorage in sync with latest cloud data
+            persistLocal(key, cache[config.cacheKey]);
           } else {
             throw new Error(`Failed HTTP status: ${res.status}`);
           }
