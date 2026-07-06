@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 10px 20px; /* Slightly larger padding for premium feel */
+  padding: 10px 20px;
   border-radius: var(--input-radius);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
@@ -17,10 +17,11 @@
   line-height: 1.4;
   border: 1px solid transparent;
   cursor: pointer;
+  letter-spacing: 0.02em;
 }
 
 .btn:active {
-  transform: translateY(1px);
+  transform: translateY(2px) scale(0.98);
 }
 
 .btn svg {
@@ -29,12 +30,15 @@
 }
 
 .btn-primary {
-  background: var(--primary-500);
+  background: linear-gradient(135deg, var(--primary-500), var(--primary-600));
   color: #ffffff;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .btn-primary:hover {
-  background: var(--primary-600);
+  background: linear-gradient(135deg, var(--primary-600), var(--primary-700));
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
 }
 
 .btn-success {
@@ -232,10 +236,14 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: #f8f9fa;
+  background: rgba(248, 250, 252, 0.8);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border-color);
-  border-top: 1px solid var(--border-color);
+  border-top: none;
   white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 .data-table tbody tr {
@@ -244,7 +252,7 @@
 }
 
 .data-table tbody tr:hover {
-  background: #f8f9fa;
+  background: rgba(241, 245, 249, 0.5);
 }
 
 .data-table tbody td {
@@ -340,6 +348,7 @@
 .form-control:focus {
   border-color: var(--input-border-focus);
   outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15); /* Soft focus ring */
 }
 
 .form-control::placeholder {
@@ -385,7 +394,9 @@ select.form-control {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: var(--z-modal-backdrop);
   align-items: center;
   justify-content: center;
@@ -399,14 +410,19 @@ select.form-control {
 
 .modal {
   background: #ffffff;
-  border-radius: var(--card-radius);
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  border-radius: 20px; /* Modern roundness */
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255,255,255,0.1);
   width: 100%;
   max-width: 560px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp var(--transition-base) ease;
+  animation: slideUpBounce var(--transition-bounce) ease forwards;
+}
+
+@keyframes slideUpBounce {
+  0% { opacity: 0; transform: translateY(40px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .modal-lg {
