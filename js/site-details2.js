@@ -49,7 +49,7 @@ var SiteDetailsPage = {
             <h2 style="margin: 0;">${site.name}</h2>
             <span class="badge ${site.status === 'Active' ? 'badge-success' : site.status === 'Completed' ? 'badge-info' : 'badge-warning'}">${site.status}</span>
           </div>
-          <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Location: ${site.address || '-'}</p>
+          <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Token: <strong>${site.tokenNumber || '-'}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Location: ${site.address || '-'}</p>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
           ${site.status !== 'Completed'
@@ -568,6 +568,7 @@ var SiteDetailsPage = {
 
     let csv = `Site Report - ${site.name}\n`;
     csv += `Site ID,${site.id}\n`;
+    csv += `Token Number,${site.tokenNumber || '-'}\n`;
     csv += `Customer,${site.customerName || '-'}\n`;
     csv += `Location,${site.address || '-'}\n`;
     csv += `Budget,${site.budget || 0}\n\n`;
@@ -657,6 +658,7 @@ var SiteDetailsPage = {
             <div class="title">SITE REPORT: ${site.name}</div>
             <div class="meta">
               Site ID: <strong>${site.id}</strong> | 
+              Token: <strong>${site.tokenNumber || '-'}</strong> | 
               Customer: <strong>${site.customerName || '-'}</strong> | 
               Location: <strong>${site.address || '-'}</strong> |
               Status: <strong>${site.status}</strong>

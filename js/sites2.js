@@ -90,9 +90,15 @@ var SitesPage = {
                   <input type="date" class="form-control" id="site-start-date">
                 </div>
               </div>
-              <div class="form-group">
-                <label>Site Budget / Cost (₹)</label>
-                <input type="number" class="form-control" id="site-budget" placeholder="0.00" min="0" step="1">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Token Number</label>
+                  <input type="text" class="form-control" id="site-token" placeholder="Token Number">
+                </div>
+                <div class="form-group">
+                  <label>Site Budget / Cost (₹)</label>
+                  <input type="number" class="form-control" id="site-budget" placeholder="0.00" min="0" step="1">
+                </div>
               </div>
               <div class="form-group">
                 <label>Location / Address</label>
@@ -178,6 +184,7 @@ var SitesPage = {
                   <div><strong>${s.customerName || '-'}</strong></div>
                   <div class="text-sm text-tertiary">Ph: ${s.contactNumber || '-'}</div>
                   <div class="text-sm text-tertiary">GST: ${s.gstNumber || '-'}</div>
+                  <div class="text-sm text-tertiary">Token: <strong style="color:var(--text-primary)">${s.tokenNumber || '-'}</strong></div>
                 </td>
                 <td class="secondary">${s.address || '-'}</td>
                 <td class="secondary">${formatDate(s.startDate)}</td>
@@ -331,6 +338,7 @@ var SitesPage = {
     document.getElementById('site-status').value = s.status || 'Active';
     document.getElementById('site-start-date').value = s.startDate || '';
     document.getElementById('site-address').value = s.address || '';
+    document.getElementById('site-token').value = s.tokenNumber || '';
     document.getElementById('site-budget').value = s.budget || '';
     this.openModal(id);
   },
@@ -345,6 +353,7 @@ var SitesPage = {
       status: document.getElementById('site-status').value,
       startDate: document.getElementById('site-start-date').value,
       address: document.getElementById('site-address').value.trim(),
+      tokenNumber: document.getElementById('site-token').value.trim(),
       budget: parseFloat(document.getElementById('site-budget').value) || 0
     };
 
