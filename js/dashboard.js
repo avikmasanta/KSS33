@@ -76,10 +76,18 @@ var DashboardPage = {
       <!-- Chart (Full Width) -->
       <div class="card" style="margin-bottom: 24px;">
         <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
-          <div class="chart-header">
+          <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
             <div>
               <h3 style="font-size: 1.1rem; color: #0f172a; margin-bottom: 4px;">Stock movements trend (last 7 days)</h3>
               <p style="font-size: 0.8rem; color: #64748b;">Daily comparison of dispatched vs returned quantities.</p>
+            </div>
+            <div style="display: flex; gap: 16px; font-size: 0.8rem; color: #64748b;">
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 12px; height: 12px; border-radius: 2px; background: #ea580c;"></div> Outgoing (Dispatched)
+              </div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <div style="width: 12px; height: 12px; border-radius: 2px; background: #0f172a;"></div> Incoming (Returned)
+              </div>
             </div>
           </div>
         </div>
@@ -170,15 +178,19 @@ var DashboardPage = {
       dates.push(d.toISOString().split('T')[0]);
     }
 
-    const incoming = Store.Incoming.getAll();
+    const siteReturns = Store.SiteReturns.getAll();
     const outgoing = Store.Outgoing.getAll();
 
     const data = dates.map(date => {
       let inQty = 0;
       let outQty = 0;
-      incoming.filter(r => r.date === date).forEach(r => {
-        inQty += (r.items || []).reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
+      
+      // Calculate Returned (inQty) for this date
+      siteReturns.filter(r => r.date === date).forEach(r => {
+        inQty += (parseFloat(r.quantity) || 0);
       });
+      
+      // Calculate Dispatched (outQty) for this date
       outgoing.filter(r => r.date === date).forEach(r => {
         outQty += (r.items || []).reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
       });

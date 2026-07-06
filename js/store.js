@@ -273,22 +273,21 @@ const Store = (() => {
   // ---- Inventory Utility ----
   const Inventory = {
     getRecentMovements: (limit = 10) => {
-      const allIncoming = cache.incoming;
       const allOutgoing = cache.outgoing;
+      const allReturns  = cache.siteReturns;
       const materials   = cache.materials;
       const sites       = cache.sites;
 
       let moves = [];
-      allIncoming.forEach(r => {
-        (r.items || []).forEach(i => {
-          const mat = materials.find(m => m.id === i.materialId);
-          const destSite = sites.find(s => s.id === r.destinationSiteId);
-          moves.push({
-            date: r.date, type: 'Incoming', destinationType: r.destinationType,
-            destination: r.destinationType === 'site' && destSite ? destSite.name : 'Warehouse',
-            material: mat ? mat.name : 'Unknown', sku: mat ? mat.sku : '',
-            quantity: i.quantity, id: r.id
-          });
+      // Show Site Returns as Incoming
+      allReturns.forEach(r => {
+        const mat = materials.find(m => m.id === r.materialId);
+        const sourceSite = sites.find(s => s.id === r.siteId);
+        moves.push({
+          date: r.date, type: 'Incoming', destinationType: 'site',
+          destination: sourceSite ? sourceSite.name : 'Site',
+          material: mat ? mat.name : 'Unknown', sku: mat ? mat.sku : '',
+          quantity: r.quantity, id: r.id
         });
       });
       allOutgoing.forEach(r => {
