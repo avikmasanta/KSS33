@@ -174,9 +174,14 @@ var SitesPage = {
                 <td>${statusBadge(s.status)}</td>
                 <td>
                   <div class="table-actions">
-                    <button class="btn btn-sm btn-outline" title="View Details" onclick="SitesPage.viewDetails('${s.id}')">${Icons.box} Dashboard</button>
-                    <button class="btn btn-icon btn-ghost" title="Edit" onclick="SitesPage.edit('${s.id}')">${Icons.edit}</button>
-                    <button class="btn btn-icon btn-ghost" title="Delete" onclick="SitesPage.deleteSite('${s.id}')">${Icons.trash}</button>
+                    ${s.status === 'Archived' ? `
+                      <button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success);" title="Restore Site" onclick="SitesPage.restoreSite('${s.id}')">${Icons.refreshCw} Restore</button>
+                      <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);" title="Permanent Delete" onclick="SitesPage.permanentDeleteSite('${s.id}')">${Icons.trash} Permanent Delete</button>
+                    ` : `
+                      <button class="btn btn-sm btn-outline" title="View Details" onclick="SitesPage.viewDetails('${s.id}')">${Icons.box} Dashboard</button>
+                      <button class="btn btn-icon btn-ghost" title="Edit" onclick="SitesPage.edit('${s.id}')">${Icons.edit}</button>
+                      <button class="btn btn-icon btn-ghost" title="Delete" onclick="SitesPage.deleteSite('${s.id}')">${Icons.trash}</button>
+                    `}
                   </div>
                 </td>
               </tr>

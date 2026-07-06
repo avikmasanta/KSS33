@@ -194,6 +194,7 @@ var SitesPage = {
                   <div class="table-actions">
                     ${s.status === 'Archived' ? `
                       <button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success);" title="Restore Site" onclick="SitesPage.restoreSite('${s.id}')">${Icons.refreshCw} Restore</button>
+                      <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);" title="Permanent Delete" onclick="SitesPage.permanentDeleteSite('${s.id}')">${Icons.trash} Permanent Delete</button>
                     ` : `
                       <button class="btn btn-sm btn-outline" title="View Details" onclick="SitesPage.viewDetails('${s.id}')">${Icons.box} Dashboard</button>
                       <button class="btn btn-icon btn-ghost" title="Edit" onclick="SitesPage.edit('${s.id}')">${Icons.edit}</button>
@@ -412,6 +413,13 @@ var SitesPage = {
 
     this.closeModal();
     this.refresh();
+  },
+
+  async permanentDeleteSite(id) {
+    if(confirm('Are you sure you want to PERMANENTLY delete this site? This action cannot be undone and will delete all associated data.')) {
+      await Store.Sites.hardDelete(id);
+      this.refresh();
+    }
   },
 
   deleteSite(id) {

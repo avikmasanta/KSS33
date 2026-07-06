@@ -244,6 +244,10 @@ const Store = (() => {
     remove: (id) => {
       // Soft Delete: update status to 'Archived' and set archivedAt timestamp
       return SitesStore.update(id, { status: 'Archived', archivedAt: new Date().toISOString() });
+    },
+    hardDelete: async (id) => {
+      // Perform a real deletion from the database
+      return await SitesStore.remove(id);
     }
   };
 
