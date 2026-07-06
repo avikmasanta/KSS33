@@ -437,6 +437,17 @@ var ReportsPage = {
     const sites = Store.Sites.getAll();
     const formatNum = (v) => Number(v || 0).toLocaleString('en-IN');
 
+    // Find all material IDs that have any history across any site (including deleted ones)
+    const activeMatIds = new Set();
+    Store.Outgoing.getAll().forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
+    Store.Incoming.getAll().filter(r => r.destinationType === 'site').forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
+    Store.SiteReturns.getAll().forEach(r => activeMatIds.add(r.materialId));
+    Store.SiteUsage.getAll().forEach(r => activeMatIds.add(r.materialId));
+    Store.SiteDamaged.getAll().forEach(r => activeMatIds.add(r.materialId));
+
+    // Also include all current active materials
+    materials.forEach(m => activeMatIds.add(m.id));
+
     return `
       <div class="table-container">
         <table class="data-table">
@@ -448,7 +459,8 @@ var ReportsPage = {
             </tr>
           </thead>
           <tbody>
-            ${materials.map(m => {
+            ${Array.from(activeMatIds).map(mId => {
+              const m = Store.Materials.getById(mId) || { id: mId, name: 'Deleted Material', unit: 'units' };
               let totalRemaining = 0;
               const cols = sites.map(s => {
                 const remaining = Store.Inventory.getSiteCurrentBalance(m.id, s.id);
@@ -505,15 +517,17 @@ var ReportsPage = {
       const used = Store.Inventory.getSiteUsage(m.id, site.id);
       const remaining = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
 
-      rows += `
-        <tr>
-          <td><strong>${m.name}</strong></td>
-          <td>${sent > 0 ? formatNum(sent) : '0'} ${m.unit}</td>
-          <td style="color: var(--danger); font-weight: 500;">${returned > 0 ? formatNum(returned) : '-'} ${returned > 0 ? m.unit : ''}</td>
-          <td style="color: #d97706; font-weight: 500;">${used > 0 ? formatNum(used) : '-'} ${used > 0 ? m.unit : ''}</td>
-          <td><strong style="color: var(--success); font-size:1.05rem;">${formatNum(remaining)}</strong> ${m.unit}</td>
-        </tr>
-      `;
+      if (sent > 0 || returned > 0 || used > 0 || remaining > 0) {
+        rows += `
+          <tr>
+            <td><strong>${m.name}</strong></td>
+            <td>${sent > 0 ? formatNum(sent) : '0'} ${m.unit}</td>
+            <td style="color: var(--danger); font-weight: 500;">${returned > 0 ? formatNum(returned) : '-'} ${returned > 0 ? m.unit : ''}</td>
+            <td style="color: #d97706; font-weight: 500;">${used > 0 ? formatNum(used) : '-'} ${used > 0 ? m.unit : ''}</td>
+            <td><strong style="color: var(--success); font-size:1.05rem;">${formatNum(remaining)}</strong> ${m.unit}</td>
+          </tr>
+        `;
+      }
     });
 
     return `
