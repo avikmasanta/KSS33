@@ -468,6 +468,7 @@ const Store = (() => {
     ];
 
     await Promise.all(defaults.map(async (m) => {
+      let saved = false;
       try {
         const res = await fetch(`${API_URL}/materials`, {
           method: 'POST',
@@ -476,9 +477,16 @@ const Store = (() => {
         });
         if (res.ok) {
           cache.materials.push(await res.json());
+          saved = true;
         }
       } catch (err) {
-        console.error('Error seeding material:', err);
+        console.error('Error seeding material API:', err);
+      }
+      
+      // Fallback: If API fails or is offline, save directly to local cache
+      if (!saved) {
+        m.id = 'mat_' + Math.random().toString(36).substr(2, 9);
+        cache.materials.push(m);
       }
     }));
     persistLocal('bm_materials', cache.materials);
