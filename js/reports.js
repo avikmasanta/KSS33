@@ -486,7 +486,20 @@ var ReportsPage = {
     const formatNum = (v) => Number(v || 0).toLocaleString('en-IN');
 
     let rows = '';
-    materials.forEach(m => {
+    
+    // Find all material IDs that have any history at this site (including deleted ones)
+    const activeMatIds = new Set();
+    Store.Outgoing.getAll().filter(r => r.siteId === site.id).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
+    Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
+    Store.SiteReturns.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
+    Store.SiteUsage.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
+    Store.SiteDamaged.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
+
+    // Also include all current active materials
+    materials.forEach(m => activeMatIds.add(m.id));
+
+    activeMatIds.forEach(mId => {
+      const m = Store.Materials.getById(mId) || { id: mId, name: 'Deleted Material', unit: 'units' };
       const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
       const returned = Store.Inventory.getSiteReturns(m.id, site.id);
       const used = Store.Inventory.getSiteUsage(m.id, site.id);
