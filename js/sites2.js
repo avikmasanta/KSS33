@@ -31,10 +31,11 @@ var SitesPage = {
                 <input type="text" placeholder="Search sites..." id="site-search" oninput="SitesPage.onSearch(this.value)">
               </div>
               <select class="filter-select" id="site-status-filter" onchange="SitesPage.onSearch(document.getElementById('site-search').value)">
-                <option value="">All Status</option>
+                <option value="">Active & Completed (All)</option>
                 <option value="Active">Active</option>
                 <option value="Completed">Completed</option>
                 <option value="Suspended">Suspended</option>
+                <option value="Archived">Archived (Deleted)</option>
               </select>
             </div>
           </div>
@@ -81,6 +82,7 @@ var SitesPage = {
                     <option value="Active">Active</option>
                     <option value="Completed">Completed</option>
                     <option value="Suspended">Suspended</option>
+                    <option value="Archived">Archived</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -127,7 +129,8 @@ var SitesPage = {
         (s.gstNumber || '').toLowerCase().includes(st) ||
         (s.contactNumber || '').toLowerCase().includes(st) ||
         (s.address || '').toLowerCase().includes(st);
-      const matchStatus = !statusFilter || s.status === statusFilter;
+      
+      const matchStatus = !statusFilter ? (s.status !== 'Archived') : (s.status === statusFilter);
       return matchSearch && matchStatus;
     });
 
@@ -143,7 +146,7 @@ var SitesPage = {
     };
 
     const statusBadge = (status) => {
-      const map = { 'Active': 'badge-success', 'Completed': 'badge-info', 'Suspended': 'badge-warning' };
+      const map = { 'Active': 'badge-success', 'Completed': 'badge-info', 'Suspended': 'badge-warning', 'Archived': 'badge-error' };
       return `<span class="badge ${map[status] || 'badge-neutral'}">${status}</span>`;
     };
 
@@ -181,9 +184,13 @@ var SitesPage = {
                 <td>${statusBadge(s.status)}</td>
                 <td>
                   <div class="table-actions">
-                    <button class="btn btn-sm btn-outline" title="View Details" onclick="SitesPage.viewDetails('${s.id}')">${Icons.box} Dashboard</button>
-                    <button class="btn btn-icon btn-ghost" title="Edit" onclick="SitesPage.edit('${s.id}')">${Icons.edit}</button>
-                    <button class="btn btn-icon btn-ghost" title="Delete" onclick="SitesPage.deleteSite('${s.id}')">${Icons.trash}</button>
+                    ${s.status === 'Archived' ? `
+                      <button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success);" title="Restore Site" onclick="SitesPage.restoreSite('${s.id}')">${Icons.refreshCw} Restore</button>
+                    ` : `
+                      <button class="btn btn-sm btn-outline" title="View Details" onclick="SitesPage.viewDetails('${s.id}')">${Icons.box} Dashboard</button>
+                      <button class="btn btn-icon btn-ghost" title="Edit" onclick="SitesPage.edit('${s.id}')">${Icons.edit}</button>
+                      <button class="btn btn-icon btn-ghost" title="Delete" style="color:var(--danger)" onclick="SitesPage.deleteSite('${s.id}')">${Icons.trash}</button>
+                    `}
                   </div>
                 </td>
               </tr>
@@ -402,7 +409,7 @@ var SitesPage = {
           <h3>Delete Site</h3>
         </div>
         <div class="modal-body">
-          <p>Are you sure you want to delete the site "<strong>${s.name}</strong>"?</p>
+          <p>Are you sure you want to delete (archive) the site "<strong>${s.name}</strong>"?<br><br><span style="font-size:0.9em;color:var(--text-tertiary)">This will move it to the Archived tab. You can restore it later.</span></p>
         </div>
         <div class="modal-footer">
           <button class="btn btn-outline" id="btn-cancel-del">Cancel</button>
@@ -418,9 +425,15 @@ var SitesPage = {
 
     document.getElementById('btn-confirm-del').onclick = () => {
       Store.Sites.remove(id);
+      Store.Sites.update(id, { status: 'Archived' });
       this.refresh();
       document.body.removeChild(overlay);
     };
+  },
+
+  restoreSite(id) {
+    Store.Sites.update(id, { status: 'Active' });
+    this.refresh();
   },
 
   viewDetails(siteId) {

@@ -215,22 +215,8 @@ const Store = (() => {
     add: (s) => SitesStore.add(s),
     update: (id, s) => SitesStore.update(id, s),
     remove: (id) => {
-      // 1. Instantly update in-memory cache for sites
-      cache.sites = cache.sites.filter(s => s.id !== id);
-      persistLocal('bm_sites', cache.sites);
-
-      // Instantly remove all child records from memory
-      ['incoming','outgoing','siteUsage','siteReturns','siteDamaged','siteExpenses','sitePayments'].forEach(key => {
-        cache[key] = cache[key].filter(x => x.siteId !== id && x.destinationSiteId !== id);
-        persistLocal('bm_' + key, cache[key]);
-      });
-
-      // 2. Async background cascade delete API call
-      fetch(`${API_URL}/sites/${id}/cascade`, {
-        method: 'DELETE'
-      }).catch(err => console.error(`Error cascade deleting site ${id}:`, err));
-
-      return { success: true };
+      // Soft Delete: update status to 'Archived' instead of hard deleting
+      return SitesStore.update(id, { status: 'Archived' });
     }
   };
 

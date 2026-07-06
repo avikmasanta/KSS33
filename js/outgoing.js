@@ -111,7 +111,7 @@ var OutgoingPage = {
   },
 
   renderForm() {
-    const sites = Store.Sites.getAll();
+    const sites = Store.Sites.getAll().filter(s => s.status !== 'Archived');
     const materials = Store.Materials.getAll();
     const record = this.selectedId ? Store.Outgoing.getById(this.selectedId) : null;
 

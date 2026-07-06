@@ -32,6 +32,13 @@ var SiteDetailsPage = {
     const totalCollected = Store.SitePayments.getTotalBySite(site.id);
     const remainingBudget = (site.budget || 0) - totalCollected;
 
+    let totalDispatched = 0;
+    let totalReturned = 0;
+    materials.forEach(m => {
+      totalDispatched += Store.Inventory.getSiteTotalSent(m.id, site.id);
+      totalReturned += Store.Inventory.getSiteReturns(m.id, site.id);
+    });
+
     return `
       <div class="page-header" style="margin-bottom: 24px;">
         <div class="page-header-title">
@@ -93,7 +100,7 @@ var SiteDetailsPage = {
             <div style="width: 20px; height: 20px;">${Icons.arrowDownCircle}</div> Total Received
           </h3>
           <div style="font-size: 3.5rem; font-weight: 800; letter-spacing: -2px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);" id="site-total-dispatched">
-            0
+            ${totalDispatched}
           </div>
           <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
             <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">INCOMING</span>
@@ -109,7 +116,7 @@ var SiteDetailsPage = {
             <div style="width: 20px; height: 20px;">${Icons.arrowUpCircle}</div> Total Returned
           </h3>
           <div style="font-size: 3.5rem; font-weight: 800; letter-spacing: -2px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);" id="site-total-returned">
-            0
+            ${totalReturned}
           </div>
           <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
             <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">OUTGOING</span>
