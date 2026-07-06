@@ -18,8 +18,15 @@ var OutgoingPage = {
         const site = sites.find(s => s.id === r.siteId);
         const siteName = site ? site.name.toLowerCase() : '';
         const custName = site && site.customerName ? site.customerName.toLowerCase() : '';
+        
+        const materialNames = (r.items || []).map(i => {
+           const m = materials.find(mat => mat.id === i.materialId);
+           return m ? m.name.toLowerCase() : '';
+        }).join(' ');
+
         return siteName.includes(st) || 
                custName.includes(st) ||
+               materialNames.includes(st) ||
                (r.referenceNo || '').toLowerCase().includes(st) ||
                (r.date || '').includes(st);
       });
@@ -46,14 +53,14 @@ var OutgoingPage = {
           <div class="card-header">
             <h3>Records</h3>
             <div style="margin-top: 10px;">
-              <input type="text" class="form-control" placeholder="Search site, customer, reference..." 
+              <input type="text" class="form-control" placeholder="Search site, customer, material, reference..." 
                      value="${this.searchTerm}" onkeyup="OutgoingPage.onSearch(event)">
             </div>
           </div>
           <div id="outgoing-list">
             ${records.map(r => {
               const site = sites.find(s => s.id === r.siteId);
-              const totalAmt = r.items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
+              const totalAmt = (r.items || []).reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
               return `
                 <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" onclick="OutgoingPage.selectRecord('${r.id}')">
                   <div class="flex items-center justify-between">

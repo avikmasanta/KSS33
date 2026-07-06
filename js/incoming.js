@@ -10,24 +10,31 @@ var IncomingPage = {
   render() {
     let records = Store.Incoming.getAll().sort((a, b) => new Date(b.date) - new Date(a.date));
     
+    const materials = Store.Materials.getAll();
+    const sites = Store.Sites.getAll();
+
     if (this.searchTerm) {
       const st = this.searchTerm.toLowerCase();
       records = records.filter(r => {
-        let siteStr = '';
+        let destStr = r.destinationType === 'warehouse' ? 'warehouse' : '';
         if (r.destinationType === 'site' && r.destinationSiteId) {
           const site = sites.find(s => s.id === r.destinationSiteId);
-          if (site) siteStr = (site.name + ' ' + (site.customerName || '')).toLowerCase();
+          if (site) destStr = (site.name + ' ' + (site.customerName || '')).toLowerCase();
         }
+        
+        const materialNames = (r.items || []).map(i => {
+           const m = materials.find(mat => mat.id === i.materialId);
+           return m ? m.name.toLowerCase() : '';
+        }).join(' ');
+
         return (r.supplier || '').toLowerCase().includes(st) ||
                (r.invoiceNo || '').toLowerCase().includes(st) ||
                (r.referenceNo || '').toLowerCase().includes(st) ||
-               siteStr.includes(st) ||
+               destStr.includes(st) ||
+               materialNames.includes(st) ||
                (r.date || '').includes(st);
       });
     }
-
-    const materials = Store.Materials.getAll();
-    const sites = Store.Sites.getAll();
 
     return `
       <div class="page-header">
@@ -48,13 +55,13 @@ var IncomingPage = {
           <div class="card-header">
             <h3>Records</h3>
             <div style="margin-top: 10px;">
-              <input type="text" class="form-control" placeholder="Search supplier, invoice..." 
+              <input type="text" class="form-control" placeholder="Search supplier, site, material, invoice..." 
                      value="${this.searchTerm}" onkeyup="IncomingPage.onSearch(event)">
             </div>
           </div>
           <div id="incoming-list">
             ${records.map(r => {
-              const totalAmt = r.items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
+              const totalAmt = (r.items || []).reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
               let destStr = 'Warehouse';
               if (r.destinationType === 'site' && r.destinationSiteId) {
                 const site = sites.find(s => s.id === r.destinationSiteId);

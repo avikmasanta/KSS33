@@ -14,10 +14,10 @@ var DashboardPage = {
     const totalSites = sites.length;
 
     let totalIncoming = 0;
-    incoming.forEach(r => r.items.forEach(i => totalIncoming += (parseFloat(i.quantity) || 0)));
+    incoming.forEach(r => (r.items || []).forEach(i => totalIncoming += (parseFloat(i.quantity) || 0)));
 
     let totalOutgoing = 0;
-    outgoing.forEach(r => r.items.forEach(i => totalOutgoing += (parseFloat(i.quantity) || 0)));
+    outgoing.forEach(r => (r.items || []).forEach(i => totalOutgoing += (parseFloat(i.quantity) || 0)));
 
     const formatNum = (v) => Number(v).toLocaleString('en-IN');
     const formatDate = (d) => {
@@ -177,10 +177,10 @@ var DashboardPage = {
       let inQty = 0;
       let outQty = 0;
       incoming.filter(r => r.date === date).forEach(r => {
-        inQty += r.items.reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
+        inQty += (r.items || []).reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
       });
       outgoing.filter(r => r.date === date).forEach(r => {
-        outQty += r.items.reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
+        outQty += (r.items || []).reduce((s, i) => s + (parseFloat(i.quantity) || 0), 0);
       });
       return { date: date.substring(5), inQty, outQty }; // 'MM-DD'
     });
