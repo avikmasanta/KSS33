@@ -48,7 +48,6 @@ var SiteDetailsPage = {
           ${site.status !== 'Completed'
         ? `<button class="btn btn-secondary" onclick="SiteDetailsPage.openDispatchModal()">${Icons.arrowUpCircle} Log Dispatch</button>
                <button class="btn btn-primary" onclick="SiteDetailsPage.openReturnModal()">${Icons.arrowDownCircle} Log Return</button>
-               <button class="btn btn-warning" onclick="SiteDetailsPage.openUsageModal()">${Icons.activity} Log Usage</button>
                <button class="btn btn-success" onclick="SiteDetailsPage.markCompleted()">${Icons.check} Mark Completed</button>`
         : `<button class="btn btn-warning" onclick="SiteDetailsPage.markActive()">${Icons.refreshCw} Reopen Site</button>`}
         </div>
@@ -233,48 +232,6 @@ var SiteDetailsPage = {
         </div>
       </div>
 
-      <!-- Usage Material Modal -->
-      <div class="modal-backdrop" id="site-usage-modal">
-        <div class="modal" style="max-width: 500px;">
-          <div class="modal-header">
-            <h3>Log Material Usage</h3>
-            <button class="modal-close" onclick="SiteDetailsPage.closeUsageModal()">${Icons.x}</button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label>Material</label>
-              <select class="form-control" id="site-usage-material">
-                <option value="">Select material used...</option>
-                ${materials.map(m => {
-          const siteStock = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
-          if (siteStock > 0) {
-            return `<option value="${m.id}">${m.name} (At site: ${siteStock})</option>`;
-          }
-          return '';
-        }).join('')}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Quantity Used</label>
-              <input type="number" class="form-control" id="site-usage-qty" placeholder="Quantity" min="1">
-            </div>
-            <div class="form-group">
-              <label>Date</label>
-              <input type="date" class="form-control" id="site-usage-date" value="${new Date().toISOString().split('T')[0]}">
-            </div>
-            <div class="form-group">
-              <label>Notes (Optional)</label>
-              <input type="text" class="form-control" id="site-usage-notes" placeholder="Where was this used?">
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-outline" onclick="SiteDetailsPage.closeUsageModal()">Cancel</button>
-            <button class="btn btn-warning" onclick="SiteDetailsPage.saveUsage()">Save Usage</button>
-          </div>
-        </div>
-      </div>
-
-
       <!-- Collect Money Modal -->
       <div class="modal-backdrop" id="site-collect-modal">
         <div class="modal" style="max-width: 500px;">
@@ -314,12 +271,10 @@ var SiteDetailsPage = {
     const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
     const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
     const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
-    const siteUsage = Store.SiteUsage.getAll().filter(r => r.siteId === site.id);
 
     const rows = [];
     let totalDispatched = 0;
     let totalReturned = 0;
-    let totalUsed = 0;
 
     // Outgoing from warehouse to site (Dispatched)
     allOutgoing.forEach(record => {
@@ -373,30 +328,12 @@ var SiteDetailsPage = {
       });
     });
 
-    // Site Usage (Consumed)
-    siteUsage.forEach(record => {
-      const mat = materials.find(m => m.id === record.materialId);
-      const qty = parseFloat(record.quantity) || 0;
-      totalUsed += qty;
-      rows.push({
-        date: record.date,
-        type: 'Usage',
-        material: mat ? mat.name : '-',
-        unit: mat ? mat.unit : '',
-        qty: qty,
-        ref: 'SITE-USAGE',
-        note: record.notes || 'Consumed at site'
-      });
-    });
-
     // Inject the totals into the DOM after a short tick
     setTimeout(() => {
       const elDisp = document.getElementById('site-total-dispatched');
       const elRet = document.getElementById('site-total-returned');
-      const elUsed = document.getElementById('site-total-used');
       if (elDisp) elDisp.innerText = Number(totalDispatched).toLocaleString('en-IN');
       if (elRet) elRet.innerText = Number(totalReturned).toLocaleString('en-IN');
-      if (elUsed) elUsed.innerText = Number(totalUsed).toLocaleString('en-IN');
 
     }, 10);
 
@@ -423,8 +360,6 @@ var SiteDetailsPage = {
 
       if (r.type === 'Outgoing') {
         color = 'var(--danger)'; bgColor = '#fee2e2'; icon = Icons.arrowUpCircle; sign = '-'; label = 'Returned from Site';
-      } else if (r.type === 'Usage') {
-        color = '#d97706'; bgColor = '#fef3c7'; icon = Icons.activity; sign = '-'; label = 'Used at Site';
       } else {
         color = 'var(--success)'; bgColor = '#dcfce7'; icon = Icons.arrowDownCircle; sign = '+'; label = 'Received at Site';
       }
@@ -595,50 +530,6 @@ var SiteDetailsPage = {
     this.refresh();
   },
 
-  openUsageModal() {
-    const modal = document.getElementById('site-usage-modal');
-    if (modal) modal.classList.add('active');
-  },
-
-  closeUsageModal() {
-    const modal = document.getElementById('site-usage-modal');
-    if (modal) {
-      modal.classList.remove('active');
-      document.getElementById('site-usage-material').value = '';
-      document.getElementById('site-usage-qty').value = '';
-      document.getElementById('site-usage-notes').value = '';
-    }
-  },
-
-  saveUsage() {
-    const materialId = document.getElementById('site-usage-material').value;
-    const qty = parseFloat(document.getElementById('site-usage-qty').value) || 0;
-    const date = document.getElementById('site-usage-date').value;
-    const notes = document.getElementById('site-usage-notes').value.trim();
-
-    if (!materialId || qty <= 0 || !date) {
-      alert('Please select a material, specify a valid quantity, and choose a date.');
-      return;
-    }
-
-    const currentSiteBalance = Store.Inventory.getSiteCurrentBalance(materialId, this.siteId);
-    if (qty > currentSiteBalance) {
-      alert(`You cannot use more than what is currently at the site (${currentSiteBalance}).`);
-      return;
-    }
-
-    Store.SiteUsage.add({
-      siteId: this.siteId,
-      materialId: materialId,
-      quantity: qty,
-      date: date,
-      notes: notes
-    });
-
-    this.closeUsageModal();
-    this.refresh();
-  },
-
   exportExcel() {
     const site = Store.Sites.getById(this.siteId);
     if (!site) return;
@@ -647,7 +538,6 @@ var SiteDetailsPage = {
     const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
     const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
     const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
-    const siteUsage = Store.SiteUsage.getAll().filter(r => r.siteId === site.id);
 
     const rows = [];
     allOutgoing.forEach(record => {
@@ -665,10 +555,6 @@ var SiteDetailsPage = {
     siteReturns.forEach(record => {
       const mat = materials.find(m => m.id === record.materialId);
       rows.push({ date: record.date, type: 'Returned', material: mat ? mat.name : '-', qty: parseFloat(record.quantity) || 0, unit: mat ? mat.unit : '', ref: 'SITE-RETURN', note: 'Returned from site' });
-    });
-    siteUsage.forEach(record => {
-      const mat = materials.find(m => m.id === record.materialId);
-      rows.push({ date: record.date, type: 'Used', material: mat ? mat.name : '-', qty: parseFloat(record.quantity) || 0, unit: mat ? mat.unit : '', ref: 'SITE-USAGE', note: record.notes || 'Consumed at site' });
     });
 
     rows.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -700,12 +586,10 @@ var SiteDetailsPage = {
     const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
     const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
     const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
-    const siteUsage = Store.SiteUsage.getAll().filter(r => r.siteId === site.id);
 
     const rows = [];
     let totalReceived = 0;
     let totalReturned = 0;
-    let totalUsed = 0;
 
     allOutgoing.forEach(record => {
       record.items.forEach(item => {
@@ -728,12 +612,6 @@ var SiteDetailsPage = {
       const qty = parseFloat(record.quantity) || 0;
       totalReturned += qty;
       rows.push({ date: record.date, type: 'Returned', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: 'SITE-RETURN', note: 'Returned from site' });
-    });
-    siteUsage.forEach(record => {
-      const mat = materials.find(m => m.id === record.materialId);
-      const qty = parseFloat(record.quantity) || 0;
-      totalUsed += qty;
-      rows.push({ date: record.date, type: 'Used', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: 'SITE-USAGE', note: record.notes || 'Consumed at site' });
     });
 
     rows.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -849,16 +727,14 @@ var SiteDetailsPage = {
     materials.forEach(m => {
       const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
       const returned = Store.Inventory.getSiteReturns(m.id, site.id);
-      const used = Store.Inventory.getSiteUsage(m.id, site.id);
       const remaining = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
 
-      if (sent > 0 || returned > 0 || used > 0 || remaining > 0) {
+      if (sent > 0 || returned > 0 || remaining > 0) {
         rows.push({
           material: m.name,
           unit: m.unit,
           sent,
           returned,
-          used,
           remaining
         });
       }
