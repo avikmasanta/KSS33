@@ -89,7 +89,7 @@ var IncomingPage = {
   },
 
   init() {
-    this.selectedId = null; // Always show a blank form on the right for NEW supplier purchases
+    // Keep selection state
   },
 
   onSearch(e) {
