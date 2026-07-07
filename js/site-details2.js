@@ -797,7 +797,9 @@ var SiteDetailsPage = {
     materials.forEach(m => activeMatIds.add(m.id));
 
     activeMatIds.forEach(mId => {
-      const m = Store.Materials.getById(mId) || { id: mId, name: 'Deleted Material', unit: 'units' };
+      const m = Store.Materials.getById(mId);
+      if (!m) return; // Skip deleted materials completely
+
       const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
       const returned = Store.Inventory.getSiteReturns(m.id, site.id);
       const remaining = Store.Inventory.getSiteCurrentBalance(m.id, site.id);

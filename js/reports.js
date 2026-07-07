@@ -460,7 +460,8 @@ var ReportsPage = {
           </thead>
           <tbody>
             ${Array.from(activeMatIds).map(mId => {
-              const m = Store.Materials.getById(mId) || { id: mId, name: 'Deleted Material', unit: 'units' };
+              const m = Store.Materials.getById(mId);
+              if (!m) return ''; // Skip deleted materials completely
               let totalRemaining = 0;
               const cols = sites.map(s => {
                 const remaining = Store.Inventory.getSiteCurrentBalance(m.id, s.id);
@@ -511,7 +512,9 @@ var ReportsPage = {
     materials.forEach(m => activeMatIds.add(m.id));
 
     activeMatIds.forEach(mId => {
-      const m = Store.Materials.getById(mId) || { id: mId, name: 'Deleted Material', unit: 'units' };
+      const m = Store.Materials.getById(mId);
+      if (!m) return; // Skip deleted materials completely
+
       const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
       const returned = Store.Inventory.getSiteReturns(m.id, site.id);
       const used = Store.Inventory.getSiteUsage(m.id, site.id);

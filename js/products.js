@@ -198,7 +198,6 @@ var MaterialsPage = {
                 <div class="table-actions">
                   <button class="btn btn-icon btn-ghost" title="Adjust Stock" onclick="MaterialsPage.openAdjustModal('${p.id}', '${p.name.replace(/'/g, "\\'")}', ${overview.find(o => o.material.id === p.id)?.warehouseStock || 0})">${Icons.activity}</button>
                   <button class="btn btn-icon btn-ghost" title="Edit" onclick="MaterialsPage.edit('${p.id}')">${Icons.edit}</button>
-                  <button class="btn btn-icon btn-ghost" title="Delete" onclick="MaterialsPage.delete('${p.id}')">${Icons.trash}</button>
                 </div>
               </td>
             </tr>
