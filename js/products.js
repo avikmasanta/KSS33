@@ -72,6 +72,8 @@ var MaterialsPage = {
                 <div class="form-group">
                   <label>Category</label>
                   <select class="form-control" id="prod-category">
+                    <option value="Steel Plate">Steel Plate</option>
+                    <option value="Scaffolding">Scaffolding</option>
                     <option value="Cement">Cement</option>
                     <option value="Sand">Sand</option>
                     <option value="Steel">Steel</option>
