@@ -427,6 +427,18 @@ var SitesPage = {
     };
   },
 
+  restoreSite(id) {
+    Store.Sites.update(id, { status: 'Active' });
+    this.refresh();
+  },
+
+  async permanentDeleteSite(id) {
+    if(confirm('Are you sure you want to PERMANENTLY delete this site? This action cannot be undone and will delete all associated data.')) {
+      await Store.Sites.hardDelete(id);
+      this.refresh();
+    }
+  },
+
   viewDetails(siteId) {
     SiteDetailsPage.siteId = siteId;
     App.navigate('site-details');
