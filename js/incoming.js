@@ -358,6 +358,16 @@ var IncomingPage = {
     } else {
       const saved = Store.Incoming.add(data);
       this.selectedId = saved.id;
+      
+      // Log transactions
+      (data.items || []).forEach(item => {
+        Store.logTransaction(
+          item.materialId,
+          item.quantity,
+          data.destinationType === 'site' ? 'Dispatch' : 'Add',
+          data.destinationType === 'site' ? data.destinationSiteId : ''
+        );
+      });
     }
 
     this.formItems = [...data.items];

@@ -19,7 +19,8 @@ const Store = (() => {
     siteReturns: [],
     siteDamaged: [],
     siteExpenses: [],
-    sitePayments: []
+    sitePayments: [],
+    transactions: []
   };
 
   // Maps collection store key to cache object key and API endpoint
@@ -33,7 +34,8 @@ const Store = (() => {
     bm_siteReturns: { cacheKey: 'siteReturns', url: 'siteReturns' },
     bm_siteDamaged: { cacheKey: 'siteDamaged', url: 'siteDamaged' },
     bm_siteExpenses: { cacheKey: 'siteExpenses', url: 'siteExpenses' },
-    bm_sitePayments: { cacheKey: 'sitePayments', url: 'sitePayments' }
+    bm_sitePayments: { cacheKey: 'sitePayments', url: 'sitePayments' },
+    bm_transactions: { cacheKey: 'transactions', url: 'transactions' }
   };
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
@@ -268,7 +270,8 @@ const Store = (() => {
   const DamagedStore   = makeStore('bm_siteDamaged');
   const ExpensesStore  = makeStore('bm_siteExpenses');
   const PaymentsStore  = makeStore('bm_sitePayments');
-
+  const TransactionsStore = makeStore('bm_transactions');
+ 
   const Customers    = CustomersStore;
   const Materials    = MaterialsStore;
   const Incoming     = IncomingStore;
@@ -277,6 +280,24 @@ const Store = (() => {
   const SiteReturns  = ReturnsStore;
   const SiteDamaged  = DamagedStore;
   const SiteExpenses = ExpensesStore;
+  const Transactions = TransactionsStore;
+
+  function logTransaction(materialId, quantity, action, siteId = '') {
+    const material = cache.materials.find(m => m.id === materialId);
+    const site = siteId ? cache.sites.find(s => s.id === siteId) : null;
+    const user = Auth.getUser();
+    
+    return TransactionsStore.add({
+      materialId: materialId,
+      materialName: material ? material.name : 'Unknown Material',
+      quantity: parseFloat(quantity) || 0,
+      action: action, // 'Add', 'Deduct', 'Dispatch', 'Return'
+      siteId: siteId,
+      siteName: site ? site.name : '',
+      date: new Date().toISOString(),
+      user: user ? user.name : 'System'
+    });
+  }
 
   const SitePayments = {
     ...PaymentsStore,
@@ -286,7 +307,32 @@ const Store = (() => {
       .reduce((s, x) => s + (parseFloat(x.amount) || 0), 0)
   };
 
-  // ---- Sites (with cascade delete) ----
+  const resetStock = async () => {
+    try {
+      const res = await fetch(`${API_URL}/reset-stock`, { method: 'POST' });
+      if (res.ok) {
+        cache.incoming = [];
+        cache.outgoing = [];
+        cache.siteReturns = [];
+        cache.siteUsage = [];
+        cache.siteDamaged = [];
+        cache.transactions = [];
+        
+        persistLocal('bm_incoming', []);
+        persistLocal('bm_outgoing', []);
+        persistLocal('bm_siteReturns', []);
+        persistLocal('bm_siteUsage', []);
+        persistLocal('bm_siteDamaged', []);
+        persistLocal('bm_transactions', []);
+        return { success: true };
+      }
+      return { success: false, error: 'Reset failed on server' };
+    } catch (err) {
+      console.error('Error resetting stock:', err);
+      return { success: false, error: err.message };
+    }
+  };
+
   const Sites = {
     getAll: () => cache.sites,
     getById: (id) => cache.sites.find(s => s.id === id) || null,
@@ -627,5 +673,5 @@ const Store = (() => {
     persistLocal('bm_materials', cache.materials);
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Inventory, Auth, init };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, logTransaction, resetStock, Inventory, Auth, init };
 })();

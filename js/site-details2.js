@@ -581,6 +581,11 @@ var SiteDetailsPage = {
       items
     });
 
+    // Log transactions
+    items.forEach(i => {
+      Store.logTransaction(i.materialId, i.quantity, 'Dispatch', this.siteId);
+    });
+
     this.closeDispatchModal();
     this.refresh();
   },
@@ -609,12 +614,14 @@ var SiteDetailsPage = {
     inputs.forEach(input => {
       const qty = parseFloat(input.value) || 0;
       if (qty > 0) {
+        const matId = input.getAttribute('data-material-id');
         Store.SiteReturns.add({
           siteId: this.siteId,
-          materialId: input.getAttribute('data-material-id'),
+          materialId: matId,
           quantity: qty,
           date
         });
+        Store.logTransaction(matId, qty, 'Return', this.siteId);
         saved++;
       }
     });

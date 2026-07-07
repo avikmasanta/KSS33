@@ -295,6 +295,16 @@ var OutgoingPage = {
     } else {
       const saved = Store.Outgoing.add(data);
       this.selectedId = saved.id;
+      
+      // Log transactions
+      (data.items || []).forEach(item => {
+        Store.logTransaction(
+          item.materialId,
+          item.quantity,
+          'Dispatch',
+          data.siteId
+        );
+      });
     }
 
     this.formItems = [...data.items];

@@ -25,6 +25,7 @@ const schemas = {
   siteDamaged: new mongoose.Schema({ _id: String, siteId: String, materialId: String, quantity: Number, date: String, notes: String, createdAt: String }, schemaOptions),
   siteExpenses: new mongoose.Schema({ _id: String, siteId: String, date: String, amount: Number, category: String, description: String, createdAt: String }, schemaOptions),
   sitePayments: new mongoose.Schema({ _id: String, siteId: String, date: String, amount: Number, paymentMode: String, reference: String, notes: String, createdAt: String }, schemaOptions),
+  transactions: new mongoose.Schema({ _id: String, materialId: String, materialName: String, quantity: Number, action: String, siteId: String, siteName: String, date: String, user: String, createdAt: String }, schemaOptions),
 };
 
 // ─── Models (cached across warm invocations) ──────────────────────
@@ -73,6 +74,23 @@ module.exports = async function handler(req, res) {
   const collection = segments[0];
   const id = segments[1];
   const action = segments[2]; // e.g. "cascade"
+
+  if (collection === 'reset-stock') {
+    if (req.method === 'POST') {
+      try {
+        await getModel('incoming').deleteMany({});
+        await getModel('outgoing').deleteMany({});
+        await getModel('siteReturns').deleteMany({});
+        await getModel('siteUsage').deleteMany({});
+        await getModel('siteDamaged').deleteMany({});
+        await getModel('transactions').deleteMany({});
+        return json(res, 200, { message: 'Stock reset completed' });
+      } catch (err) {
+        return json(res, 500, { error: err.message });
+      }
+    }
+    return json(res, 405, { error: 'Method not allowed' });
+  }
 
   if (!collection || !schemas[collection]) {
     return json(res, 404, { error: 'Collection not found: ' + collection });

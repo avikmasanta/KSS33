@@ -193,13 +193,17 @@ var InventoryPage = {
       return;
     }
 
+    if (newStock < 0) {
+      alert('Stock cannot become negative.');
+      return;
+    }
+
     const diff = newStock - currStock;
     if (diff === 0) {
       this.closeAdjustModal();
       return;
     }
 
-    // Create an incoming transaction for the difference (can be negative)
     const material = Store.Materials.getById(matId);
     Store.Incoming.add({
       date: new Date().toISOString().split('T')[0],
@@ -214,6 +218,8 @@ var InventoryPage = {
         amount: diff * (material ? material.unitPrice : 0)
       }]
     });
+
+    Store.logTransaction(matId, Math.abs(diff), diff > 0 ? 'Add' : 'Deduct');
 
     this.closeAdjustModal();
     this.refresh();

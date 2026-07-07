@@ -137,6 +137,19 @@ const SitePaymentsSchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+const TransactionSchema = new mongoose.Schema({
+  _id: String,
+  materialId: String,
+  materialName: String,
+  quantity: Number,
+  action: String, // 'Add', 'Deduct', 'Dispatch', 'Return'
+  siteId: String,
+  siteName: String,
+  date: String,
+  user: String,
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema),
   Site: mongoose.model('Site', SiteSchema),
@@ -147,5 +160,6 @@ module.exports = {
   SiteReturns: mongoose.model('SiteReturns', SiteReturnsSchema),
   SiteDamaged: mongoose.model('SiteDamaged', SiteDamagedSchema),
   SiteExpenses: mongoose.model('SiteExpenses', SiteExpensesSchema),
-  SitePayments: mongoose.model('SitePayments', SitePaymentsSchema)
+  SitePayments: mongoose.model('SitePayments', SitePaymentsSchema),
+  Transaction: mongoose.model('Transaction', TransactionSchema)
 };

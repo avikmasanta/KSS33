@@ -77,6 +77,7 @@ router.use('/siteReturns', createCrudRoutes('SiteReturns', models.SiteReturns));
 router.use('/siteDamaged', createCrudRoutes('SiteDamaged', models.SiteDamaged));
 router.use('/siteExpenses', createCrudRoutes('SiteExpenses', models.SiteExpenses));
 router.use('/sitePayments', createCrudRoutes('SitePayments', models.SitePayments));
+router.use('/transactions', createCrudRoutes('Transaction', models.Transaction));
 
 // Special Cascade Delete for Sites
 router.delete('/sites/:id/cascade', async (req, res) => {
@@ -92,6 +93,23 @@ router.delete('/sites/:id/cascade', async (req, res) => {
     const deleted = await models.Site.findByIdAndDelete(id);
     if (!deleted) return res.status(404).json({ error: 'Site not found' });
     res.json({ message: 'Cascade deleted' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reset Stock
+router.post('/reset-stock', async (req, res) => {
+  try {
+    await models.Incoming.deleteMany({});
+    await models.Outgoing.deleteMany({});
+    await models.SiteReturns.deleteMany({});
+    await models.SiteUsage.deleteMany({});
+    await models.SiteDamaged.deleteMany({});
+    if (models.Transaction) {
+      await models.Transaction.deleteMany({});
+    }
+    res.json({ message: 'Stock reset completed' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
