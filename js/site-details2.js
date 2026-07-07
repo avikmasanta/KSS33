@@ -194,40 +194,54 @@ var SiteDetailsPage = {
       
       <!-- Dispatch Material Modal -->
       <div class="modal-backdrop" id="site-dispatch-modal">
-        <div class="modal" style="max-width: 500px;">
+        <div class="modal" style="max-width: 560px;">
           <div class="modal-header">
             <h3>Log Material Dispatch</h3>
             <button class="modal-close" onclick="SiteDetailsPage.closeDispatchModal()">${Icons.x}</button>
           </div>
           <div class="modal-body">
-            <div class="form-group">
-              <label>Material</label>
-              <select class="form-control searchable-select" id="site-dispatch-material">
-                <option value="">Select material to dispatch...</option>
-                ${Object.keys(materials.reduce((acc, m) => {
-                  acc[m.category] = acc[m.category] || [];
-                  acc[m.category].push(m);
-                  return acc;
-                }, {})).map(cat => `
-                  <optgroup label="${cat}">
-                    ${materials.filter(m => m.category === cat).map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
-                  </optgroup>
-                `).join('')}
-              </select>
+            <div class="form-row">
+              <div class="form-group">
+                <label>Ticket Number</label>
+                <input type="text" class="form-control" id="site-dispatch-ticket" placeholder="e.g. TKT-1001">
+              </div>
+              <div class="form-group">
+                <label>Date</label>
+                <input type="date" class="form-control" id="site-dispatch-date" value="${new Date().toISOString().split('T')[0]}">
+              </div>
             </div>
-            <div class="form-group">
-              <label>Quantity Dispatched</label>
-              <input type="number" class="form-control" id="site-dispatch-qty" placeholder="Quantity" min="1">
+            <div style="max-height: 340px; overflow-y: auto; margin-top: 8px;">
+              <table class="inline-table w-100">
+                <thead>
+                  <tr>
+                    <th style="width:65%">Material</th>
+                    <th style="width:35%; color: var(--success)">Qty Dispatched</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${materials.map(m => `
+                    <tr>
+                      <td>
+                        <div style="font-weight:600;font-size:0.9rem;">${m.name}</div>
+                        <div style="font-size:0.75rem;color:var(--text-tertiary);">${m.unit}${m.sku ? ' &bull; ' + m.sku : ''}</div>
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          class="form-control"
+                          placeholder="0"
+                          min="0"
+                          step="1"
+                          data-material-id="${m.id}"
+                          oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                        >
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
             </div>
-             <div class="form-group">
-               <label>Ticket Number</label>
-               <input type="text" class="form-control" id="site-dispatch-ticket" placeholder="e.g. TKT-1001">
-             </div>
-             <div class="form-group">
-               <label>Date</label>
-               <input type="date" class="form-control" id="site-dispatch-date" value="${new Date().toISOString().split('T')[0]}">
-             </div>
-           </div>
+          </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeDispatchModal()">Cancel</button>
             <button class="btn btn-secondary" onclick="SiteDetailsPage.saveDispatch()">Save Dispatch</button>
@@ -237,47 +251,59 @@ var SiteDetailsPage = {
 
       <!-- Return Material Modal -->
       <div class="modal-backdrop" id="site-return-modal">
-        <div class="modal" style="max-width: 500px;">
+        <div class="modal" style="max-width: 560px;">
           <div class="modal-header">
             <h3>Log Material Return</h3>
             <button class="modal-close" onclick="SiteDetailsPage.closeReturnModal()">${Icons.x}</button>
           </div>
           <div class="modal-body">
             <div class="form-group">
-              <label>Material</label>
-              <select class="form-control searchable-select" id="site-return-material">
-                <option value="">Select material to return...</option>
-                ${(() => {
-                  // Only show materials actually dispatched to this site
-                  const dispatchedMaterials = materials.filter(m => Store.Inventory.getSiteTotalSent(m.id, site.id) > 0);
-                  if (dispatchedMaterials.length === 0) {
-                    return '<option disabled>No materials dispatched to this site yet</option>';
-                  }
-                  const grouped = dispatchedMaterials.reduce((acc, m) => {
-                    acc[m.category] = acc[m.category] || [];
-                    acc[m.category].push(m);
-                    return acc;
-                  }, {});
-                  return Object.keys(grouped).map(cat => `
-                    <optgroup label="${cat}">
-                      ${grouped[cat].map(m => {
+              <label>Date</label>
+              <input type="date" class="form-control" id="site-return-date" value="${new Date().toISOString().split('T')[0]}">
+            </div>
+            <div style="max-height: 340px; overflow-y: auto; margin-top: 8px;">
+              ${(() => {
+                const dispatchedMaterials = materials.filter(m => Store.Inventory.getSiteTotalSent(m.id, site.id) > 0);
+                if (dispatchedMaterials.length === 0) {
+                  return '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials dispatched to this site yet.</p>';
+                }
+                return `
+                  <table class="inline-table w-100">
+                    <thead>
+                      <tr>
+                        <th style="width:65%">Material</th>
+                        <th style="width:35%; color: var(--danger)">Qty Returned</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${dispatchedMaterials.map(m => {
                         const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site.id);
                         const totalReturned = Store.Inventory.getSiteReturns(m.id, site.id);
                         const remaining     = totalSent - totalReturned;
-                        return `<option value="${m.id}">${m.name} — Sent: ${totalSent} | Returned: ${totalReturned} | Remaining: ${remaining} ${m.unit || ''}</option>`;
+                        return `
+                          <tr>
+                            <td>
+                              <div style="font-weight:600;font-size:0.9rem;">${m.name}</div>
+                              <div style="font-size:0.75rem;color:var(--text-tertiary);">${m.unit} &bull; Sent: ${totalSent} | Ret: ${totalReturned} | Left: ${remaining}</div>
+                            </td>
+                            <td>
+                              <input
+                                type="number"
+                                class="form-control"
+                                placeholder="0"
+                                min="0"
+                                step="1"
+                                data-material-id="${m.id}"
+                                oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                              >
+                            </td>
+                          </tr>
+                        `;
                       }).join('')}
-                    </optgroup>
-                  `).join('');
-                })()}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Quantity Returned</label>
-              <input type="number" class="form-control" id="site-return-qty" placeholder="Quantity" min="1">
-            </div>
-            <div class="form-group">
-              <label>Date</label>
-              <input type="date" class="form-control" id="site-return-date" value="${new Date().toISOString().split('T')[0]}">
+                    </tbody>
+                  </table>
+                `;
+              })()}
             </div>
           </div>
           <div class="modal-footer">
@@ -512,35 +538,47 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-dispatch-modal');
     if (modal) {
       modal.classList.remove('active');
-      document.getElementById('site-dispatch-material').value = '';
-      document.getElementById('site-dispatch-qty').value = '';
-      document.getElementById('site-dispatch-ticket').value = '';
+      // Clear all qty inputs
+      modal.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
+      const ticket = modal.querySelector('#site-dispatch-ticket');
+      if (ticket) ticket.value = '';
     }
   },
 
   saveDispatch() {
-    const materialId = document.getElementById('site-dispatch-material').value;
-    const qty = parseFloat(document.getElementById('site-dispatch-qty').value) || 0;
     const date = document.getElementById('site-dispatch-date').value;
     const ticketNo = document.getElementById('site-dispatch-ticket').value.trim();
 
-    if (!materialId || qty <= 0 || !date) {
-      alert('Please select a material, specify a valid quantity, and choose a date.');
+    if (!date) { alert('Please choose a date.'); return; }
+
+    const modal = document.getElementById('site-dispatch-modal');
+    const inputs = modal.querySelectorAll('input[data-material-id]');
+    const items = [];
+    inputs.forEach(input => {
+      const qty = parseFloat(input.value) || 0;
+      if (qty > 0) {
+        const materialId = input.getAttribute('data-material-id');
+        const material = Store.Materials.getById(materialId);
+        items.push({
+          materialId,
+          quantity: qty,
+          rate: material?.unitPrice || 0,
+          amount: qty * (material?.unitPrice || 0)
+        });
+      }
+    });
+
+    if (items.length === 0) {
+      alert('Please enter a quantity for at least one material.');
       return;
     }
 
-
     Store.Outgoing.add({
       siteId: this.siteId,
-      date: date,
+      date,
       referenceNo: ticketNo || ('DISP-' + Date.now().toString().slice(-6)),
       notes: 'Dispatched from site dashboard',
-      items: [{
-        materialId: materialId,
-        quantity: qty,
-        rate: Store.Materials.getById(materialId)?.unitPrice || 0,
-        amount: qty * (Store.Materials.getById(materialId)?.unitPrice || 0)
-      }]
+      items
     });
 
     this.closeDispatchModal();
@@ -556,30 +594,35 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-return-modal');
     if (modal) {
       modal.classList.remove('active');
-      document.getElementById('site-return-material').value = '';
-      document.getElementById('site-return-qty').value = '';
+      // Clear all qty inputs
+      modal.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
     }
   },
 
   saveReturn() {
-    const materialId = document.getElementById('site-return-material').value;
-    const qty = parseFloat(document.getElementById('site-return-qty').value) || 0;
     const date = document.getElementById('site-return-date').value;
+    if (!date) { alert('Please choose a date.'); return; }
 
-    if (!materialId || qty <= 0 || !date) {
-      alert('Please select a material, specify a valid quantity, and choose a date.');
+    const modal = document.getElementById('site-return-modal');
+    const inputs = modal.querySelectorAll('input[data-material-id]');
+    let saved = 0;
+    inputs.forEach(input => {
+      const qty = parseFloat(input.value) || 0;
+      if (qty > 0) {
+        Store.SiteReturns.add({
+          siteId: this.siteId,
+          materialId: input.getAttribute('data-material-id'),
+          quantity: qty,
+          date
+        });
+        saved++;
+      }
+    });
+
+    if (saved === 0) {
+      alert('Please enter a quantity for at least one material.');
       return;
     }
-
-    // The user explicitly requested to remove inventory validation here
-    // "remove all inventkory i want only store the data how much return how much go"
-
-    Store.SiteReturns.add({
-      siteId: this.siteId,
-      materialId: materialId,
-      quantity: qty,
-      date: date
-    });
 
     this.closeReturnModal();
     this.refresh();
