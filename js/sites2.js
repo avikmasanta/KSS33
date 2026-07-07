@@ -16,6 +16,9 @@ var SitesPage = {
           <p>Manage customer sites</p>
         </div>
         <div class="page-header-actions">
+          <button class="btn btn-outline" onclick="SitesPage.exportAllPDF()" style="display:inline-flex;align-items:center;gap:6px;">
+            ${Icons.fileText} Export All Sites PDF
+          </button>
           <button class="btn btn-primary" onclick="SitesPage.openModal()">
             ${Icons.plus} Add Site
           </button>
@@ -514,5 +517,134 @@ var SitesPage = {
   viewDetails(siteId) {
     SiteDetailsPage.siteId = siteId;
     App.navigate('site-details');
+  },
+
+  exportAllPDF() {
+    const allSites = Store.Sites.getAll().filter(s => s.status !== 'Archived');
+    if (allSites.length === 0) { alert('No sites to export.'); return; }
+
+    const materials = Store.Materials.getAll();
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const buildSitePage = (site) => {
+      // Build cross-tab maps
+      const dispatchMap = {};
+      const returnMap   = {};
+      const dispatchedMatIds = new Set();
+      const returnedMatIds   = new Set();
+
+      Store.Outgoing.getAll().filter(r => r.siteId === site.id).forEach(record => {
+        (record.items || []).forEach(item => {
+          const matId = typeof item.materialId === 'object' ? String(item.materialId._id || item.materialId.id || '') : String(item.materialId || '');
+          if (!matId || !Store.Materials.getById(matId)) return;
+          dispatchedMatIds.add(matId);
+          dispatchMap[record.date] = dispatchMap[record.date] || {};
+          dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
+        });
+      });
+
+      Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(record => {
+        (record.items || []).forEach(item => {
+          const matId = typeof item.materialId === 'object' ? String(item.materialId._id || item.materialId.id || '') : String(item.materialId || '');
+          if (!matId || !Store.Materials.getById(matId)) return;
+          dispatchedMatIds.add(matId);
+          dispatchMap[record.date] = dispatchMap[record.date] || {};
+          dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
+        });
+      });
+
+      Store.SiteReturns.getAll().filter(r => r.siteId === site.id).forEach(record => {
+        const matId = typeof record.materialId === 'object' ? String(record.materialId._id || record.materialId.id || '') : String(record.materialId || '');
+        if (!matId || !Store.Materials.getById(matId)) return;
+        returnedMatIds.add(matId);
+        returnMap[record.date] = returnMap[record.date] || {};
+        returnMap[record.date][matId] = (returnMap[record.date][matId] || 0) + (parseFloat(record.quantity) || 0);
+      });
+
+      const dispatchMats  = [...dispatchedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
+      const returnMats    = [...returnedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
+      const dispatchDates = Object.keys(dispatchMap).sort();
+      const returnDates   = Object.keys(returnMap).sort();
+
+      const hdr = cols => cols.map(m =>
+        `<th style="border:1px solid #333;padding:4px 3px;font-size:10px;text-align:center;background:#e8edf2;min-width:44px;word-break:break-word;">${m.name}<br><span style="font-weight:400;font-size:9px;color:#555;">${m.unit}</span></th>`
+      ).join('');
+
+      const rows = (dates, cols, map) => {
+        if (!dates.length) return `<tr><td colspan="99" style="text-align:center;padding:8px;color:#888;font-style:italic;font-size:11px;">No records</td></tr>`;
+        return dates.map(date => {
+          const d = map[date] || {};
+          return `<tr>
+            <td style="border:1px solid #333;padding:4px 5px;font-size:11px;white-space:nowrap;">${fmtDate(date)}</td>
+            ${cols.map(m => { const q = d[m.id] || 0; return `<td style="border:1px solid #333;padding:4px 3px;font-size:11px;text-align:center;">${q > 0 ? q : ''}</td>`; }).join('')}
+            <td style="border:1px solid #333;padding:4px;width:50px;"></td>
+          </tr>`;
+        }).join('');
+      };
+
+      const filler = (n, cols) => n <= 0 ? '' : Array.from({length: n}, () =>
+        `<tr>${'<td style="border:1px solid #333;height:20px;"></td>'.repeat(cols + 2)}</tr>`
+      ).join('');
+
+      const table = (cols, dates, map, label) => `
+        <div style="font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #333;padding-bottom:2px;margin:10px 0 4px;">${label}</div>
+        ${!cols.length
+          ? '<p style="color:#888;font-size:11px;font-style:italic;padding:4px 0;">No records.</p>'
+          : `<table style="width:100%;border-collapse:collapse;">
+              <thead><tr>
+                <th style="border:1px solid #333;padding:4px 5px;text-align:left;background:#e8edf2;min-width:75px;font-size:10px;">Date</th>
+                ${hdr(cols)}
+                <th style="border:1px solid #333;padding:4px;width:50px;background:#e8edf2;font-size:10px;">Sign.</th>
+              </tr></thead>
+              <tbody>
+                ${rows(dates, cols, map)}
+                ${filler(Math.max(0, 4 - dates.length), cols.length)}
+              </tbody>
+            </table>`
+        }`;
+
+      const headerHtml = `
+        <div style="text-align:center;font-size:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">KSS33 — Material Delivery Challan</div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+          <span>No. <span style="border-bottom:1px solid #333;display:inline-block;min-width:120px;padding:0 3px;">${site.tokenNumber || '-'}</span></span>
+          <span>Dated <span style="border-bottom:1px solid #333;display:inline-block;min-width:100px;padding:0 3px;">${today}</span></span>
+        </div>
+        <div style="font-size:12px;margin-bottom:3px;">To Owner / Contractor <span style="border-bottom:1px solid #333;display:inline-block;min-width:220px;padding:0 3px;">${site.customerName || '-'}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
+          <span>Site <span style="border-bottom:1px solid #333;display:inline-block;min-width:180px;padding:0 3px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+          <span>Driver <span style="border-bottom:1px solid #333;display:inline-block;min-width:130px;"></span></span>
+        </div>`;
+
+      return `
+        <div class="site-page page-break">
+          ${headerHtml}
+          ${table(dispatchMats, dispatchDates, dispatchMap, 'Material Received at Site')}
+          <div style="text-align:center;font-size:12px;font-weight:bold;margin-top:12px;border-top:2px solid #333;padding-top:6px;letter-spacing:2px;">CHALLAN (IN)</div>
+        </div>
+        <div class="site-page page-break">
+          ${headerHtml}
+          ${table(returnMats, returnDates, returnMap, 'Material Returned from Site')}
+          <div style="text-align:center;font-size:12px;font-weight:bold;margin-top:12px;border-top:2px solid #333;padding-top:6px;letter-spacing:2px;">CHALLAN (IN)</div>
+        </div>`;
+    };
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html>
+      <html><head>
+        <title>All Sites Report - ${new Date().toLocaleDateString('en-IN')}</title>
+        <style>
+          @page { size: A4 landscape; margin: 8mm 10mm; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #fff; }
+          .site-page { width: 100%; padding-bottom: 8px; }
+          .page-break { page-break-after: always; }
+          @media print { button { display: none; } }
+        </style>
+      </head><body>
+        ${allSites.map(site => buildSitePage(site)).join('')}
+        <script>window.onload = function(){ window.print(); };<\/script>
+      </body></html>`);
+    printWindow.document.close();
   }
 };
