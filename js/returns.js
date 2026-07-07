@@ -21,7 +21,7 @@ var ReturnsPage = {
     });
 
     return `
-      <div class="page-header" style="background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%); padding: 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+      <div class="page-header" style="background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%); padding: 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
         <div class="page-header-title" style="display: flex; align-items: center; gap: 16px;">
           <div style="width: 48px; height: 48px; background: rgba(16, 185, 129, 0.1); color: var(--success); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
             ${Icons.plusCircle || Icons.box}
@@ -30,6 +30,11 @@ var ReturnsPage = {
             <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Add New Stock</h2>
             <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Record incoming materials from suppliers</p>
           </div>
+        </div>
+        <div>
+          <button class="btn btn-outline" onclick="ReturnsPage.exportPDF()" style="display:inline-flex;align-items:center;gap:6px;">
+            ${Icons.fileText || ''} Export PDF
+          </button>
         </div>
       </div>
 
@@ -162,5 +167,70 @@ var ReturnsPage = {
     
     alert("New stock added successfully!");
     this.refresh();
+  },
+
+  exportPDF() {
+    const materials = Store.Materials.getAll();
+    const allReturns = Store.SiteReturns.getAll();
+    const returnsMap = {};
+    allReturns.forEach(r => {
+      if (!returnsMap[r.materialId]) returnsMap[r.materialId] = 0;
+      returnsMap[r.materialId] += parseFloat(r.quantity || 0);
+    });
+    
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    
+    const rows = materials.map(m => {
+      const totalReturned = returnsMap[m.id] || 0;
+      return `
+        <tr>
+          <td style="border:1px solid #333;padding:8px;">${m.name}<br><span style="font-size:10px;color:#555;">${m.sku || ''}</span></td>
+          <td style="border:1px solid #333;padding:8px;text-align:center;">${m.unit}</td>
+          <td style="border:1px solid #333;padding:8px;text-align:right;">${totalReturned.toLocaleString('en-IN')}</td>
+        </tr>
+      `;
+    }).join('');
+    
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html>
+      <html><head>
+        <title>New Stock Entry & Returns - ${today}</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; color: #111; background: #fff; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { border: 1px solid #333; padding: 10px; background: #e8edf2; text-align: left; font-size: 13px; }
+          td { font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <h2 style="margin-bottom: 5px;">Warehouse Material Returns & Entry</h2>
+        <p style="font-size: 14px; color: #555;">Generated on: ${today}</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th style="text-align:center;">Unit</th>
+              <th style="text-align:right;">Total Returned From Sites</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length > 0 ? rows : '<tr><td colspan="3" style="text-align:center;padding:20px;font-style:italic;">No materials found.</td></tr>'}
+          </tbody>
+        </table>
+        
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.close();
+            }, 300);
+          }
+        </script>
+      </body></html>
+    `);
+    printWindow.document.close();
   }
 };
