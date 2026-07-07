@@ -16,10 +16,10 @@ const schemaOptions = {
 // ─── Schemas ──────────────────────────────────────────────────────
 const schemas = {
   customers: new mongoose.Schema({ _id: String, name: String, email: String, phone: String, address: String, gst: String, status: { type: String, default: 'Active' }, createdAt: String }, schemaOptions),
-  sites: new mongoose.Schema({ _id: String, customerId: String, name: String, customerName: String, gstNumber: String, contactNumber: String, status: { type: String, default: 'Active' }, startDate: String, address: String, budget: Number, tokenNumber: String, createdAt: String }, schemaOptions),
+  sites: new mongoose.Schema({ _id: String, customerId: String, name: String, customerName: String, gstNumber: String, contactNumber: String, status: { type: String, default: 'Active' }, startDate: String, address: String, budget: Number, tokenNumber: String, archivedAt: String, createdAt: String }, schemaOptions),
   materials: new mongoose.Schema({ _id: String, name: String, sku: String, category: String, unit: String, unitPrice: Number, reorderLevel: Number, status: { type: String, default: 'Active' }, createdAt: String }, schemaOptions),
   incoming: new mongoose.Schema({ _id: String, date: String, referenceNo: String, vendorName: String, destinationType: String, destinationSiteId: String, notes: String, items: [{ materialId: String, quantity: Number, unitPrice: Number }], createdAt: String }, schemaOptions),
-  outgoing: new mongoose.Schema({ _id: String, date: String, referenceNo: String, siteId: String, notes: String, items: [{ materialId: String, quantity: Number }], createdAt: String }, schemaOptions),
+  outgoing: new mongoose.Schema({ _id: String, date: String, referenceNo: String, siteId: String, notes: String, items: [{ materialId: String, quantity: Number, rate: Number, amount: Number }], createdAt: String }, schemaOptions),
   siteUsage: new mongoose.Schema({ _id: String, siteId: String, materialId: String, quantity: Number, date: String, notes: String, createdAt: String }, schemaOptions),
   siteReturns: new mongoose.Schema({ _id: String, siteId: String, materialId: String, quantity: Number, date: String, notes: String, createdAt: String }, schemaOptions),
   siteDamaged: new mongoose.Schema({ _id: String, siteId: String, materialId: String, quantity: Number, date: String, notes: String, createdAt: String }, schemaOptions),

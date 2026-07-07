@@ -87,11 +87,6 @@ const Store = (() => {
     if (cache.materials.length === 0) {
       await seedDefaultMaterials();
     }
-    
-    // TEMPORARY: Force wipe and re-seed with new materials if the old ones exist
-    if (cache.materials.some(m => m.name === 'Cement (OPC 53)')) {
-      await seedDefaultMaterials(true);
-    }
 
     // Auto-delete archived sites older than 3 days
     cleanupOldArchives();
@@ -106,7 +101,7 @@ const Store = (() => {
         if (now - archivedDate > threeDays) {
           // Permanently delete site and all its dependencies
           console.log(`Auto-deleting archived site: ${site.id}`);
-          fetch(`${API_URL}/sites/${site.id}?action=cascade`, { method: 'DELETE' }).catch(console.error);
+          fetch(`${API_URL}/sites/${site.id}/cascade`, { method: 'DELETE' }).catch(console.error);
           
           // Remove from local cache
           cache.sites = cache.sites.filter(s => s.id !== site.id);
