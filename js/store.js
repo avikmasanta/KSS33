@@ -405,19 +405,38 @@ const Store = (() => {
       const allOutgoing = cache.outgoing;
       const siteReturns = cache.siteReturns;
       return materials.map(material => {
-        let totalIn = 0;
+        let totalPurchased = 0;
+        let totalReturned = 0;
+        
         allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
-          (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalIn += (parseFloat(i.quantity) || 0); });
+          (r.items || []).forEach(i => { 
+            if (resolveId(i.materialId) === resolveId(material.id)) {
+              const qty = parseFloat(i.quantity) || 0;
+              // If it says return in supplier, count as returned
+              if (r.supplier && r.supplier.toLowerCase().includes('return')) {
+                totalReturned += qty;
+              } else {
+                totalPurchased += qty;
+              }
+            } 
+          });
         });
         siteReturns.forEach(r => {
-          if (resolveId(r.materialId) === resolveId(material.id)) totalIn += (parseFloat(r.quantity) || 0);
+          if (resolveId(r.materialId) === resolveId(material.id)) totalReturned += (parseFloat(r.quantity) || 0);
         });
         
-        let totalOut = 0;
+        let totalSent = 0;
         allOutgoing.forEach(r => {
-          (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalOut += (parseFloat(i.quantity) || 0); });
+          (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalSent += (parseFloat(i.quantity) || 0); });
         });
-        return { material, warehouseStock: totalIn - totalOut };
+        
+        return { 
+          material, 
+          totalPurchased, 
+          totalReturned, 
+          totalSent, 
+          warehouseStock: (totalPurchased + totalReturned) - totalSent 
+        };
       });
     },
 

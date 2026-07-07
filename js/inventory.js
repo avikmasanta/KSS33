@@ -107,11 +107,12 @@ var InventoryPage = {
             <th>#</th>
             <th>Material</th>
             <th>Unit</th>
-            <th>Warehouse Stock</th>
-            <th>Total Site Stock</th>
-            <th>Total Stock</th>
-            <th>Reorder Level</th>
-            <th>Status</th>
+            <th style="color: var(--text-secondary);">User Input</th>
+            <th style="color: var(--danger);">Returns</th>
+            <th style="color: var(--warning);">Sent Out</th>
+            <th style="color: var(--success);">Available (Warehouse)</th>
+            <th>At Sites</th>
+            <th>Total Owned</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -121,18 +122,17 @@ var InventoryPage = {
             return `
               <tr>
                 <td class="secondary">${i + 1}</td>
-                <td><strong>${o.material.name}</strong></td>
+                <td>
+                  <strong>${o.material.name}</strong>
+                  ${isLow ? '<br><span style="font-size: 10px; color: var(--danger);">Low Stock</span>' : ''}
+                </td>
                 <td>${o.material.unit}</td>
-                <td>${formatNum(o.warehouseStock)}</td>
+                <td style="color: var(--text-secondary); font-weight: 500;">${formatNum(o.totalPurchased || 0)}</td>
+                <td style="color: var(--danger); font-weight: 500;">+${formatNum(o.totalReturned || 0)}</td>
+                <td style="color: var(--warning); font-weight: 500;">-${formatNum(o.totalSent || 0)}</td>
+                <td style="color: var(--success); font-weight: 700;">${formatNum(o.warehouseStock)}</td>
                 <td>${formatNum(o.totalSiteStock)}</td>
                 <td><strong>${formatNum(o.totalStock)}</strong></td>
-                <td>${formatNum(o.reorderLevel)}</td>
-                <td>
-                  ${isLow 
-                    ? '<span class="badge badge-danger">Low Stock</span>'
-                    : '<span class="badge badge-success">OK</span>'
-                  }
-                </td>
                 <td>
                   <div class="table-actions">
                     <button class="btn btn-sm btn-primary" style="padding: 4px 8px; font-size: 12px; margin-right: 5px;" onclick="InventoryPage.openAdjustModal('${o.material.id}', '${o.material.name.replace(/'/g, "\\'")}', ${o.warehouseStock})">
