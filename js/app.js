@@ -45,6 +45,11 @@ var App = (() => {
 
       // 3. Set up periodic background auto-sync every 30 seconds
       setInterval(async () => {
+        // Skip refresh if any modal is active to prevent losing user input
+        if (document.querySelector('.modal-backdrop.active') || document.querySelector('.modal.active')) {
+          return;
+        }
+
         const hashBefore = getHash();
         await Store.init();
         const currentHash = getHash();
