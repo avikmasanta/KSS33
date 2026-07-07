@@ -428,211 +428,108 @@ var ReportsPage = {
     const container = document.getElementById('site-cost-report-body');
     const materials = Store.Materials.getAll();
     const allSites  = Store.Sites.getAll();
+    const fmt = (v) => Number(v || 0).toLocaleString('en-IN');
 
-    const formatNum      = (v) => Number(v || 0).toLocaleString('en-IN');
-    const formatCurrency = (v) => '₹\u00a0' + Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 });
-
-    // --- Helper: compute stats for one site ---
-    const getSiteStats = (site) => {
-      const matRows = [];
-      let totalIssuedValue = 0, totalReturnedValue = 0;
-
-      // Collect unique material IDs that touched this site
+    const getSiteRows = (site) => {
       const matIds = new Set();
       Store.Outgoing.getAll().filter(r => r.siteId === site.id).forEach(r => (r.items || []).forEach(i => matIds.add(typeof i.materialId === 'object' ? (i.materialId._id || i.materialId.id) : i.materialId)));
       Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(r => (r.items || []).forEach(i => matIds.add(typeof i.materialId === 'object' ? (i.materialId._id || i.materialId.id) : i.materialId)));
       Store.SiteReturns.getAll().filter(r => r.siteId === site.id).forEach(r => matIds.add(typeof r.materialId === 'object' ? (r.materialId._id || r.materialId.id) : r.materialId));
-
+      const rows = [];
       matIds.forEach(mId => {
-        const mat = materials.find(m => m.id === mId);
-        const name = mat ? mat.name : 'Deleted Material';
-        const unit = mat ? mat.unit : '';
-        const rate = mat ? (parseFloat(mat.unitPrice) || 0) : 0;
-
+        const mat      = materials.find(m => m.id === mId);
         const issued   = Store.Inventory.getSiteTotalSent(mId, site.id);
         const returned = Store.Inventory.getSiteReturns(mId, site.id);
-        const netUsed  = issued - returned;
-        const issuedVal   = issued   * rate;
-        const returnedVal = returned * rate;
-        const netCost     = netUsed  * rate;
-
         if (issued === 0 && returned === 0) return;
-
-        totalIssuedValue   += issuedVal;
-        totalReturnedValue += returnedVal;
-
-        matRows.push({ name, unit, rate, issued, returned, netUsed, issuedVal, returnedVal, netCost });
+        rows.push({ name: mat ? mat.name : 'Deleted Material', unit: mat ? mat.unit : '', issued, returned, net: issued - returned });
       });
-
-      const netProjectCost = totalIssuedValue - totalReturnedValue;
-      return { matRows, totalIssuedValue, totalReturnedValue, netProjectCost };
+      return rows;
     };
 
-    // --- Build HTML for one site block ---
-    const renderSiteBlock = (site) => {
-      const { matRows, totalIssuedValue, totalReturnedValue, netProjectCost } = getSiteStats(site);
-      const statusColor = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
-
-      const tableRows = matRows.length === 0
-        ? `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-tertiary)">No materials recorded at this site.</td></tr>`
-        : matRows.map((r, i) => `
+    const siteBlock = (site) => {
+      const rows = getSiteRows(site);
+      const tIss = rows.reduce((s, r) => s + r.issued, 0);
+      const tRet = rows.reduce((s, r) => s + r.returned, 0);
+      const tNet = tIss - tRet;
+      const sc   = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
+      const trs  = rows.length === 0
+        ? `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-tertiary)">No materials recorded at this site.</td></tr>`
+        : rows.map((r, i) => `
             <tr>
-              <td style="font-weight:600;">${i + 1}</td>
-              <td><strong>${r.name}</strong></td>
-              <td style="text-align:center;">${formatNum(r.issued)} <span style="font-size:11px;color:var(--text-tertiary);">${r.unit}</span></td>
-              <td style="text-align:center;color:#10b981;font-weight:600;">${formatNum(r.returned)} <span style="font-size:11px;color:var(--text-tertiary);">${r.unit}</span></td>
-              <td style="text-align:center;font-weight:700;">${formatNum(r.netUsed)} <span style="font-size:11px;color:var(--text-tertiary);">${r.unit}</span></td>
-              <td style="text-align:right;color:#3b82f6;">${r.rate > 0 ? formatCurrency(r.issuedVal) : '<span style="color:var(--text-tertiary);font-size:12px;">No rate set</span>'}</td>
-              <td style="text-align:right;color:#10b981;">${r.rate > 0 ? formatCurrency(r.returnedVal) : '-'}</td>
-            </tr>
-          `).join('');
-
+              <td style="color:var(--text-tertiary);font-weight:600">${i+1}</td>
+              <td><strong>${r.name}</strong> <span style="font-size:11px;color:var(--text-tertiary)">(${r.unit})</span></td>
+              <td style="text-align:center;font-weight:700">${fmt(r.issued)}</td>
+              <td style="text-align:center;color:#10b981;font-weight:700">${fmt(r.returned)}</td>
+              <td style="text-align:center;font-weight:800">${fmt(r.net)}</td>
+            </tr>`
+          ).join('');
+      const foot = rows.length === 0 ? '' : `
+        <tfoot style="background:var(--surface-raised,#f8fafc)">
+          <tr style="font-weight:800;border-top:2px solid var(--border)">
+            <td colspan="2" style="padding:14px 16px;color:var(--text-secondary)">TOTAL</td>
+            <td style="text-align:center;padding:14px 16px">${fmt(tIss)}</td>
+            <td style="text-align:center;padding:14px 16px;color:#10b981">${fmt(tRet)}</td>
+            <td style="text-align:center;padding:14px 16px;font-size:1.1rem">${fmt(tNet)}</td>
+          </tr>
+        </tfoot>`;
       return `
-        <div style="border:1px solid var(--border);border-radius:14px;margin:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-
-          <!-- Site Header -->
-          <div style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;">
+        <div style="border:1px solid var(--border);border-radius:14px;margin:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">
+          <div style="background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
             <div>
-              <div style="display:flex;align-items:center;gap:10px;">
-                <span style="font-size:1.15rem;font-weight:800;">${site.name}</span>
-                <span style="background:${statusColor};color:white;font-size:11px;padding:2px 10px;border-radius:20px;font-weight:600;">${site.status || 'Active'}</span>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:1.2rem;font-weight:800">${site.name}</span>
+                <span style="background:${sc};color:white;font-size:11px;padding:2px 10px;border-radius:20px;font-weight:600">${site.status||'Active'}</span>
               </div>
-              <div style="font-size:0.85rem;color:rgba(255,255,255,0.65);margin-top:4px;">
-                ${site.customerName ? '👤 ' + site.customerName + '&nbsp;&nbsp;' : ''}${site.address ? '📍 ' + site.address : ''}
-              </div>
+              <div style="font-size:0.85rem;color:rgba(255,255,255,.6);margin-top:4px">${site.customerName ? '&#128100; '+site.customerName+'&nbsp;&nbsp;' : ''}${site.address ? '&#128205; '+site.address : ''}</div>
             </div>
-            <div style="display:flex;gap:16px;flex-wrap:wrap;">
-              <div style="text-align:right;">
-                <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Total Issued Value</div>
-                <div style="font-size:1.3rem;font-weight:800;color:#93c5fd;">${formatCurrency(totalIssuedValue)}</div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:0.5px;">Returned Value</div>
-                <div style="font-size:1.3rem;font-weight:800;color:#6ee7b7;">${formatCurrency(totalReturnedValue)}</div>
-              </div>
-              <div style="text-align:right;background:rgba(255,255,255,0.1);padding:8px 14px;border-radius:10px;">
-                <div style="font-size:0.75rem;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.5px;">Net Project Cost</div>
-                <div style="font-size:1.5rem;font-weight:900;color:#fde68a;">${formatCurrency(netProjectCost)}</div>
-              </div>
+            <div style="display:flex;gap:24px;flex-wrap:wrap">
+              <div style="text-align:center"><div style="font-size:.7rem;color:rgba(255,255,255,.55);text-transform:uppercase">Total Issued</div><div style="font-size:1.8rem;font-weight:900;color:#fde68a">${fmt(tIss)}</div></div>
+              <div style="text-align:center"><div style="font-size:.7rem;color:rgba(255,255,255,.55);text-transform:uppercase">Total Returned</div><div style="font-size:1.8rem;font-weight:900;color:#6ee7b7">${fmt(tRet)}</div></div>
+              <div style="text-align:center;background:rgba(255,255,255,.1);padding:8px 16px;border-radius:10px"><div style="font-size:.7rem;color:rgba(255,255,255,.7);text-transform:uppercase">Net at Site</div><div style="font-size:2rem;font-weight:900">${fmt(tNet)}</div></div>
             </div>
           </div>
-
-          <!-- Material Table -->
-          <div style="overflow-x:auto;">
-            <table class="data-table" style="margin:0;border-radius:0;">
-              <thead>
-                <tr>
-                  <th style="width:40px;">#</th>
-                  <th>Material</th>
-                  <th style="text-align:center;">Issued Qty</th>
-                  <th style="text-align:center;color:#10b981;">Returned Qty</th>
-                  <th style="text-align:center;">Net Used Qty</th>
-                  <th style="text-align:right;color:#3b82f6;">Issued Value</th>
-                  <th style="text-align:right;color:#10b981;">Returned Value</th>
-                </tr>
-              </thead>
-              <tbody>${tableRows}</tbody>
-              ${matRows.length > 0 ? `
-              <tfoot style="background:var(--surface-raised,#f8fafc);">
-                <tr style="font-weight:700;font-size:1rem;">
-                  <td colspan="5" style="text-align:right;padding:14px 16px;color:var(--text-secondary);">TOTAL PROJECT COST (Net)</td>
-                  <td style="text-align:right;padding:14px 16px;color:#3b82f6;">${formatCurrency(totalIssuedValue)}</td>
-                  <td style="text-align:right;padding:14px 16px;color:#10b981;">${formatCurrency(totalReturnedValue)}</td>
-                </tr>
-                <tr>
-                  <td colspan="7" style="text-align:right;padding:10px 16px;background:#fefce8;border-top:2px solid #fde68a;">
-                    <span style="font-size:1.1rem;font-weight:800;color:#92400e;">Net Cost After Returns: ${formatCurrency(netProjectCost)}</span>
-                  </td>
-                </tr>
-              </tfoot>` : ''}
+          <div style="overflow-x:auto">
+            <table class="data-table" style="margin:0;border-radius:0">
+              <thead><tr><th style="width:40px">#</th><th>Material</th><th style="text-align:center">Issued Qty</th><th style="text-align:center;color:#10b981">Returned Qty</th><th style="text-align:center">Net Qty at Site</th></tr></thead>
+              <tbody>${trs}</tbody>
+              ${foot}
             </table>
           </div>
-        </div>
-      `;
+        </div>`;
     };
 
-    // --- Render "all sites" grand summary ---
-    const renderAllSites = () => {
-      const allSitesSorted = allSites.slice().sort((a, b) => a.name.localeCompare(b.name));
-      let grandIssued = 0, grandReturned = 0;
-
-      // Summary cards
-      const summaryCards = allSitesSorted.map(site => {
-        const { totalIssuedValue, totalReturnedValue, netProjectCost } = getSiteStats(site);
-        grandIssued   += totalIssuedValue;
-        grandReturned += totalReturnedValue;
-        const statusColor = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
+    const allView = () => {
+      const sorted = allSites.slice().sort((a, b) => a.name.localeCompare(b.name));
+      const cards  = sorted.map(site => {
+        const rows = getSiteRows(site);
+        const tIss = rows.reduce((s, r) => s + r.issued, 0);
+        const tRet = rows.reduce((s, r) => s + r.returned, 0);
+        const tNet = tIss - tRet;
+        const sc   = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
         return `
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.1)'" onmouseout="this.style.boxShadow='none'">
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;transition:box-shadow .2s;cursor:pointer" onclick="document.getElementById('site-cost-selector').value='${site.id}';ReportsPage.renderSiteCostReport('${site.id}')" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow='none'">
             <div>
-              <div style="font-weight:700;font-size:1rem;color:var(--text-primary);">${site.name}</div>
-              <div style="font-size:0.8rem;color:var(--text-tertiary);margin-top:2px;">
-                ${site.customerName || 'No customer'} &nbsp;•&nbsp;
-                <span style="color:${statusColor};font-weight:600;">${site.status || 'Active'}</span>
-              </div>
+              <div style="font-weight:700;font-size:1rem;color:var(--text-primary)">${site.name}</div>
+              <div style="font-size:.8rem;color:var(--text-tertiary);margin-top:2px">${site.customerName||'No customer'} &bull; <span style="color:${sc};font-weight:600">${site.status||'Active'}</span> &bull; ${rows.length} material${rows.length!==1?'s':''}</div>
             </div>
-            <div style="display:flex;gap:20px;flex-wrap:wrap;text-align:right;">
-              <div>
-                <div style="font-size:0.7rem;color:var(--text-tertiary);text-transform:uppercase;">Issued</div>
-                <div style="font-weight:700;color:#3b82f6;">${formatCurrency(totalIssuedValue)}</div>
-              </div>
-              <div>
-                <div style="font-size:0.7rem;color:var(--text-tertiary);text-transform:uppercase;">Returned</div>
-                <div style="font-weight:700;color:#10b981;">${formatCurrency(totalReturnedValue)}</div>
-              </div>
-              <div style="background:#fefce8;border-radius:8px;padding:6px 12px;">
-                <div style="font-size:0.7rem;color:#92400e;text-transform:uppercase;">Net Cost</div>
-                <div style="font-weight:800;color:#92400e;">${formatCurrency(netProjectCost)}</div>
-              </div>
+            <div style="display:flex;gap:20px;flex-wrap:wrap;text-align:center">
+              <div><div style="font-size:.7rem;color:var(--text-tertiary);text-transform:uppercase">Issued</div><div style="font-weight:700;font-size:1.1rem;color:#3b82f6">${fmt(tIss)}</div></div>
+              <div><div style="font-size:.7rem;color:var(--text-tertiary);text-transform:uppercase">Returned</div><div style="font-weight:700;font-size:1.1rem;color:#10b981">${fmt(tRet)}</div></div>
+              <div style="background:#f0fdf4;border-radius:8px;padding:6px 14px"><div style="font-size:.7rem;color:#166534;text-transform:uppercase">Net at Site</div><div style="font-weight:800;font-size:1.1rem;color:#166534">${fmt(tNet)}</div></div>
             </div>
-          </div>
-        `;
+          </div>`
       }).join('');
-
-      const grandNet = grandIssued - grandReturned;
-
       return `
-        <div style="padding:20px;">
-          <!-- Grand Total Banner -->
-          <div style="background:linear-gradient(135deg,#7c3aed 0%,#4f46e5 100%);color:white;border-radius:14px;padding:20px 28px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
-            <div>
-              <div style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;opacity:0.7;">Grand Total Across All Sites</div>
-              <div style="font-size:2rem;font-weight:900;margin-top:4px;">${formatCurrency(grandNet)}</div>
-              <div style="font-size:0.85rem;opacity:0.75;margin-top:2px;">Net project cost after all returns</div>
-            </div>
-            <div style="display:flex;gap:20px;flex-wrap:wrap;">
-              <div style="text-align:right;">
-                <div style="font-size:0.75rem;opacity:0.65;">Total Issued</div>
-                <div style="font-size:1.2rem;font-weight:700;color:#bfdbfe;">${formatCurrency(grandIssued)}</div>
-              </div>
-              <div style="text-align:right;">
-                <div style="font-size:0.75rem;opacity:0.65;">Total Returned</div>
-                <div style="font-size:1.2rem;font-weight:700;color:#6ee7b7;">${formatCurrency(grandReturned)}</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Per-Site Summary Cards -->
-          <div style="display:flex;flex-direction:column;gap:10px;">
-            ${allSitesSorted.length === 0
-              ? '<div style="text-align:center;color:var(--text-tertiary);padding:40px;">No sites found. Add sites first.</div>'
-              : summaryCards}
-          </div>
-          <p class="text-sm text-tertiary" style="text-align:center;margin-top:16px;">Select a specific site from the dropdown above to see the full material-wise breakdown.</p>
-        </div>
-      `;
+        <div style="padding:20px">
+          <p style="margin-bottom:14px;color:var(--text-tertiary);font-size:.9rem">Showing all ${sorted.length} site(s). Select a site above to see the full material breakdown.</p>
+          <div style="display:flex;flex-direction:column;gap:10px">${sorted.length===0?'<div style="text-align:center;color:var(--text-tertiary);padding:40px">No sites found.</div>':cards}</div>
+        </div>`;
     };
 
-    const html = siteId === 'all'
-      ? renderAllSites()
-      : renderSiteBlock(allSites.find(s => s.id === siteId) || allSites[0]);
-
-    if (container) {
-      container.innerHTML = html;
-    }
+    const html = siteId === 'all' ? allView() : siteBlock(allSites.find(s => s.id === siteId) || allSites[0]);
+    if (container) container.innerHTML = html;
     return html;
   },
-
   onSiteReportChange(val) {
     const container = document.getElementById('site-stock-report-body');
     if (!container) return;
