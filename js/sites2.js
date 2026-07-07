@@ -469,8 +469,12 @@ var SitesPage = {
 
   async permanentDeleteSite(id) {
     if(confirm('Are you sure you want to PERMANENTLY delete this site? This action cannot be undone and will delete all associated data.')) {
-      await Store.Sites.hardDelete(id);
-      this.refresh();
+      try {
+        await Store.Sites.hardDelete(id);
+        this.refresh();
+      } catch (err) {
+        alert("Delete failed: " + err.message);
+      }
     }
   },
 
