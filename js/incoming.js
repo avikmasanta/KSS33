@@ -8,7 +8,7 @@ var IncomingPage = {
   formItems: [{ materialId: '', quantity: '', rate: '', amount: 0 }],
 
   render() {
-    let records = Store.SiteReturns.getAll().sort((a, b) => new Date(b.date) - new Date(a.date));
+    let records = Store.Incoming.getAll().sort((a, b) => new Date(b.date) - new Date(a.date));
     
     const materials = Store.Materials.getAll();
     const sites = Store.Sites.getAll();
@@ -16,15 +16,18 @@ var IncomingPage = {
     if (this.searchTerm) {
       const st = this.searchTerm.toLowerCase();
       records = records.filter(r => {
-        const site = sites.find(s => s.id === r.siteId);
-        const mat = materials.find(m => m.id === r.materialId);
+        const supStr = (r.supplier || '').toLowerCase();
+        const refStr = (r.referenceNo || '').toLowerCase();
+        const dateStr = (r.date || '').toLowerCase();
         
-        const siteStr = site ? (site.name + ' ' + (site.tokenNumber || '')).toLowerCase() : '';
-        const matStr = mat ? mat.name.toLowerCase() : '';
-
-        return siteStr.includes(st) ||
-               matStr.includes(st) ||
-               (r.date || '').includes(st);
+        let hasMat = false;
+        if (r.items) {
+          hasMat = r.items.some(i => {
+            const m = materials.find(mat => mat.id === i.materialId);
+            return m && m.name.toLowerCase().includes(st);
+          });
+        }
+        return supStr.includes(st) || refStr.includes(st) || dateStr.includes(st) || hasMat;
       });
     }
 
@@ -53,20 +56,16 @@ var IncomingPage = {
           </div>
           <div id="incoming-list">
             ${records.map(r => {
-              const site = sites.find(s => s.id === r.siteId);
-              const mat = materials.find(m => m.id === r.materialId);
-              
-              const siteName = site ? site.name : 'Unknown Site';
-              const matName = mat ? mat.name : 'Unknown Material';
-              const sku = mat && mat.sku ? mat.sku : '';
+              const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
+              const source = r.supplier || 'Unknown Source';
               
               return `
                 <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer;" onclick="IncomingPage.selectRecord('${r.id}')">
                   <div class="flex items-center justify-between">
-                    <div class="item-title">${siteName} <span style="font-size: 0.8em; color: var(--text-tertiary);">(${site ? site.tokenNumber || '-' : '-'})</span></div>
-                    <span class="badge badge-incoming">Returned</span>
+                    <div class="item-title">${source}</div>
+                    <span class="badge ${r.destinationType === 'site' ? 'badge-warning' : 'badge-success'}">${r.destinationType === 'site' ? 'To Site' : 'To Warehouse'}</span>
                   </div>
-                  <div class="item-sub">${matName} ${sku} • Qty: ${r.quantity}</div>
+                  <div class="item-sub">Ref: ${r.referenceNo || '-'} • Total Items: ${totalItems}</div>
                   <div class="item-sub" style="font-weight:600;color:var(--text-primary)">${new Date(r.date).toLocaleDateString('en-IN', {day:'2-digit',month:'short',year:'numeric'})}</div>
                 </div>
               `;
@@ -109,56 +108,7 @@ var IncomingPage = {
   renderForm() {
     const materials = Store.Materials.getAll();
     const sites = Store.Sites.getAll();
-    const returnRecord = this.selectedId ? Store.SiteReturns.getById(this.selectedId) : null;
-
-    if (returnRecord) {
-      const site = sites.find(s => s.id === returnRecord.siteId);
-      const mat = materials.find(m => m.id === returnRecord.materialId);
-      
-      return `
-        <div class="details-view" style="padding: 20px; background: #f8fafc; border-radius: 8px;">
-          <h4 style="margin-top: 0; color: #0f172a; margin-bottom: 16px;">Site Return Details</h4>
-          
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-            <div>
-              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Site Name</div>
-              <div style="font-weight: 500;">${site ? site.name : 'Unknown'}</div>
-            </div>
-            <div>
-              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Token Number</div>
-              <div style="font-weight: 500;">${site && site.tokenNumber ? site.tokenNumber : '-'}</div>
-            </div>
-            <div>
-              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Date</div>
-              <div style="font-weight: 500;">${new Date(returnRecord.date).toLocaleDateString()}</div>
-            </div>
-            <div>
-              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Material</div>
-              <div style="font-weight: 500;">${mat ? mat.name : 'Unknown'} (${mat ? mat.sku : ''})</div>
-            </div>
-            <div>
-              <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Quantity Returned</div>
-              <div style="font-weight: 500; font-size: 1.1rem; color: #0f172a;">${returnRecord.quantity} ${mat ? mat.unit : ''}</div>
-            </div>
-          </div>
-          
-          ${returnRecord.notes ? `
-          <div style="margin-top: 16px;">
-            <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">Notes</div>
-            <div style="padding: 12px; background: white; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.9rem;">
-              ${returnRecord.notes}
-            </div>
-          </div>
-          ` : ''}
-          
-          <div class="mt-4">
-            <button class="btn btn-outline" onclick="IncomingPage.newRecord()">Close View</button>
-          </div>
-        </div>
-      `;
-    }
-
-    const record = null; // We no longer edit Incoming records from this list since it's just returns now.
+    const record = this.selectedId ? Store.Incoming.getById(this.selectedId) : null;
 
     const items = record ? record.items : this.formItems;
     const totalAmount = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
@@ -168,7 +118,7 @@ var IncomingPage = {
         <div class="form-row">
           <div class="form-group">
             <label>Supplier / Source *</label>
-            <input type="text" class="form-control" id="inc-supplier" placeholder="Supplier name" value="${record ? record.supplier || '' : ''}">
+            <input type="text" class="form-control" id="inc-supplier" placeholder="e.g. Supplier Name or 'Site Return'" value="${record ? record.supplier || '' : ''}">
           </div>
           <div class="form-group">
             <label>Invoice No</label>

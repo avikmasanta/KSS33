@@ -76,7 +76,6 @@ var SiteDetailsPage = {
         <div class="page-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
           ${site.status !== 'Completed'
         ? `<button class="btn btn-secondary" onclick="SiteDetailsPage.openDispatchModal()">${Icons.arrowUpCircle} Log Dispatch</button>
-               <button class="btn btn-primary" onclick="SiteDetailsPage.openReturnModal()">${Icons.arrowDownCircle} Log Return</button>
                <button class="btn btn-success" onclick="SiteDetailsPage.markCompleted()">${Icons.check} Mark Completed</button>`
         : `<button class="btn btn-warning" onclick="SiteDetailsPage.markActive()">${Icons.refreshCw} Reopen Site</button>`}
         </div>
@@ -143,22 +142,6 @@ var SiteDetailsPage = {
           <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
             <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">INCOMING</span>
             Total material received at this site
-          </div>
-        </div>
-
-        <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
-          <div style="position: absolute; right: -10px; top: 10px; opacity: 0.15; transform: scale(4); pointer-events: none;">
-            ${Icons.arrowUpCircle}
-          </div>
-          <h3 style="margin:0 0 10px 0; font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-            <div style="width: 20px; height: 20px;">${Icons.arrowUpCircle}</div> Total Returned
-          </h3>
-          <div style="font-size: 3.5rem; font-weight: 800; letter-spacing: -2px; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);" id="site-total-returned">
-            ${totalReturned}
-          </div>
-          <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.85); display: flex; align-items: center; gap: 6px;">
-            <span style="background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 12px; font-size: 0.8rem;">OUTGOING</span>
-            Total material returned from this site
           </div>
         </div>
       </div>

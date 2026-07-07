@@ -403,11 +403,16 @@ const Store = (() => {
       const materials   = cache.materials;
       const allIncoming = cache.incoming;
       const allOutgoing = cache.outgoing;
+      const siteReturns = cache.siteReturns;
       return materials.map(material => {
         let totalIn = 0;
         allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
           (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalIn += (parseFloat(i.quantity) || 0); });
         });
+        siteReturns.forEach(r => {
+          if (resolveId(r.materialId) === resolveId(material.id)) totalIn += (parseFloat(r.quantity) || 0);
+        });
+        
         let totalOut = 0;
         allOutgoing.forEach(r => {
           (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalOut += (parseFloat(i.quantity) || 0); });
@@ -419,9 +424,13 @@ const Store = (() => {
     getWarehouseCurrentBalance: (materialId) => {
       const allIncoming = cache.incoming;
       const allOutgoing = cache.outgoing;
+      const siteReturns = cache.siteReturns;
       let totalIn = 0;
       allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
+      });
+      siteReturns.forEach(r => {
+        if (resolveId(r.materialId) === resolveId(materialId)) totalIn += (parseFloat(r.quantity) || 0);
       });
       let totalOut = 0;
       allOutgoing.forEach(r => {
