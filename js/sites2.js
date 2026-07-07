@@ -248,7 +248,9 @@ var SitesPage = {
 
       if (matContainer) {
         matContainer.style.display = 'block';
-        this.initItems = [{ materialId: '', quantity: '', returned: '' }];
+        // Pre-populate ALL materials — user only types quantities
+        const allMaterials = Store.Materials.getAll();
+        this.initItems = allMaterials.map(m => ({ materialId: m.id, quantity: '', returned: '' }));
         this.renderInitItems();
       }
     } else {
@@ -263,45 +265,59 @@ var SitesPage = {
     const materials = Store.Materials.getAll();
     const overview = Store.Inventory.getOverview();
 
+    if (this.initItems.length === 0) {
+      list.innerHTML = '<p class="text-sm text-tertiary">No materials found. Add materials in the Products page first.</p>';
+      return;
+    }
+
     let html = `
       <table class="inline-table w-100 mb-2">
         <thead>
           <tr>
-            <th>Material</th>
+            <th style="width:45%">Material</th>
             <th style="width:22%; color: var(--success)">Received at Site</th>
             <th style="width:22%; color: var(--danger)">Returned from Site</th>
-            <th style="width:10%"></th>
           </tr>
         </thead>
         <tbody>
     `;
 
     this.initItems.forEach((item, idx) => {
-      const stock = item.materialId ? (overview.find(o => o.material.id === item.materialId)?.warehouseStock || 0) : '-';
+      const mat = materials.find(m => m.id === item.materialId);
+      if (!mat) return;
+      const stockEntry = overview.find(o => o.material.id === item.materialId);
+      const warehouseStock = stockEntry ? stockEntry.warehouseStock : 0;
       html += `
         <tr>
           <td>
-            <select class="form-control searchable-select" onchange="SitesPage.onInitItemChange(${idx}, 'materialId', this.value)">
-              <option value="">Select Material...</option>
-              ${Object.keys(materials.reduce((acc, m) => {
-                acc[m.category] = acc[m.category] || [];
-                acc[m.category].push(m);
-                return acc;
-              }, {})).map(cat => `
-                <optgroup label="${cat}">
-                  ${materials.filter(m => m.category === cat).map(m => `<option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>${m.name}</option>`).join('')}
-                </optgroup>
-              `).join('')}
-            </select>
+            <div style="font-weight: 600; font-size: 0.95rem;">${mat.name}</div>
+            <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat.unit}${mat.sku ? ' &bull; ' + mat.sku : ''} &bull; Stock: ${warehouseStock}</div>
           </td>
           <td>
-            <input type="number" class="form-control" placeholder="Received" min="1" value="${item.quantity}">
+            <input
+              type="number"
+              class="form-control"
+              placeholder="0"
+              min="0"
+              step="1"
+              data-material-id="${mat.id}"
+              data-field="quantity"
+              value="${item.quantity || ''}"
+              oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'quantity', this.value)"
+            >
           </td>
           <td>
-            <input type="number" class="form-control" placeholder="Returned" min="0" value="${item.returned || ''}">
-          </td>
-          <td>
-            ${this.initItems.length > 1 ? `<button type="button" class="btn btn-icon btn-ghost" onclick="SitesPage.removeInitItem(${idx})">${Icons.x}</button>` : ''}
+            <input
+              type="number"
+              class="form-control"
+              placeholder="0"
+              min="0"
+              step="1"
+              data-material-id="${mat.id}"
+              data-field="returned"
+              value="${item.returned || ''}"
+              oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'returned', this.value)"
+            >
           </td>
         </tr>
       `;
@@ -310,27 +326,17 @@ var SitesPage = {
     html += `
         </tbody>
       </table>
-      <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-size: 0.9rem;" onclick="SitesPage.addInitItem()">${Icons.plus} Add Material</a>
     `;
 
     list.innerHTML = html;
   },
 
-  onInitItemChange(idx, field, value) {
+  onInitNumInput(idx, field, value) {
+    // Allow only valid non-negative numbers
+    const num = parseFloat(value);
     if (this.initItems[idx]) {
-      this.initItems[idx][field] = value;
-      this.renderInitItems();
+      this.initItems[idx][field] = isNaN(num) || num < 0 ? '' : value;
     }
-  },
-
-  addInitItem() {
-    this.initItems.push({ materialId: '', quantity: '', returned: '' });
-    this.renderInitItems();
-  },
-
-  removeInitItem(idx) {
-    this.initItems.splice(idx, 1);
-    this.renderInitItems();
   },
 
   closeModal() {
@@ -401,16 +407,17 @@ var SitesPage = {
           try { localStorage.setItem('bm_sites', JSON.stringify(Store.Sites.getAll())); } catch(e) {}
         }
 
-      // Sync DOM state for initial materials to prevent lost inputs
+      // Sync DOM state for initial materials — read from data attributes (no dropdowns)
       const initRows = document.querySelectorAll('#site-initial-materials-list tbody tr');
       if (initRows.length > 0) {
         this.initItems = Array.from(initRows).map(row => {
-          const selects = row.querySelectorAll('select');
-          const inputs = row.querySelectorAll('input[type="number"]');
+          const qtyInput = row.querySelector('input[data-field="quantity"]');
+          const retInput = row.querySelector('input[data-field="returned"]');
+          const matId = qtyInput ? qtyInput.getAttribute('data-material-id') : '';
           return {
-            materialId: selects.length ? selects[0].value : '',
-            quantity: inputs.length > 0 ? inputs[0].value : '',
-            returned: inputs.length > 1 ? inputs[1].value : ''
+            materialId: matId,
+            quantity: qtyInput ? qtyInput.value : '',
+            returned: retInput ? retInput.value : ''
           };
         });
       }
