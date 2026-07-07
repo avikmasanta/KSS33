@@ -61,35 +61,51 @@ var SiteDetailsPage = {
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px;">
-        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3); position: relative; overflow: hidden; transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'" onclick="SiteDetailsPage.openCollectModal()">
+        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.3); position: relative; overflow: hidden; ${(site.budget > 0 && remainingBudget > 0) ? 'cursor: pointer; transition: transform 0.2s;' : ''}" ${(site.budget > 0 && remainingBudget > 0) ? `onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'" onclick="SiteDetailsPage.openCollectModal()"` : ''}>
           <div style="position: absolute; right: 10px; top: 10px; opacity: 0.15; transform: scale(4); pointer-events: none; font-size: 32px; font-weight: 800;">
             ₹
           </div>
           <h3 style="margin:0 0 15px 0; font-size: 1.1rem; font-weight: 600; color: rgba(255,255,255,0.9); text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
             <div style="width: 20px; height: 20px; font-weight: bold; font-size: 1.2rem; text-align: center; display: flex; align-items: center; justify-content: center;">₹</div> Payments
           </h3>
-          <div style="background: rgba(0,0,0,0.15); border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <span style="font-size: 0.85rem; color: rgba(255,255,255,0.9); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Site Budget</span>
-            <span style="font-size: 1.25rem; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">₹${(site.budget || 0).toLocaleString('en-IN')}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; padding: 0 4px;">
-            <div>
-              <div style="font-size: 0.8rem; color: rgba(255,255,255,0.75); margin-bottom: 4px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Collected</div>
-              <div style="font-size: 1.8rem; font-weight: 800; letter-spacing: -1px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); line-height: 1;">
-                ₹${totalCollected.toLocaleString('en-IN')}
+          ${(site.budget || 0) > 0 ? `
+            <div style="background: rgba(0,0,0,0.15); border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <span style="font-size: 0.85rem; color: rgba(255,255,255,0.9); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Site Budget</span>
+              <span style="font-size: 1.25rem; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">₹${(site.budget).toLocaleString('en-IN')}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; padding: 0 4px;">
+              <div>
+                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.75); margin-bottom: 4px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Collected</div>
+                <div style="font-size: 1.8rem; font-weight: 800; letter-spacing: -1px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); line-height: 1;">
+                  ₹${totalCollected.toLocaleString('en-IN')}
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 0.8rem; color: rgba(255,255,255,0.75); margin-bottom: 4px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Remaining</div>
+                <div style="font-size: 1.8rem; font-weight: 700; color: ${remainingBudget <= 0 ? '#10b981' : 'white'}; line-height: 1;">
+                  ₹${remainingBudget.toLocaleString('en-IN')}
+                </div>
               </div>
             </div>
-            <div style="text-align: right;">
-              <div style="font-size: 0.8rem; color: rgba(255,255,255,0.75); margin-bottom: 4px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Remaining</div>
-              <div style="font-size: 1.8rem; font-weight: 700; color: ${remainingBudget < 0 ? '#ffb3b3' : 'white'}; line-height: 1;">
-                ₹${remainingBudget.toLocaleString('en-IN')}
+            ${remainingBudget > 0 ? `
+              <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.9); display: flex; align-items: center; gap: 6px; padding: 0 4px;">
+                <span style="background: rgba(255,255,255,0.25); padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">+ COLLECT</span>
+                <span style="font-size: 0.85rem; opacity: 0.9;">Click to record payment</span>
               </div>
+            ` : `
+              <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.9); display: flex; align-items: center; gap: 6px; padding: 0 4px; opacity: 0.9;">
+                <span style="background: rgba(255,255,255,0.25); padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display:flex; align-items:center; gap:4px;"><div style="width:14px; height:14px;">${Icons.check}</div> FULLY PAID</span>
+              </div>
+            `}
+          ` : `
+            <div style="background: rgba(0,0,0,0.15); border-radius: 10px; padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+              <span style="font-size: 0.85rem; color: rgba(255,255,255,0.9); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Site Budget</span>
+              <span style="font-size: 1.25rem; font-weight: 800; text-shadow: 0 1px 2px rgba(0,0,0,0.1);">₹0</span>
             </div>
-          </div>
-          <div style="font-size: 0.95rem; font-weight: 500; color: rgba(255,255,255,0.9); display: flex; align-items: center; gap: 6px; padding: 0 4px;">
-            <span style="background: rgba(255,255,255,0.25); padding: 3px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">+ COLLECT</span>
-            <span style="font-size: 0.85rem; opacity: 0.9;">Click to record payment</span>
-          </div>
+            <div style="font-size: 0.9rem; color: rgba(255,255,255,0.75); text-align: center; margin-top: 30px; font-style: italic;">
+              No budget set. Payment collection disabled.
+            </div>
+          `}
         </div>
 
         <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border-radius: 16px; padding: 30px; box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3); position: relative; overflow: hidden; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
