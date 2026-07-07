@@ -11,7 +11,8 @@ var App = (() => {
     outgoing: { title: 'Outgoing Stock', subtitle: 'Record new outgoing stock', icon: 'arrowUpCircle', module: 'OutgoingPage' },
     reports: { title: 'Reports', subtitle: 'Generate and view reports', icon: 'barChart', module: 'ReportsPage' },
     ledger: { title: 'Stock Ledger', subtitle: 'View material stock ledger', icon: 'fileText', module: 'LedgerPage' },
-    'site-details': { title: 'Site Details', subtitle: 'Detailed view of a site', icon: 'mapPin', module: 'SiteDetailsPage' }
+    'site-details': { title: 'Site Details', subtitle: 'Detailed view of a site', icon: 'mapPin', module: 'SiteDetailsPage' },
+    'site-returns': { title: 'Site Returns', subtitle: 'View and manually log materials returned from sites', icon: 'arrowDownCircle', module: 'ReturnsPage' }
   };
 
   async function init() {
@@ -108,6 +109,7 @@ var App = (() => {
       { key: 'dashboard', label: 'Dashboard', icon: 'home' },
       { key: 'sites', label: 'Sites', icon: 'mapPin' },
       { key: 'materials', label: 'Materials', icon: 'package' },
+      { key: 'site-returns', label: 'Site Returns', icon: 'arrowDownCircle' },
       { key: 'reports', label: 'Reports', icon: 'barChart' }
     ];
 
