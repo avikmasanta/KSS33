@@ -373,12 +373,32 @@ var SitesPage = {
       if (id) {
         Store.Sites.update(id, data);
       } else {
-        // Fallback in case browser cached the old store.js
         let newSite;
+        // Bulletproof Fallback: if browser cached old store.js, do manual async fetch
         if (typeof Store.Sites.addAsync === 'function') {
           newSite = await Store.Sites.addAsync(data);
         } else {
-          newSite = Store.Sites.add(data);
+          const tempId = 'id_' + Date.now();
+          const newItem = { ...data, id: tempId };
+          Store.Sites.getAll().push(newItem);
+          const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? 'http://localhost:5000/api' : '/api';
+          try {
+            const res = await fetch(`${API_URL}/sites`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(newItem)
+            });
+            if (res.ok) {
+              newSite = await res.json();
+              const idx = Store.Sites.getAll().findIndex(s => s.id === tempId);
+              if (idx > -1) Store.Sites.getAll()[idx] = newSite;
+            } else {
+              newSite = newItem;
+            }
+          } catch(e) {
+            newSite = newItem;
+          }
+          try { localStorage.setItem('bm_sites', JSON.stringify(Store.Sites.getAll())); } catch(e) {}
         }
 
       // Sync DOM state for initial materials to prevent lost inputs
