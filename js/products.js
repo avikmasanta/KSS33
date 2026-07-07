@@ -247,6 +247,7 @@ var MaterialsPage = {
       categorySelect.innerHTML = `
         ${uniqueCategories.map(c => `<option value="${c}">${c}</option>`).join('')}
         <option value="ADD_NEW">+ Create New Category...</option>
+        <option value="DELETE_CAT">- Delete a Category...</option>
       `;
     }
 
@@ -277,14 +278,48 @@ var MaterialsPage = {
           const opt = document.createElement('option');
           opt.value = trimmed;
           opt.textContent = trimmed;
-          // Insert before the last option (which is ADD_NEW)
-          selectEl.insertBefore(opt, selectEl.options[selectEl.options.length - 1]);
+          // Insert before ADD_NEW (second to last)
+          selectEl.insertBefore(opt, selectEl.options[selectEl.options.length - 2]);
           selectEl.value = trimmed;
         }
       } else {
-        // Revert to "Other" or first option if cancelled
         selectEl.value = 'Other';
       }
+    } else if (selectEl.value === 'DELETE_CAT') {
+      const materials = Store.Materials.getAll();
+      const dbCategories = [...new Set(materials.map(m => m.category).filter(Boolean))];
+      const defaultCategories = ['Steel Plate', 'Scaffolding', 'Cement', 'Sand', 'Steel', 'Bricks', 'Aggregate', 'Other'];
+      const customCategories = dbCategories.filter(c => !defaultCategories.includes(c));
+
+      if (customCategories.length === 0) {
+        alert("There are no custom categories to delete.");
+        selectEl.value = 'Other';
+        return;
+      }
+
+      const catToDelete = prompt(
+        `Custom categories:\n${customCategories.join(', ')}\n\nType the exact category name to delete:`
+      );
+
+      if (catToDelete && catToDelete.trim()) {
+        const trimmed = catToDelete.trim();
+        if (!customCategories.includes(trimmed)) {
+          alert(`"${trimmed}" is not a valid custom category.`);
+          selectEl.value = 'Other';
+          return;
+        }
+
+        if (confirm(`Are you sure you want to delete the category "${trimmed}"?\nAll materials in this category will be reassigned to "Other".`)) {
+          const targets = materials.filter(m => m.category === trimmed);
+          targets.forEach(m => {
+            Store.Materials.update(m.id, { category: 'Other' });
+          });
+          alert(`Successfully deleted category "${trimmed}"! Reassigned ${targets.length} material(s) to "Other".`);
+          this.openModal(document.getElementById('prod-id').value);
+          this.refresh();
+        }
+      }
+      selectEl.value = 'Other';
     }
   },
 
