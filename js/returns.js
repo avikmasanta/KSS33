@@ -1,5 +1,5 @@
 /* ============================================
-   BuildMate Site Returns Page
+   BuildMate Warehouse Page
    ============================================ */
 
 var ReturnsPage = {
@@ -50,12 +50,12 @@ var ReturnsPage = {
     return `
       <div class="page-header">
         <div class="page-header-title">
-          <h2>Site Returns</h2>
+          <h2>Warehouse</h2>
           <p>Manually record and view materials returned from customer sites</p>
         </div>
         <div class="page-header-actions">
           <button class="btn btn-primary" onclick="ReturnsPage.openModal()">
-            ${Icons.plus} Log Site Return
+            ${Icons.plus} Log Return
           </button>
         </div>
       </div>
@@ -147,7 +147,7 @@ var ReturnsPage = {
       <div class="modal-backdrop" id="manual-return-modal">
         <div class="modal" style="max-width: 560px;">
           <div class="modal-header">
-            <h3>Log Site Return</h3>
+            <h3>Log Return</h3>
             <button class="modal-close" onclick="ReturnsPage.closeModal()">${Icons.x}</button>
           </div>
           <div class="modal-body">
