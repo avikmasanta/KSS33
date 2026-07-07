@@ -152,10 +152,10 @@ var ReturnsPage = {
     
     Store.Incoming.add({
       date: date,
-      supplier: 'User Input (Manual Add)',
-      reference: 'Stock Update',
+      vendorName: 'User Input (Manual Add)',
+      referenceNo: 'Stock Update',
       destinationType: 'warehouse',
-      destinationId: '',
+      destinationSiteId: '',
       items: newStockItems,
       notes: 'Manually added from Update Stock page'
     });
