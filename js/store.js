@@ -40,7 +40,7 @@ const Store = (() => {
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
   function initFromLocal() {
-    const CACHE_VERSION = 'kss33_v6';
+    const CACHE_VERSION = 'kss33_v7';
     if (localStorage.getItem('bm_cache_version') !== CACHE_VERSION) {
       // Clear old cache keys if version mismatch
       Object.keys(endpointMap).forEach(key => localStorage.removeItem(key));
@@ -71,14 +71,8 @@ const Store = (() => {
 
         if (res.ok) {
           const cloudData = await res.json();
-          // Read CURRENT localStorage at response time (not at sync start — avoids race condition)
-          const currentLocal = JSON.parse(localStorage.getItem(key)) || [];
-          // Only replace local with cloud if cloud has data, or local is also empty
-          // This prevents an empty/stale cloud response from wiping fresh local data
-          if (cloudData.length > 0 || currentLocal.length === 0) {
-            cache[config.cacheKey] = cloudData;
-            persistLocal(key, cloudData);
-          }
+          cache[config.cacheKey] = cloudData;
+          persistLocal(key, cloudData);
         }
       } catch (err) {
         // Network error — silently keep local data
