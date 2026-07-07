@@ -141,16 +141,6 @@ var SiteDetailsPage = {
         </div>
       </div>
 
-      <!-- Current Site Stock Card -->
-      <div class="card" style="margin-bottom: 24px;">
-        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
-          <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Current Site Stock</h3>
-        </div>
-        <div>
-          ${this.renderSiteInventory(site)}
-        </div>
-      </div>
-
       <div class="card">
         <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Stock Movements</h3>

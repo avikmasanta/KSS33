@@ -6,8 +6,7 @@ var ReportsPage = {
   render() {
     const reports = [
       { id: 'stock-summary', title: 'Stock Summary Report', desc: 'Current stock levels across all products', icon: 'box', color: '#3b82f6', colorBg: '#dbeafe' },
-      { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' },
-      { id: 'site-stock', title: 'Site Stock Report', desc: 'Stock distributed across all sites', icon: 'mapPin', color: '#f59e0b', colorBg: '#fef3c7' }
+      { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' }
     ];
 
     return `
@@ -115,30 +114,7 @@ var ReportsPage = {
         break;
       }
 
-      case 'site-stock': {
-        const sites = Store.Sites.getAll();
-        content = `
-          <div class="card slide-up">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-              <div>
-                <h3 style="margin: 0;">Site Stock Report</h3>
-                <p class="text-sm text-tertiary" style="margin-top: 4px; margin-bottom: 0;">Track materials dispatched, returned and remaining at each site.</p>
-              </div>
-              <div style="display: flex; gap: 10px; align-items: center;">
-                <select class="form-control" style="width: 220px;" id="report-site-select" onchange="ReportsPage.onSiteReportChange(this.value)">
-                  <option value="all">All Sites (Overview)</option>
-                  ${sites.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
-                </select>
-                <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
-              </div>
-            </div>
-            <div class="card-body" id="site-stock-report-body" style="padding-top: 15px;">
-              ${this.renderSiteStockAllOverview()}
-            </div>
-          </div>
-        `;
-        break;
-      }
+      
 
       case 'low-stock': {
         const overview = Store.Inventory.getOverview();
