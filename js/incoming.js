@@ -16,7 +16,7 @@ var IncomingPage = {
     if (this.searchTerm) {
       const st = this.searchTerm.toLowerCase();
       records = records.filter(r => {
-        const supStr = (r.supplier || '').toLowerCase();
+        const supStr = ((r.vendorName || r.supplier) || '').toLowerCase();
         const refStr = (r.referenceNo || '').toLowerCase();
         const dateStr = (r.date || '').toLowerCase();
         
@@ -57,7 +57,7 @@ var IncomingPage = {
           <div id="incoming-list">
             ${records.map(r => {
               const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
-              const source = r.supplier || 'Unknown Source';
+              const source = r.vendorName || r.supplier || 'Unknown Source';
               
               return `
                 <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer;" onclick="IncomingPage.selectRecord('${r.id}')">
@@ -118,7 +118,7 @@ var IncomingPage = {
         <div class="form-row">
           <div class="form-group">
             <label>Supplier / Source *</label>
-            <input type="text" class="form-control" id="inc-supplier" placeholder="e.g. Supplier Name or 'Site Return'" value="${record ? record.supplier || '' : ''}">
+            <input type="text" class="form-control" id="inc-supplier" placeholder="e.g. Supplier Name or 'Site Return'" value="${record ? (record.vendorName || record.supplier || '') : ''}">
           </div>
           <div class="form-group">
             <label>Invoice No</label>
@@ -290,7 +290,7 @@ var IncomingPage = {
     if (items.length === 0) { alert('Add at least one material'); return; }
 
     const data = {
-      supplier, invoiceNo, date, referenceNo, destinationType, destinationSiteId, notes,
+      vendorName: supplier, invoiceNo, date, referenceNo, destinationType, destinationSiteId, notes,
       items: items.map(i => ({
         materialId: i.materialId,
         quantity: parseFloat(i.quantity) || 0,
