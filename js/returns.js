@@ -1,205 +1,130 @@
 /* ============================================
-   BuildMate Warehouse Page
+   BuildMate Site Stock / Inventory Page
    ============================================ */
 
 var ReturnsPage = {
   render() {
     const materials = Store.Materials.getAll();
     const sites = Store.Sites.getAll().filter(s => s.status !== 'Archived');
-    const returns = Store.SiteReturns.getAll();
-
-    // Group returns by Site
-    const siteReturnsGrouped = {};
-    returns.forEach(r => {
-      const siteId = r.siteId;
-      const site = Store.Sites.getById(siteId);
-      if (!site || site.status === 'Archived') return;
-
-      const mat = materials.find(m => m.id === r.materialId);
-      if (!mat) return;
-
-      if (!siteReturnsGrouped[siteId]) {
-        siteReturnsGrouped[siteId] = {
-          siteName: site.name,
-          tokenNumber: site.tokenNumber,
-          customerName: site.customerName,
-          items: {}
-        };
-      }
-
-      if (!siteReturnsGrouped[siteId].items[r.materialId]) {
-        siteReturnsGrouped[siteId].items[r.materialId] = 0;
-      }
-      siteReturnsGrouped[siteId].items[r.materialId] += (parseFloat(r.quantity) || 0);
-    });
 
     // Calculate sum totals across all sites for each material
     const materialSumTotals = {};
     materials.forEach(m => {
       materialSumTotals[m.id] = 0;
     });
-    returns.forEach(r => {
-      const site = Store.Sites.getById(r.siteId);
-      if (!site || site.status === 'Archived') return;
 
-      if (materialSumTotals[r.materialId] !== undefined) {
-        materialSumTotals[r.materialId] += (parseFloat(r.quantity) || 0);
-      }
+    const siteData = sites.map(site => {
+      let totalSent = 0;
+      let totalReturned = 0;
+      let siteMatData = [];
+
+      materials.forEach(m => {
+        const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+        const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+        const available = sent - returned;
+
+        if (sent > 0 || returned > 0) {
+          siteMatData.push({
+            material: m,
+            sent: sent,
+            returned: returned,
+            available: available
+          });
+
+          totalSent += sent;
+          totalReturned += returned;
+
+          // Accumulate available across all sites for global totals if needed
+          materialSumTotals[m.id] += available;
+        }
+      });
+
+      return {
+        ...site,
+        totalSent,
+        totalReturned,
+        totalAvailable: totalSent - totalReturned,
+        materials: siteMatData
+      };
     });
 
     return `
       <div class="page-header">
         <div class="page-header-title">
-          <h2>Warehouse</h2>
-          <p>Manually record and view materials returned from customer sites</p>
+          <h2>Site Stock</h2>
+          <p>View current material balances across all active sites</p>
         </div>
         <div class="page-header-actions">
-          <button class="btn btn-primary" onclick="ReturnsPage.openModal()">
-            ${Icons.plus} Log Return
-          </button>
+           <!-- "Log Return" button removed, use Incoming Stock to log returns -->
+           <button class="btn btn-outline" onclick="ReturnsPage.refresh()">
+             ${Icons.refreshCw} Refresh
+           </button>
         </div>
       </div>
 
-      <!-- Grouped by Site display -->
+      <!-- Site Accordion List -->
       <div style="margin-bottom: 30px;">
-        <h3 style="margin-bottom: 15px; font-size: 1.15rem; color: var(--text-primary);">Returns by Site</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px;">
-          ${Object.keys(siteReturnsGrouped).length === 0 ? `
-            <div class="card" style="grid-column: 1 / -1; padding: 40px; text-align: center; color: var(--text-tertiary);">
-              No returned materials recorded yet.
+        <h3 style="margin-bottom: 15px; font-size: 1.15rem; color: var(--text-primary);">Inventory by Site</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          ${siteData.length === 0 ? `
+            <div class="card" style="padding: 40px; text-align: center; color: var(--text-tertiary);">
+              No active sites found.
             </div>
-          ` : Object.keys(siteReturnsGrouped).map(siteId => {
-            const group = siteReturnsGrouped[siteId];
+          ` : siteData.map((site, index) => {
             return `
-              <div class="card">
-                <div class="card-header" style="padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
-                  <h4 style="margin: 0; color: var(--text-primary); font-size: 1.05rem;">${group.siteName}</h4>
-                  <span class="text-xs text-tertiary">Token: ${group.tokenNumber || '-'} | Customer: ${group.customerName || '-'}</span>
+              <div class="card site-accordion-item" style="overflow: hidden; border: 1px solid var(--border-color); border-radius: 8px;">
+                <div class="card-header" style="padding: 16px 20px; background: var(--bg-card); cursor: pointer; display: flex; justify-content: space-between; align-items: center;" onclick="const body = this.nextElementSibling; body.style.display = body.style.display === 'none' ? 'block' : 'none';">
+                  <div>
+                    <h4 style="margin: 0; color: var(--text-primary); font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                      ${site.name} 
+                      <span class="badge ${site.status === 'Completed' ? 'badge-info' : 'badge-success'}">${site.status}</span>
+                    </h4>
+                    <div style="font-size: 0.85rem; color: var(--text-tertiary); margin-top: 4px;">
+                      Token: ${site.tokenNumber || '-'} | Customer: ${site.customerName || '-'} | Total Available Items: <strong style="color:var(--text-primary);">${site.totalAvailable.toLocaleString('en-IN')}</strong>
+                    </div>
+                  </div>
+                  <div class="text-tertiary" style="padding: 8px; border-radius: 50%; background: var(--bg-body);">
+                    ${Icons.list || Icons.menu}
+                  </div>
                 </div>
-                <div class="card-body" style="padding: 16px 20px;">
-                  <table class="inline-table w-100" style="margin: 0;">
-                    <thead>
-                      <tr>
-                        <th>Material</th>
-                        <th style="text-align: right; width: 35%;">Returned Qty</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${Object.keys(group.items).map(matId => {
-                        const mat = materials.find(m => m.id === matId);
-                        const qty = group.items[matId];
-                        if (qty <= 0) return '';
-                        return `
-                          <tr>
-                            <td>
-                              <div style="font-weight: 500;">${mat ? mat.name : 'Unknown'}</div>
-                              <div style="font-size: 0.75rem; color: var(--text-tertiary);">${mat ? mat.sku : ''}</div>
-                            </td>
-                            <td style="text-align: right; font-weight: 600; color: var(--danger);">${qty.toLocaleString('en-IN')} ${mat ? mat.unit : ''}</td>
+                
+                <div class="card-body" style="display: none; padding: 0; border-top: 1px solid var(--border-color); background: var(--bg-body);">
+                  ${site.materials.length === 0 ? `
+                    <div style="padding: 20px; text-align: center; color: var(--text-tertiary); font-style: italic;">
+                      No materials have been dispatched to this site yet.
+                    </div>
+                  ` : `
+                    <div class="table-container" style="margin: 0; box-shadow: none; border-radius: 0;">
+                      <table class="data-table" style="margin: 0; border: none;">
+                        <thead>
+                          <tr style="background: rgba(0,0,0,0.02);">
+                            <th style="padding-left: 20px;">Material</th>
+                            <th style="text-align: right; width: 20%;">Input by User</th>
+                            <th style="text-align: right; width: 20%;">Returned</th>
+                            <th style="text-align: right; width: 20%; padding-right: 20px;">Available</th>
                           </tr>
-                        `;
-                      }).join('')}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody>
+                          ${site.materials.map(matData => `
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                              <td style="padding-left: 20px;">
+                                <div style="font-weight: 500; color: var(--text-primary);">${matData.material.name}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-tertiary);">${matData.material.sku || '-'}</div>
+                              </td>
+                              <td style="text-align: right; font-weight: 500; color: var(--text-secondary);">${matData.sent.toLocaleString('en-IN')} ${matData.material.unit}</td>
+                              <td style="text-align: right; font-weight: 500; color: var(--danger);">${matData.returned.toLocaleString('en-IN')} ${matData.material.unit}</td>
+                              <td style="text-align: right; font-weight: 700; color: var(--success); font-size: 1.05rem; padding-right: 20px;">${matData.available.toLocaleString('en-IN')} ${matData.material.unit}</td>
+                            </tr>
+                          `).join('')}
+                        </tbody>
+                      </table>
+                    </div>
+                  `}
                 </div>
               </div>
             `;
           }).join('')}
-        </div>
-      </div>
-
-      <!-- Sum total across all sites -->
-      <div class="card" style="margin-top: 30px;">
-        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
-          <h3 style="margin: 0; color: var(--text-primary); font-size: 1.15rem;">Total Returned Materials (Across All Sites)</h3>
-          <p class="text-sm text-tertiary" style="margin-top: 4px;">Sum total of all materials received back from all active sites</p>
-        </div>
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Material Name</th>
-                <th>SKU</th>
-                <th>Category</th>
-                <th style="text-align: right; width: 30%;">Total Returned Quantity</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${materials.map((m, idx) => {
-                const totalQty = materialSumTotals[m.id] || 0;
-                return `
-                  <tr>
-                    <td class="secondary">${idx + 1}</td>
-                    <td><strong>${m.name}</strong></td>
-                    <td>${m.sku || '-'}</td>
-                    <td><span class="badge badge-neutral">${m.category || '-'}</span></td>
-                    <td style="text-align: right; font-weight: 700; font-size: 1rem; color: var(--danger);">${totalQty.toLocaleString('en-IN')} ${m.unit}</td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Log Site Return Modal -->
-      <div class="modal-backdrop" id="manual-return-modal">
-        <div class="modal" style="max-width: 560px;">
-          <div class="modal-header">
-            <h3>Log Return</h3>
-            <button class="modal-close" onclick="ReturnsPage.closeModal()">${Icons.x}</button>
-          </div>
-          <div class="modal-body">
-            <div class="form-row">
-              <div class="form-group">
-                <label>Select Site *</label>
-                <select class="form-control" id="manual-return-site" required>
-                  <option value="">Choose a site...</option>
-                  ${sites.map(s => `<option value="${s.id}">${s.name} (${s.customerName || 'Unknown'})</option>`).join('')}
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Date *</label>
-                <input type="date" class="form-control" id="manual-return-date" value="${new Date().toISOString().split('T')[0]}" required>
-              </div>
-            </div>
-            <div style="max-height: 300px; overflow-y: auto; margin-top: 15px; border: 1px solid var(--border-color); border-radius: 6px;">
-              <table class="inline-table w-100">
-                <thead>
-                  <tr>
-                    <th style="width: 65%;">Material</th>
-                    <th style="width: 35%; color: var(--danger);">Qty Returned</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${materials.map(m => `
-                    <tr>
-                      <td>
-                        <div style="font-weight: 600; font-size: 0.9rem;">${m.name}</div>
-                        <div style="font-size: 0.75rem; color: var(--text-tertiary);">${m.unit}${m.sku ? ' &bull; ' + m.sku : ''}</div>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          class="form-control"
-                          placeholder="0"
-                          min="0"
-                          step="1"
-                          data-material-id="${m.id}"
-                          oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
-                        >
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-outline" onclick="ReturnsPage.closeModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="ReturnsPage.save()">Save Return</button>
-          </div>
         </div>
       </div>
     `;
@@ -213,60 +138,5 @@ var ReturnsPage = {
       container.innerHTML = this.render();
       this.init();
     }
-  },
-
-  openModal() {
-    const modal = document.getElementById('manual-return-modal');
-    if (modal) {
-      modal.classList.add('active');
-      document.getElementById('manual-return-site').value = '';
-      modal.querySelectorAll('input[type="number"]').forEach(input => input.value = '');
-    }
-  },
-
-  closeModal() {
-    const modal = document.getElementById('manual-return-modal');
-    if (modal) {
-      modal.classList.remove('active');
-    }
-  },
-
-  save() {
-    const siteId = document.getElementById('manual-return-site').value;
-    const date = document.getElementById('manual-return-date').value;
-
-    if (!siteId) {
-      alert('Please select a site.');
-      return;
-    }
-    if (!date) {
-      alert('Please select a date.');
-      return;
-    }
-
-    const modal = document.getElementById('manual-return-modal');
-    const inputs = modal.querySelectorAll('input[data-material-id]');
-    let savedCount = 0;
-
-    inputs.forEach(input => {
-      const qty = parseFloat(input.value) || 0;
-      if (qty > 0) {
-        Store.SiteReturns.add({
-          siteId: siteId,
-          materialId: input.getAttribute('data-material-id'),
-          quantity: qty,
-          date: date
-        });
-        savedCount++;
-      }
-    });
-
-    if (savedCount === 0) {
-      alert('Please enter a quantity for at least one material.');
-      return;
-    }
-
-    this.closeModal();
-    this.refresh();
   }
 };
