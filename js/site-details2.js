@@ -242,7 +242,6 @@ var SiteDetailsPage = {
               </table>
             </div>
           </div>
-          </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeDispatchModal()">Cancel</button>
             <button class="btn btn-secondary" onclick="SiteDetailsPage.saveDispatch()">Save Dispatch</button>
