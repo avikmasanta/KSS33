@@ -71,14 +71,7 @@ var MaterialsPage = {
               <div class="form-row">
                 <div class="form-group">
                   <label>Category</label>
-                  <select class="form-control" id="prod-category">
-                    <option value="Steel Plate">Steel Plate</option>
-                    <option value="Scaffolding">Scaffolding</option>
-                    <option value="Cement">Cement</option>
-                    <option value="Sand">Sand</option>
-                    <option value="Steel">Steel</option>
-                    <option value="Bricks">Bricks</option>
-                    <option value="Aggregate">Aggregate</option>
+                  <select class="form-control" id="prod-category" onchange="MaterialsPage.onCategorySelectChange(this)">
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -243,11 +236,55 @@ var MaterialsPage = {
   },
 
   openModal(editId) {
+    // Populate categories select dynamically
+    const materials = Store.Materials.getAll();
+    const defaultCategories = ['Steel Plate', 'Scaffolding', 'Cement', 'Sand', 'Steel', 'Bricks', 'Aggregate', 'Other'];
+    const dbCategories = [...new Set(materials.map(m => m.category).filter(Boolean))];
+    const uniqueCategories = [...new Set([...defaultCategories, ...dbCategories])].sort();
+
+    const categorySelect = document.getElementById('prod-category');
+    if (categorySelect) {
+      categorySelect.innerHTML = `
+        ${uniqueCategories.map(c => `<option value="${c}">${c}</option>`).join('')}
+        <option value="ADD_NEW">+ Create New Category...</option>
+      `;
+    }
+
     document.getElementById('material-modal').classList.add('active');
     document.getElementById('material-modal-title').textContent = editId ? 'Edit Material' : 'Add Material';
     if (!editId) {
       document.getElementById('material-form').reset();
       document.getElementById('prod-id').value = '';
+    }
+  },
+
+  onCategorySelectChange(selectEl) {
+    if (selectEl.value === 'ADD_NEW') {
+      const newCat = prompt("Enter new category name:");
+      if (newCat && newCat.trim()) {
+        const trimmed = newCat.trim();
+        // Check if option already exists
+        let exists = false;
+        for (let i = 0; i < selectEl.options.length; i++) {
+          if (selectEl.options[i].value === trimmed) {
+            selectEl.selectedIndex = i;
+            exists = true;
+            break;
+          }
+        }
+        if (!exists) {
+          // Add new option and select it
+          const opt = document.createElement('option');
+          opt.value = trimmed;
+          opt.textContent = trimmed;
+          // Insert before the last option (which is ADD_NEW)
+          selectEl.insertBefore(opt, selectEl.options[selectEl.options.length - 1]);
+          selectEl.value = trimmed;
+        }
+      } else {
+        // Revert to "Other" or first option if cancelled
+        selectEl.value = 'Other';
+      }
     }
   },
 
@@ -258,13 +295,13 @@ var MaterialsPage = {
   edit(id) {
     const p = Store.Materials.getById(id);
     if (!p) return;
+    this.openModal(id);
     document.getElementById('prod-id').value = p.id;
     document.getElementById('prod-name').value = p.name || '';
     document.getElementById('prod-sku').value = p.sku || '';
     document.getElementById('prod-category').value = p.category || 'Other';
     document.getElementById('prod-unit').value = p.unit || 'Bag';
     document.getElementById('prod-status').value = p.status || 'Active';
-    this.openModal(id);
   },
 
   save() {
