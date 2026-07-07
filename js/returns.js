@@ -5,7 +5,6 @@
 var ReturnsPage = {
   render() {
     const materials = Store.Materials.getAll();
-    const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
 
     // Get current available and total returns for each material
     const overview = Store.Inventory.getOverview();
@@ -47,7 +46,7 @@ var ReturnsPage = {
           <div class="form-row">
             <div class="form-group" style="max-width: 250px; margin: 0;">
               <label style="font-weight: 600; color: var(--text-secondary);">Date of Adjustment</label>
-              <input type="date" class="form-control" id="stock-date" value="${selectedDate}" onchange="ReturnsPage.onDateChange(this.value)" style="background: var(--bg-body);">
+              <input type="date" class="form-control" id="stock-date" value="${new Date().toISOString().split('T')[0]}" style="background: var(--bg-body);">
             </div>
           </div>
         </div>
@@ -96,105 +95,6 @@ var ReturnsPage = {
             <button class="btn btn-primary" onclick="ReturnsPage.saveAll()" style="font-size: 1.1rem; padding: 12px 32px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);">
               ${Icons.save || Icons.check} Save Stock Changes
             </button>
-        </div>
-      </div>
-
-      <!-- Adjustment History Section -->
-      <div id="adjustment-history-container" style="margin-top: 24px;">
-        ${this.renderHistoryTable(selectedDate)}
-      </div>
-    `;
-  },
-
-  onDateChange(val) {
-    this.selectedDate = val;
-    const historyContainer = document.getElementById('adjustment-history-container');
-    if (historyContainer) {
-      historyContainer.innerHTML = this.renderHistoryTable(val);
-    }
-  },
-
-  renderHistoryTable(date) {
-    const incomingRecords = Store.Incoming.getAll();
-    const materials = Store.Materials.getAll();
-    
-    // Filter adjustments for this date
-    const dayAdjustments = [];
-    incomingRecords.forEach(r => {
-      if (r.date === date && (r.referenceNo === 'Stock Update' || (r.referenceNo && r.referenceNo.startsWith('ADJ-')))) {
-        r.items.forEach(item => {
-          const mat = materials.find(m => m.id === item.materialId);
-          dayAdjustments.push({
-            id: r.id,
-            materialName: mat ? mat.name : 'Unknown Material',
-            sku: mat ? mat.sku : '-',
-            unit: mat ? mat.unit : '',
-            quantity: item.quantity,
-            notes: r.notes || r.supplier || 'Manual Adjustment'
-          });
-        });
-      }
-    });
-
-    if (dayAdjustments.length === 0) {
-      return `
-        <div class="card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid var(--border-color);">
-          <div class="card-header" style="background: var(--bg-card); padding: 16px; border-bottom: 1px solid var(--border-color);">
-            <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-secondary); display: flex; align-items: center; gap: 8px;">
-              ${Icons.history || Icons.eye} Adjustments History for ${new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-            </h3>
-          </div>
-          <div class="card-body" style="padding: 30px; text-align: center; color: var(--text-tertiary);">
-            No stock adjustments recorded on this date.
-          </div>
-        </div>
-      `;
-    }
-
-    return `
-      <div class="card" style="box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid var(--border-color);">
-        <div class="card-header" style="background: var(--bg-card); padding: 16px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
-          <h3 style="margin: 0; font-size: 1.15rem; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
-            ${Icons.history || Icons.eye} Adjustments History for ${new Date(date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
-          </h3>
-          <span class="badge badge-neutral">${dayAdjustments.length} adjustment(s)</span>
-        </div>
-        <div class="table-container">
-          <table class="data-table" style="width: 100%; border-collapse: collapse;">
-            <thead>
-              <tr style="background: var(--bg-body);">
-                <th style="padding: 12px 16px; text-align: left; color: var(--text-secondary);">MATERIAL</th>
-                <th style="padding: 12px 16px; text-align: center; color: var(--text-secondary);">TYPE</th>
-                <th style="padding: 12px 16px; text-align: right; color: var(--text-secondary);">QUANTITY</th>
-                <th style="padding: 12px 16px; text-align: left; color: var(--text-secondary);">REASON / NOTE</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${dayAdjustments.map(adj => {
-                const isAdd = adj.quantity > 0;
-                const displayQty = Math.abs(adj.quantity);
-                return `
-                  <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 12px 16px;">
-                      <div style="font-weight: 600; color: var(--text-primary);">${adj.materialName}</div>
-                      <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${adj.sku}</div>
-                    </td>
-                    <td style="padding: 12px 16px; text-align: center;">
-                      <span class="badge ${isAdd ? 'badge-success' : 'badge-error'}" style="font-weight: 600;">
-                        ${isAdd ? 'Added' : 'Deducted'}
-                      </span>
-                    </td>
-                    <td style="padding: 12px 16px; text-align: right; font-weight: 700; color: ${isAdd ? 'var(--success)' : 'var(--danger)'};">
-                      ${isAdd ? '+' : '-'}${displayQty.toLocaleString('en-IN')} ${adj.unit}
-                    </td>
-                    <td style="padding: 12px 16px; color: var(--text-secondary); font-size: 0.9rem;">
-                      ${adj.notes}
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
         </div>
       </div>
     `;
