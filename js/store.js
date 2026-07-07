@@ -346,6 +346,14 @@ const Store = (() => {
   };
 
   // ---- Inventory Utility ----
+
+  // Normalise a materialId that may be a plain string OR a Mongoose-populated object
+  function resolveId(id) {
+    if (!id) return '';
+    if (typeof id === 'object') return String(id._id || id.id || '');
+    return String(id);
+  }
+
   const Inventory = {
     getRecentMovements: (limit = 10) => {
       const allOutgoing = cache.outgoing;
@@ -403,11 +411,11 @@ const Store = (() => {
       return materials.map(material => {
         let totalIn = 0;
         allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
-          (r.items || []).forEach(i => { if (i.materialId === material.id) totalIn += (parseFloat(i.quantity) || 0); });
+          (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalIn += (parseFloat(i.quantity) || 0); });
         });
         let totalOut = 0;
         allOutgoing.forEach(r => {
-          (r.items || []).forEach(i => { if (i.materialId === material.id) totalOut += (parseFloat(i.quantity) || 0); });
+          (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalOut += (parseFloat(i.quantity) || 0); });
         });
         return { material, warehouseStock: totalIn - totalOut };
       });
@@ -418,11 +426,11 @@ const Store = (() => {
       const allOutgoing = cache.outgoing;
       let totalIn = 0;
       allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
-        (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
       let totalOut = 0;
       allOutgoing.forEach(r => {
-        (r.items || []).forEach(i => { if (i.materialId === materialId) totalOut += (parseFloat(i.quantity) || 0); });
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalOut += (parseFloat(i.quantity) || 0); });
       });
       return totalIn - totalOut;
     },
@@ -435,15 +443,15 @@ const Store = (() => {
       const siteDamaged       = cache.siteDamaged;
       let totalIn = 0;
       allOutgoing.filter(r => r.siteId === siteId).forEach(r => {
-        (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
       allIncomingDirect.filter(r => r.destinationType === 'site' && r.destinationSiteId === siteId).forEach(r => {
-        (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
       let totalOut = 0;
-      siteReturns.filter(r => r.siteId === siteId && r.materialId === materialId).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
-      siteUsage.filter(r => r.siteId === siteId && r.materialId === materialId).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
-      siteDamaged.filter(r => r.siteId === siteId && r.materialId === materialId).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+      siteReturns.filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+      siteUsage.filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+      siteDamaged.filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
       return totalIn - totalOut;
     },
 
@@ -452,29 +460,29 @@ const Store = (() => {
       const allIncomingDirect = cache.incoming;
       let totalIn = 0;
       allOutgoing.filter(r => r.siteId === siteId).forEach(r => {
-        (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
       allIncomingDirect.filter(r => r.destinationType === 'site' && r.destinationSiteId === siteId).forEach(r => {
-        (r.items || []).forEach(i => { if (i.materialId === materialId) totalIn += (parseFloat(i.quantity) || 0); });
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
       return totalIn;
     },
 
     getSiteUsage: (materialId, siteId) => {
       return cache.siteUsage
-        .filter(r => r.siteId === siteId && r.materialId === materialId)
+        .filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId))
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteReturns: (materialId, siteId) => {
       return cache.siteReturns
-        .filter(r => r.siteId === siteId && r.materialId === materialId)
+        .filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId))
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteDamaged: (materialId, siteId) => {
       return cache.siteDamaged
-        .filter(r => r.siteId === siteId && r.materialId === materialId)
+        .filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId))
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
