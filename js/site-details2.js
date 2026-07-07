@@ -236,21 +236,14 @@ var SiteDetailsPage = {
               <select class="form-control searchable-select" id="site-return-material">
                 <option value="">Select material to return...</option>
                 ${Object.keys(materials.reduce((acc, m) => {
-                  const siteStock = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
-                  if (siteStock > 0) {
-                    acc[m.category] = acc[m.category] || [];
-                    acc[m.category].push(m);
-                  }
+                  acc[m.category] = acc[m.category] || [];
+                  acc[m.category].push(m);
                   return acc;
                 }, {})).map(cat => `
                   <optgroup label="${cat}">
                     ${materials.filter(m => m.category === cat).map(m => {
-                      const siteStock = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
-                      if (siteStock > 0) {
-                        const totalSent = Store.Inventory.getSiteTotalSent(m.id, site.id);
-                        return `<option value="${m.id}">${m.name} (At site: ${siteStock} | Total Dispatched: ${totalSent})</option>`;
-                      }
-                      return '';
+                      const totalSent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+                      return `<option value="${m.id}">${m.name} (Total Sent: ${totalSent} ${m.unit || ''})</option>`;
                     }).join('')}
                   </optgroup>
                 `).join('')}
@@ -319,14 +312,14 @@ var SiteDetailsPage = {
     // Outgoing from warehouse to site (Dispatched)
     allOutgoing.forEach(record => {
       record.items.forEach(item => {
-        const mat = materials.find(m => m.id === item.materialId);
+        
         const qty = parseFloat(item.quantity) || 0;
         totalDispatched += qty;
         rows.push({
           date: record.date,
           type: 'Incoming',
-          material: mat ? mat.name : '-',
-          unit: mat ? mat.unit : '',
+          material: getMaterialName(item, materials),
+          unit: getMaterialUnit(item, materials),
           qty: qty,
           ref: record.referenceNo || '-',
           note: record.notes || '-'
@@ -343,8 +336,8 @@ var SiteDetailsPage = {
         rows.push({
           date: record.date,
           type: 'Incoming',
-          material: mat ? mat.name : '-',
-          unit: mat ? mat.unit : '',
+          material: getMaterialName(item, materials),
+          unit: getMaterialUnit(item, materials),
           qty: qty,
           ref: record.referenceNo || record.invoiceNo || '-',
           note: record.notes || 'Direct from supplier'
@@ -354,14 +347,14 @@ var SiteDetailsPage = {
 
     // Site Returns (Returned)
     siteReturns.forEach(record => {
-      const mat = materials.find(m => m.id === record.materialId);
+      
       const qty = parseFloat(record.quantity) || 0;
       totalReturned += qty;
       rows.push({
         date: record.date,
         type: 'Outgoing',
-        material: mat ? mat.name : '-',
-        unit: mat ? mat.unit : '',
+        material: getMaterialName(record, materials),
+        unit: getMaterialUnit(record, materials),
         qty: qty,
         ref: 'SITE-RETURN',
         note: 'Returned from site'
@@ -553,11 +546,8 @@ var SiteDetailsPage = {
       return;
     }
 
-    const currentSiteBalance = Store.Inventory.getSiteCurrentBalance(materialId, this.siteId);
-    if (qty > currentSiteBalance) {
-      alert(`You cannot return more than what is currently at the site (${currentSiteBalance}).`);
-      return;
-    }
+    // The user explicitly requested to remove inventory validation here
+    // "remove all inventkory i want only store the data how much return how much go"
 
     Store.SiteReturns.add({
       siteId: this.siteId,
@@ -582,19 +572,18 @@ var SiteDetailsPage = {
     const rows = [];
     allOutgoing.forEach(record => {
       record.items.forEach(item => {
-        const mat = materials.find(m => m.id === item.materialId);
-        rows.push({ date: record.date, type: 'Received', material: mat ? mat.name : '-', qty: parseFloat(item.quantity) || 0, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+        rows.push({ date: record.date, type: 'Received', material: getMaterialName(item, materials), qty: parseFloat(item.quantity) || 0, unit: getMaterialUnit(item, materials), ref: record.referenceNo || '-', note: record.notes || '-' });
       });
     });
     allIncomingDirect.forEach(record => {
       record.items.forEach(item => {
-        const mat = materials.find(m => m.id === item.materialId);
-        rows.push({ date: record.date, type: 'Received (Direct)', material: mat ? mat.name : '-', qty: parseFloat(item.quantity) || 0, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+        
+        rows.push({ date: record.date, type: 'Received (Direct)', material: getMaterialName(item, materials), qty: parseFloat(item.quantity) || 0, unit: getMaterialUnit(item, materials), ref: record.referenceNo || '-', note: record.notes || '-' });
       });
     });
     siteReturns.forEach(record => {
-      const mat = materials.find(m => m.id === record.materialId);
-      rows.push({ date: record.date, type: 'Returned', material: mat ? mat.name : '-', qty: parseFloat(record.quantity) || 0, unit: mat ? mat.unit : '', ref: 'SITE-RETURN', note: 'Returned from site' });
+      
+      rows.push({ date: record.date, type: 'Returned', material: getMaterialName(record, materials), qty: parseFloat(record.quantity) || 0, unit: getMaterialUnit(record, materials), ref: 'SITE-RETURN', note: 'Returned from site' });
     });
 
     rows.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -657,25 +646,25 @@ var SiteDetailsPage = {
 
     allOutgoing.forEach(record => {
       record.items.forEach(item => {
-        const mat = materials.find(m => m.id === item.materialId);
+        
         const qty = parseFloat(item.quantity) || 0;
         totalReceived += qty;
-        rows.push({ date: record.date, type: 'Received', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+        rows.push({ date: record.date, type: 'Received', material: getMaterialName(item, materials), qty, unit: getMaterialUnit(item, materials), ref: record.referenceNo || '-', note: record.notes || '-' });
       });
     });
     allIncomingDirect.forEach(record => {
       record.items.forEach(item => {
-        const mat = materials.find(m => m.id === item.materialId);
+        
         const qty = parseFloat(item.quantity) || 0;
         totalReceived += qty;
-        rows.push({ date: record.date, type: 'Received (Direct)', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: record.referenceNo || '-', note: record.notes || '-' });
+        rows.push({ date: record.date, type: 'Received (Direct)', material: getMaterialName(item, materials), qty, unit: getMaterialUnit(item, materials), ref: record.referenceNo || '-', note: record.notes || '-' });
       });
     });
     siteReturns.forEach(record => {
-      const mat = materials.find(m => m.id === record.materialId);
+      
       const qty = parseFloat(record.quantity) || 0;
       totalReturned += qty;
-      rows.push({ date: record.date, type: 'Returned', material: mat ? mat.name : '-', qty, unit: mat ? mat.unit : '', ref: 'SITE-RETURN', note: 'Returned from site' });
+      rows.push({ date: record.date, type: 'Returned', material: getMaterialName(record, materials), qty, unit: getMaterialUnit(record, materials), ref: 'SITE-RETURN', note: 'Returned from site' });
     });
 
     rows.sort((a, b) => new Date(b.date) - new Date(a.date));
