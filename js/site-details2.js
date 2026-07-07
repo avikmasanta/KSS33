@@ -804,15 +804,13 @@ var SiteDetailsPage = {
       const returned = Store.Inventory.getSiteReturns(m.id, site.id);
       const remaining = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
 
-      if (sent > 0 || returned > 0 || remaining > 0) {
-        rows.push({
-          material: m.name,
-          unit: m.unit,
-          sent,
-          returned,
-          remaining
-        });
-      }
+      rows.push({
+        material: m.name,
+        unit: m.unit,
+        sent,
+        returned,
+        remaining
+      });
     });
 
     if (rows.length === 0) {
