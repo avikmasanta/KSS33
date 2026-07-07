@@ -2,17 +2,23 @@
    KSS33 Site Details Page
    ============================================ */
 
+function _resolveMatId(id) {
+  if (!id) return '';
+  if (typeof id === 'object') return String(id._id || id.id || '');
+  return String(id);
+}
+
 function getMaterialName(item, materials) {
-  var matId = typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId;
-  var mat = materials.find(function(m) { return m.id === matId; });
+  var matId = _resolveMatId(item.materialId);
+  var mat = materials.find(function(m) { return _resolveMatId(m.id) === matId; });
   if (mat) return mat.name;
   if (typeof item.materialId === 'object' && item.materialId.name) return item.materialId.name;
-  return 'Deleted Material';
+  return null; // null means deleted/unknown - caller should skip
 }
 
 function getMaterialUnit(item, materials) {
-  var matId = typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId;
-  var mat = materials.find(function(m) { return m.id === matId; });
+  var matId = _resolveMatId(item.materialId);
+  var mat = materials.find(function(m) { return _resolveMatId(m.id) === matId; });
   if (mat) return mat.unit;
   if (typeof item.materialId === 'object' && item.materialId.unit) return item.materialId.unit;
   return '';
@@ -241,18 +247,28 @@ var SiteDetailsPage = {
               <label>Material</label>
               <select class="form-control searchable-select" id="site-return-material">
                 <option value="">Select material to return...</option>
-                ${Object.keys(materials.reduce((acc, m) => {
-                  acc[m.category] = acc[m.category] || [];
-                  acc[m.category].push(m);
-                  return acc;
-                }, {})).map(cat => `
-                  <optgroup label="${cat}">
-                    ${materials.filter(m => m.category === cat).map(m => {
-                      const totalSent = Store.Inventory.getSiteTotalSent(m.id, site.id);
-                      return `<option value="${m.id}">${m.name} (Total Sent: ${totalSent} ${m.unit || ''})</option>`;
-                    }).join('')}
-                  </optgroup>
-                `).join('')}
+                ${(() => {
+                  // Only show materials actually dispatched to this site
+                  const dispatchedMaterials = materials.filter(m => Store.Inventory.getSiteTotalSent(m.id, site.id) > 0);
+                  if (dispatchedMaterials.length === 0) {
+                    return '<option disabled>No materials dispatched to this site yet</option>';
+                  }
+                  const grouped = dispatchedMaterials.reduce((acc, m) => {
+                    acc[m.category] = acc[m.category] || [];
+                    acc[m.category].push(m);
+                    return acc;
+                  }, {});
+                  return Object.keys(grouped).map(cat => `
+                    <optgroup label="${cat}">
+                      ${grouped[cat].map(m => {
+                        const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site.id);
+                        const totalReturned = Store.Inventory.getSiteReturns(m.id, site.id);
+                        const remaining     = totalSent - totalReturned;
+                        return `<option value="${m.id}">${m.name} — Sent: ${totalSent} | Returned: ${totalReturned} | Remaining: ${remaining} ${m.unit || ''}</option>`;
+                      }).join('')}
+                    </optgroup>
+                  `).join('');
+                })()}
               </select>
             </div>
             <div class="form-group">
@@ -318,13 +334,14 @@ var SiteDetailsPage = {
     // Outgoing from warehouse to site (Dispatched)
     allOutgoing.forEach(record => {
       record.items.forEach(item => {
-        
+        const matName = getMaterialName(item, materials);
+        if (!matName) return; // skip deleted materials
         const qty = parseFloat(item.quantity) || 0;
         totalDispatched += qty;
         rows.push({
           date: record.date,
           type: 'Incoming',
-          material: getMaterialName(item, materials),
+          material: matName,
           unit: getMaterialUnit(item, materials),
           qty: qty,
           ref: record.referenceNo || '-',
@@ -336,13 +353,14 @@ var SiteDetailsPage = {
     // Incoming direct to site (Dispatched)
     allIncomingDirect.forEach(record => {
       record.items.forEach(item => {
-        const mat = materials.find(m => m.id === item.materialId);
+        const matName = getMaterialName(item, materials);
+        if (!matName) return; // skip deleted materials
         const qty = parseFloat(item.quantity) || 0;
         totalDispatched += qty;
         rows.push({
           date: record.date,
           type: 'Incoming',
-          material: getMaterialName(item, materials),
+          material: matName,
           unit: getMaterialUnit(item, materials),
           qty: qty,
           ref: record.referenceNo || record.invoiceNo || '-',
@@ -353,13 +371,14 @@ var SiteDetailsPage = {
 
     // Site Returns (Returned)
     siteReturns.forEach(record => {
-      
+      const matName = getMaterialName(record, materials);
+      if (!matName) return; // skip deleted materials
       const qty = parseFloat(record.quantity) || 0;
       totalReturned += qty;
       rows.push({
         date: record.date,
         type: 'Outgoing',
-        material: getMaterialName(record, materials),
+        material: matName,
         unit: getMaterialUnit(record, materials),
         qty: qty,
         ref: 'SITE-RETURN',
