@@ -117,3 +117,39 @@
   --z-dropdown: 150;
   --z-tooltip: 300;
 }
+
+/* ============================================
+   Dark Theme Overrides
+   ============================================ */
+[data-theme="dark"] {
+  --page-bg: #0f172a;
+  
+  --sidebar-bg: rgba(30, 41, 59, 0.95);
+  --sidebar-text: #94a3b8;
+  --sidebar-text-hover: #f8fafc;
+  --sidebar-active-bg: rgba(37, 99, 235, 0.2);
+  --sidebar-active-text: #60a5fa;
+  --sidebar-border: rgba(51, 65, 85, 0.8);
+
+  --card-bg: rgba(30, 41, 59, 0.95);
+  --card-border: rgba(51, 65, 85, 0.8);
+  --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-tertiary: #94a3b8;
+  --text-inverse: #0f172a;
+
+  --border-color: #334155;
+  --border-light: #1e293b;
+  --divider: #334155;
+
+  --input-bg: #1e293b;
+  --input-border: #475569;
+  --input-placeholder: #64748b;
+  
+  --success-light: #064e3b;
+  --warning-light: #78350f;
+  --danger-light: #7f1d1d;
+  --info-light: #1e3a8a;
+}

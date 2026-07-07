@@ -146,8 +146,13 @@ var App = (() => {
                 <span class="role">${user.role}</span>
               </div>
             </div>
-            <div class="sidebar-logout" id="logout-btn" title="Logout">
-              ${Icons.logout}
+            <div style="display: flex; gap: 8px;">
+              <div class="sidebar-logout" id="theme-toggle-btn" title="Toggle Dark Mode">
+                ${document.documentElement.getAttribute('data-theme') === 'dark' ? Icons.sun : Icons.moon}
+              </div>
+              <div class="sidebar-logout" id="logout-btn" title="Logout">
+                ${Icons.logout}
+              </div>
             </div>
           </div>
         </aside>
@@ -200,6 +205,20 @@ var App = (() => {
     document.getElementById('logout-btn')?.addEventListener('click', () => {
       Store.Auth.logout();
       init();
+    });
+
+    // Theme Toggle
+    document.getElementById('theme-toggle-btn')?.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      if (currentTheme === 'dark') {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('theme', 'light');
+        document.getElementById('theme-toggle-btn').innerHTML = Icons.moon;
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        localStorage.setItem('theme', 'dark');
+        document.getElementById('theme-toggle-btn').innerHTML = Icons.sun;
+      }
     });
   }
 
