@@ -8,10 +8,27 @@ var IncomingPage = {
   formItems: [{ materialId: '', quantity: '', rate: '', amount: 0 }],
 
   render() {
-    let records = Store.Incoming.getAll().sort((a, b) => new Date(b.date) - new Date(a.date));
-    
     const materials = Store.Materials.getAll();
     const sites = Store.Sites.getAll();
+
+    let incomingRecords = Store.Incoming.getAll();
+    let siteReturnRecords = Store.SiteReturns.getAll().map(r => {
+      const site = sites.find(s => s.id === r.siteId);
+      return {
+        id: 'return_' + r.id,
+        date: r.date,
+        destinationType: 'warehouse',
+        vendorName: site ? 'Return from ' + site.name : 'Site Return',
+        supplier: '',
+        referenceNo: 'SITE-RETURN',
+        isSiteReturn: true,
+        originalId: r.id,
+        siteId: r.siteId,
+        items: [{ materialId: r.materialId, quantity: r.quantity }]
+      };
+    });
+    
+    let records = [...incomingRecords, ...siteReturnRecords].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     if (this.searchTerm) {
       const st = this.searchTerm.toLowerCase();
@@ -108,7 +125,44 @@ var IncomingPage = {
   renderForm() {
     const materials = Store.Materials.getAll();
     const sites = Store.Sites.getAll();
-    const record = this.selectedId ? Store.Incoming.getById(this.selectedId) : null;
+    
+    let isSiteReturn = false;
+    let record = null;
+    if (this.selectedId) {
+      if (this.selectedId.startsWith('return_')) {
+        isSiteReturn = true;
+        const realId = this.selectedId.replace('return_', '');
+        const ret = Store.SiteReturns.getById(realId);
+        if (ret) {
+          const site = sites.find(s => s.id === ret.siteId);
+          record = {
+            id: this.selectedId,
+            vendorName: site ? 'Return from ' + site.name : 'Site Return',
+            referenceNo: 'SITE-RETURN',
+            date: ret.date,
+            destinationType: 'warehouse',
+            notes: 'Returned from site',
+            items: [{ materialId: ret.materialId, quantity: ret.quantity }]
+          };
+        }
+      } else {
+        record = Store.Incoming.getById(this.selectedId);
+      }
+    }
+
+    if (isSiteReturn) {
+      return `
+        <div style="padding: 24px; text-align: center; border: 1px dashed var(--border); border-radius: 12px; margin: 24px; background: var(--surface);">
+          <div style="width: 48px; height: 48px; margin: 0 auto 16px; color: var(--primary);">${Icons.arrowDownCircle}</div>
+          <h3 style="margin: 0 0 8px 0; color: var(--text-primary);">Site Return Record</h3>
+          <p style="color: var(--text-secondary); margin: 0 0 16px 0;">This record was logged from the Site Dashboard as a returned material.</p>
+          <p style="font-weight: 500;"><strong>Material:</strong> ${materials.find(m => m.id === record.items[0].materialId)?.name || 'Unknown'}</p>
+          <p style="font-weight: 500;"><strong>Quantity:</strong> ${record.items[0].quantity}</p>
+          <p style="font-weight: 500;"><strong>Date:</strong> ${record.date}</p>
+          <button class="btn btn-outline" style="margin-top: 24px;" onclick="App.navigate('site-returns')">Manage in Update Stock</button>
+        </div>
+      `;
+    }
 
     const items = record ? record.items : this.formItems;
     const totalAmount = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0);
