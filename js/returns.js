@@ -155,7 +155,7 @@ var ReturnsPage = {
         const res = await Store.resetStock();
         if (res.success) {
           alert("Stock reset completed successfully!");
-          this.refresh();
+          window.location.reload();
         } else {
           alert("Failed to reset stock: " + res.error);
         }
