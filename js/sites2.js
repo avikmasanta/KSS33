@@ -263,7 +263,6 @@ var SitesPage = {
     if (!list) return;
 
     const materials = Store.Materials.getAll();
-    const overview = Store.Inventory.getOverview();
 
     if (this.initItems.length === 0) {
       list.innerHTML = '<p class="text-sm text-tertiary">No materials found. Add materials in the Products page first.</p>';
@@ -285,13 +284,11 @@ var SitesPage = {
     this.initItems.forEach((item, idx) => {
       const mat = materials.find(m => m.id === item.materialId);
       if (!mat) return;
-      const stockEntry = overview.find(o => o.material.id === item.materialId);
-      const warehouseStock = stockEntry ? stockEntry.warehouseStock : 0;
       html += `
         <tr>
           <td>
             <div style="font-weight: 600; font-size: 0.95rem;">${mat.name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat.unit}${mat.sku ? ' &bull; ' + mat.sku : ''} &bull; Stock: ${warehouseStock}</div>
+            <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat.unit}${mat.sku ? ' &bull; ' + mat.sku : ''}</div>
           </td>
           <td>
             <input
