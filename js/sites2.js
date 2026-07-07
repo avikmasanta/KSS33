@@ -447,16 +447,16 @@ var SitesPage = {
           notes: 'Initial material dispatch on site creation',
           items: items
         });
-
-        // Mark returned quantities immediately
-        const returnedDate = new Date().toISOString();
-        this.initItems.forEach(item => {
-          const returnedQty = parseFloat(item.returned) || 0;
-          if (item.materialId && returnedQty > 0) {
-            Store.SiteReturns.add({ siteId: newSite.id, materialId: item.materialId, quantity: returnedQty, date: returnedDate });
-          }
-        });
       }
+
+      // Mark returned quantities immediately (independent of dispatch items)
+      const returnedDate = new Date().toISOString();
+      this.initItems.forEach(item => {
+        const returnedQty = parseFloat(item.returned) || 0;
+        if (item.materialId && returnedQty > 0) {
+          Store.SiteReturns.add({ siteId: newSite.id, materialId: item.materialId, quantity: returnedQty, date: returnedDate });
+        }
+      });
       }
 
       this.closeModal();
