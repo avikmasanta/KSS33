@@ -38,7 +38,7 @@ const Store = (() => {
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
   function initFromLocal() {
-    const CACHE_VERSION = 'kss33_v4';
+    const CACHE_VERSION = 'kss33_v5';
     if (localStorage.getItem('bm_cache_version') !== CACHE_VERSION) {
       // Clear old cache keys if version mismatch
       Object.keys(endpointMap).forEach(key => localStorage.removeItem(key));
