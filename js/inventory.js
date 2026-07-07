@@ -29,7 +29,10 @@ var InventoryPage = {
           <h2>Inventory Overview</h2>
           <p>Current stock levels</p>
         </div>
-        <div class="page-header-actions">
+        <div class="page-header-actions" style="display: flex; gap: 12px;">
+          <button class="btn btn-outline" onclick="InventoryPage.exportPDF()" style="display:inline-flex;align-items:center;gap:6px;">
+            ${Icons.fileText || ''} PDF
+          </button>
           <button class="btn btn-outline" onclick="InventoryPage.exportCSV()">
             ${Icons.download} Export
           </button>
@@ -233,5 +236,67 @@ var InventoryPage = {
     a.download = 'inventory_overview.csv';
     a.click();
     URL.revokeObjectURL(url);
+  },
+
+  exportPDF() {
+    const overview = Store.Inventory.getOverview();
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const rows = overview.map(o => {
+      const isLow = o.warehouseStock < o.reorderLevel;
+      return `
+        <tr>
+          <td style="border:1px solid #333;padding:8px;">${o.material.name}<br><span style="font-size:10px;color:#555;">${o.material.sku || ''}</span></td>
+          <td style="border:1px solid #333;padding:8px;text-align:center;">${o.material.unit}</td>
+          <td style="border:1px solid #333;padding:8px;text-align:right;font-weight:bold;${isLow ? 'color:#d32f2f;' : ''}">${o.warehouseStock.toLocaleString('en-IN')}</td>
+          <td style="border:1px solid #333;padding:8px;text-align:right;">${o.totalSiteStock.toLocaleString('en-IN')}</td>
+          <td style="border:1px solid #333;padding:8px;text-align:right;">${o.totalStock.toLocaleString('en-IN')}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html>
+      <html><head>
+        <title>Warehouse Inventory - ${today}</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; color: #111; background: #fff; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th { border: 1px solid #333; padding: 10px; background: #e8edf2; text-align: left; font-size: 13px; }
+          td { font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <h2 style="margin-bottom: 5px;">Warehouse Inventory Overview</h2>
+        <p style="font-size: 14px; color: #555;">Generated on: ${today}</p>
+        
+        <table>
+          <thead>
+            <tr>
+              <th>Material</th>
+              <th style="text-align:center;">Unit</th>
+              <th style="text-align:right;">Warehouse Stock</th>
+              <th style="text-align:right;">Stock at Sites</th>
+              <th style="text-align:right;">Total System Stock</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.length > 0 ? rows : '<tr><td colspan="5" style="text-align:center;padding:20px;font-style:italic;">No inventory data available.</td></tr>'}
+          </tbody>
+        </table>
+        
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.close();
+            }, 300);
+          }
+        </script>
+      </body></html>
+    `);
+    printWindow.document.close();
   }
 };
