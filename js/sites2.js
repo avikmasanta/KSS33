@@ -354,25 +354,32 @@ var SitesPage = {
   },
 
   async save() {
-    const id = document.getElementById('site-id').value;
-    const data = {
-      name: document.getElementById('site-name').value.trim(),
-      customerName: document.getElementById('site-customer-name').value.trim(),
-      gstNumber: document.getElementById('site-gst').value.trim(),
-      contactNumber: document.getElementById('site-contact').value.trim(),
-      status: document.getElementById('site-status').value,
-      startDate: document.getElementById('site-start-date').value,
-      address: document.getElementById('site-address').value.trim(),
-      tokenNumber: document.getElementById('site-token').value.trim(),
-      budget: parseFloat(document.getElementById('site-budget').value) || 0
-    };
+    try {
+      const id = document.getElementById('site-id').value;
+      const data = {
+        name: document.getElementById('site-name').value.trim(),
+        customerName: document.getElementById('site-customer-name').value.trim(),
+        gstNumber: document.getElementById('site-gst').value.trim(),
+        contactNumber: document.getElementById('site-contact').value.trim(),
+        status: document.getElementById('site-status').value,
+        startDate: document.getElementById('site-start-date').value,
+        address: document.getElementById('site-address').value.trim(),
+        tokenNumber: document.getElementById('site-token').value.trim(),
+        budget: parseFloat(document.getElementById('site-budget').value) || 0
+      };
 
-    if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }
+      if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }
 
-    if (id) {
-      Store.Sites.update(id, data);
-    } else {
-      const newSite = await Store.Sites.addAsync(data);
+      if (id) {
+        Store.Sites.update(id, data);
+      } else {
+        // Fallback in case browser cached the old store.js
+        let newSite;
+        if (typeof Store.Sites.addAsync === 'function') {
+          newSite = await Store.Sites.addAsync(data);
+        } else {
+          newSite = Store.Sites.add(data);
+        }
 
       // Sync DOM state for initial materials to prevent lost inputs
       const initRows = document.querySelectorAll('#site-initial-materials-list tbody tr');
@@ -423,10 +430,14 @@ var SitesPage = {
           }
         });
       }
-    }
+      }
 
-    this.closeModal();
-    this.refresh();
+      this.closeModal();
+      this.refresh();
+    } catch (error) {
+      alert('Error saving site: ' + error.message);
+      console.error(error);
+    }
   },
 
   async permanentDeleteSite(id) {
