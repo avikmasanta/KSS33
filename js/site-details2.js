@@ -163,6 +163,15 @@ var SiteDetailsPage = {
         </div>
       </div>
 
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
+          <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Material Inventory at Site</h3>
+        </div>
+        <div>
+          ${this.renderCurrentStock(site)}
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
           <h3 style="font-size: 1.1rem; color: #0f172a; margin: 0;">Stock Movements</h3>
@@ -346,6 +355,73 @@ var SiteDetailsPage = {
   },
 
   init() { },
+
+  renderCurrentStock(site) {
+    const materials = Store.Materials.getAll();
+    const stockItems = [];
+
+    materials.forEach(m => {
+      const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+      const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+      const usage = Store.Inventory.getSiteUsage(m.id, site.id);
+      const damaged = Store.Inventory.getSiteDamaged(m.id, site.id);
+      const current = sent - returned - usage - damaged;
+
+      if (sent > 0 || returned > 0 || current > 0) {
+        stockItems.push({
+          material: m,
+          sent,
+          returned,
+          usage,
+          damaged,
+          current
+        });
+      }
+    });
+
+    if (stockItems.length === 0) {
+      return `
+        <div class="empty-state" style="padding: 40px 20px; text-align: center; background: var(--bg-card); border-radius: 12px; margin: 15px;">
+          <h4 style="color: var(--text-secondary); margin-bottom: 4px; font-size: 1rem;">No Material at Site</h4>
+          <p class="text-xs text-tertiary" style="max-width: 250px; margin: 0 auto;">There are no materials currently dispatched to this site.</p>
+        </div>
+      `;
+    }
+
+    return `
+      <div class="table-container">
+        <table class="data-table" style="width:100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--bg-body);">
+              <th style="padding: 12px 16px; text-align: left; color: var(--text-secondary); border-bottom: 1px solid var(--border-color);">MATERIAL</th>
+              <th style="padding: 12px 16px; text-align: right; color: var(--text-secondary); border-bottom: 1px solid var(--border-color);">SENT</th>
+              <th style="padding: 12px 16px; text-align: right; color: var(--text-secondary); border-bottom: 1px solid var(--border-color);">RETURNED</th>
+              <th style="padding: 12px 16px; text-align: right; color: var(--text-secondary); border-bottom: 1px solid var(--border-color);">USED</th>
+              <th style="padding: 12px 16px; text-align: right; color: var(--text-secondary); border-bottom: 1px solid var(--border-color);">DAMAGED</th>
+              <th style="padding: 12px 16px; text-align: right; color: var(--text-primary); font-weight: 700; border-bottom: 2px solid var(--border-color);">CURRENT ON SITE</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stockItems.map(item => `
+              <tr style="border-bottom: 1px solid var(--border-color);">
+                <td style="padding: 12px 16px;">
+                  <div style="font-weight: 600; color: var(--text-primary);">${item.material.name}</div>
+                  <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${item.material.sku || '-'}</div>
+                </td>
+                <td style="padding: 12px 16px; text-align: right; color: var(--text-secondary);">${item.sent.toLocaleString('en-IN')} ${item.material.unit}</td>
+                <td style="padding: 12px 16px; text-align: right; color: var(--danger); font-weight: 500;">${item.returned > 0 ? '-' + item.returned.toLocaleString('en-IN') : '0'} ${item.material.unit}</td>
+                <td style="padding: 12px 16px; text-align: right; color: var(--warning); font-weight: 500;">${item.usage > 0 ? '-' + item.usage.toLocaleString('en-IN') : '0'} ${item.material.unit}</td>
+                <td style="padding: 12px 16px; text-align: right; color: var(--warning); font-weight: 500;">${item.damaged > 0 ? '-' + item.damaged.toLocaleString('en-IN') : '0'} ${item.material.unit}</td>
+                <td style="padding: 12px 16px; text-align: right; font-weight: 700; color: var(--success); font-size: 1.05rem;">
+                  ${item.current.toLocaleString('en-IN')} ${item.material.unit}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  },
 
   renderStockMovements(site) {
     const materials = Store.Materials.getAll();
