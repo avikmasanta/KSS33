@@ -53,6 +53,7 @@ const MaterialSchema = new mongoose.Schema({
 const IncomingSchema = new mongoose.Schema({
   _id: String,
   date: String,
+  invoiceNo: String,
   referenceNo: String,
   vendorName: String,
   destinationType: String, // 'warehouse' or 'site'
@@ -61,6 +62,8 @@ const IncomingSchema = new mongoose.Schema({
   items: [{
     materialId: String,
     quantity: Number,
+    rate: Number,
+    amount: Number,
     unitPrice: Number
   }],
   createdAt: String
@@ -70,11 +73,15 @@ const OutgoingSchema = new mongoose.Schema({
   _id: String,
   date: String,
   referenceNo: String,
+  ticketNo: String,
+  customerName: String,
   siteId: String,
   notes: String,
   items: [{
     materialId: String,
-    quantity: Number
+    quantity: Number,
+    rate: Number,
+    amount: Number
   }],
   createdAt: String
 }, schemaOptions);
