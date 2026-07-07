@@ -61,10 +61,11 @@ var ReturnsPage = {
               </tr>
             </thead>
             <tbody>
-              ${materials.map(m => {
+               ${materials.map(m => {
                 const totalReturned = returnsMap[m.id] || 0;
+                const currentStock = availableMap[m.id] || 0;
                 return `
-                  <tr data-mat-id="${m.id}" data-returned="${totalReturned}" style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
+                  <tr data-mat-id="${m.id}" data-returned="${totalReturned}" data-current-stock="${currentStock}" style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
                     <td style="padding: 16px;">
                       <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">${m.name}</div>
                       <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-top: 4px;">${m.sku || '-'}</div>
@@ -80,7 +81,7 @@ var ReturnsPage = {
                     </td>
                     <td style="padding: 16px;">
                       <div class="new-available-cell" style="font-weight: 700; font-size: 1.15rem; color: var(--text-primary); background: var(--bg-body); padding: 8px 12px; border-radius: 8px; display: inline-block; min-width: 100px; text-align: center;">
-                        ${totalReturned.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${m.unit}</span>
+                        ${currentStock.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${m.unit}</span>
                       </div>
                     </td>
                   </tr>
@@ -117,10 +118,10 @@ var ReturnsPage = {
 
   calculateRow(inputEl) {
     const tr = inputEl.closest('tr');
-    const returned = parseFloat(tr.getAttribute('data-returned')) || 0;
+    const currentStock = parseFloat(tr.getAttribute('data-current-stock')) || 0;
     const newStock = parseFloat(inputEl.value) || 0;
     
-    const newAvailable = returned + newStock;
+    const newAvailable = currentStock + newStock;
     const materialUnit = tr.querySelector('.new-available-cell span').innerText || '';
     
     const cell = tr.querySelector('.new-available-cell');
