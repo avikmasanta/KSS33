@@ -424,18 +424,37 @@ const Store = (() => {
         siteReturns.forEach(r => {
           if (resolveId(r.materialId) === resolveId(material.id)) totalReturned += (parseFloat(r.quantity) || 0);
         });
-        
         let totalSent = 0;
         allOutgoing.forEach(r => {
           (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalSent += (parseFloat(i.quantity) || 0); });
         });
-        
+
+        let totalSiteStock = 0;
+        cache.sites.forEach(site => {
+          let totalIn = 0;
+          allOutgoing.filter(r => r.siteId === site.id).forEach(r => {
+            (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalIn += (parseFloat(i.quantity) || 0); });
+          });
+          allIncoming.filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(r => {
+            (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(material.id)) totalIn += (parseFloat(i.quantity) || 0); });
+          });
+          let totalOut = 0;
+          siteReturns.filter(r => r.siteId === site.id && resolveId(r.materialId) === resolveId(material.id)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+          cache.siteUsage.filter(r => r.siteId === site.id && resolveId(r.materialId) === resolveId(material.id)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+          cache.siteDamaged.filter(r => r.siteId === site.id && resolveId(r.materialId) === resolveId(material.id)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+          
+          totalSiteStock += (totalIn - totalOut);
+        });
+
+        const warehouseStock = (totalPurchased + totalReturned) - totalSent;
         return { 
           material, 
           totalPurchased, 
           totalReturned, 
           totalSent, 
-          warehouseStock: (totalPurchased + totalReturned) - totalSent 
+          warehouseStock,
+          totalSiteStock,
+          totalStock: warehouseStock + totalSiteStock
         };
       });
     },
