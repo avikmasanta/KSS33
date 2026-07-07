@@ -5,12 +5,12 @@
 var ReturnsPage = {
   render() {
     const materials = Store.Materials.getAll();
+    const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
 
-    // Get current available and total returns for each material
-    const overview = Store.Inventory.getOverview();
+    // Get historical warehouse stock for each material as of selected date
     const availableMap = {};
-    overview.forEach(o => {
-      availableMap[o.material.id] = o.warehouseStock;
+    materials.forEach(m => {
+      availableMap[m.id] = Store.Inventory.getWarehouseBalanceOn(m.id, selectedDate);
     });
 
     const allReturns = Store.SiteReturns.getAll();
@@ -46,7 +46,7 @@ var ReturnsPage = {
           <div class="form-row">
             <div class="form-group" style="max-width: 250px; margin: 0;">
               <label style="font-weight: 600; color: var(--text-secondary);">Date of Adjustment</label>
-              <input type="date" class="form-control" id="stock-date" value="${new Date().toISOString().split('T')[0]}" style="background: var(--bg-body);">
+              <input type="date" class="form-control" id="stock-date" value="${selectedDate}" onchange="ReturnsPage.onDateChange(this.value)" style="background: var(--bg-body);">
             </div>
           </div>
         </div>
@@ -98,6 +98,11 @@ var ReturnsPage = {
         </div>
       </div>
     `;
+  },
+
+  onDateChange(val) {
+    this.selectedDate = val;
+    this.refresh();
   },
 
   init() {

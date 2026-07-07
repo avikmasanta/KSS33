@@ -499,6 +499,24 @@ const Store = (() => {
       });
     },
 
+    getWarehouseBalanceOn: (materialId, date) => {
+      const allIncoming = cache.incoming;
+      const allOutgoing = cache.outgoing;
+      const siteReturns = cache.siteReturns;
+      let totalIn = 0;
+      allIncoming.filter(r => r.destinationType === 'warehouse' && (!date || r.date <= date)).forEach(r => {
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
+      });
+      siteReturns.filter(r => !date || r.date <= date).forEach(r => {
+        if (resolveId(r.materialId) === resolveId(materialId)) totalIn += (parseFloat(r.quantity) || 0);
+      });
+      let totalOut = 0;
+      allOutgoing.filter(r => !date || r.date <= date).forEach(r => {
+        (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalOut += (parseFloat(i.quantity) || 0); });
+      });
+      return totalIn - totalOut;
+    },
+
     getWarehouseCurrentBalance: (materialId) => {
       const allIncoming = cache.incoming;
       const allOutgoing = cache.outgoing;
