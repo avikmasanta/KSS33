@@ -2,6 +2,22 @@
    KSS33 Site Details Page
    ============================================ */
 
+function getMaterialName(item, materials) {
+  var matId = typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId;
+  var mat = materials.find(function(m) { return m.id === matId; });
+  if (mat) return mat.name;
+  if (typeof item.materialId === 'object' && item.materialId.name) return item.materialId.name;
+  return 'Deleted Material';
+}
+
+function getMaterialUnit(item, materials) {
+  var matId = typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId;
+  var mat = materials.find(function(m) { return m.id === matId; });
+  if (mat) return mat.unit;
+  if (typeof item.materialId === 'object' && item.materialId.unit) return item.materialId.unit;
+  return '';
+}
+
 var SiteDetailsPage = {
   siteId: null,
 
