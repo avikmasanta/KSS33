@@ -353,7 +353,7 @@ var SitesPage = {
     this.openModal(id);
   },
 
-  save() {
+  async save() {
     const id = document.getElementById('site-id').value;
     const data = {
       name: document.getElementById('site-name').value.trim(),
@@ -372,7 +372,7 @@ var SitesPage = {
     if (id) {
       Store.Sites.update(id, data);
     } else {
-      const newSite = Store.Sites.add(data);
+      const newSite = await Store.Sites.addAsync(data);
 
       // Sync DOM state for initial materials to prevent lost inputs
       const initRows = document.querySelectorAll('#site-initial-materials-list tbody tr');

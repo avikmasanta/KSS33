@@ -200,6 +200,34 @@ const Store = (() => {
         return newItem;
       },
 
+      addAsync: async (data) => {
+        const id = 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        const newItem = { ...data, id };
+        
+        cache[cacheKey].push(newItem);
+        persistLocal(lsKey, cache[cacheKey]);
+
+        try {
+          const res = await fetch(`${API_URL}/${path}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newItem)
+          });
+          if (res.ok) {
+            const savedItem = await res.json();
+            const idx = cache[cacheKey].findIndex(x => x.id === id);
+            if (idx > -1) {
+              cache[cacheKey][idx] = savedItem;
+              persistLocal(lsKey, cache[cacheKey]);
+            }
+            return savedItem;
+          }
+        } catch (err) {
+          console.error(`Error syncing ADD ${path}:`, err);
+        }
+        return newItem;
+      },
+
       update: (id, data) => {
         // 1. Instantly update in-memory cache
         const idx = cache[cacheKey].findIndex(x => x.id === id);
