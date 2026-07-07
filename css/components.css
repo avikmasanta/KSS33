@@ -236,7 +236,7 @@
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  background: rgba(248, 250, 252, 0.8);
+  background: var(--table-header-bg);
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border-color);
   border-top: none;
@@ -252,7 +252,7 @@
 }
 
 .data-table tbody tr:hover {
-  background: rgba(241, 245, 249, 0.5);
+  background: var(--table-row-hover);
 }
 
 .data-table tbody td {
@@ -322,7 +322,7 @@
 
 /* ==== FORMS ==== */
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .form-group label {
@@ -345,6 +345,10 @@
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+.form-control:hover {
+  border-color: var(--primary-400);
+}
+
 .form-control:focus {
   border-color: var(--input-border-focus);
   outline: none;
@@ -365,7 +369,7 @@ textarea.form-control {
 select.form-control {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: var(--select-arrow);
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 32px;
@@ -409,7 +413,8 @@ select.form-control {
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--modal-bg);
+  border: 1px solid var(--card-border);
   border-radius: 20px; /* Modern roundness */
   box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255,255,255,0.1);
   width: 100%;
@@ -577,7 +582,7 @@ select.form-control {
   color: var(--text-primary);
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: var(--select-arrow);
   background-repeat: no-repeat;
   background-position: right 8px center;
 }
@@ -830,4 +835,46 @@ select.form-control {
 .add-row-link svg {
   width: 16px;
   height: 16px;
+}
+
+/* ==== INLINE TABLES (within modals) ==== */
+.inline-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: var(--space-4);
+}
+
+.inline-table thead th {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--border-color);
+  background: var(--table-header-bg);
+}
+
+.inline-table tbody tr {
+  border-bottom: 1px solid var(--border-color);
+  transition: background var(--transition-fast);
+}
+
+.inline-table tbody tr:hover {
+  background: var(--table-row-hover);
+}
+
+.inline-table tbody td {
+  padding: 12px;
+  font-size: var(--font-size-sm);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.inline-table .form-control {
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  text-align: center;
 }
