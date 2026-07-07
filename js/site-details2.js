@@ -708,135 +708,133 @@ var SiteDetailsPage = {
     const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
     const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
 
-    const rows = [];
-    let totalReceived = 0;
-    let totalReturned = 0;
+    // Build cross-tab maps: date -> materialId -> qty
+    const dispatchMap = {};
+    const returnMap = {};
+    const dispatchedMatIds = new Set();
+    const returnedMatIds = new Set();
 
     allOutgoing.forEach(record => {
-      record.items.forEach(item => {
-        
-        const qty = parseFloat(item.quantity) || 0;
-        totalReceived += qty;
-        rows.push({ date: record.date, type: 'Received', material: getMaterialName(item, materials), qty, unit: getMaterialUnit(item, materials), ref: record.referenceNo || '-', note: record.notes || '-' });
+      (record.items || []).forEach(item => {
+        const matId = _resolveMatId(item.materialId);
+        if (!matId || !Store.Materials.getById(matId)) return;
+        dispatchedMatIds.add(matId);
+        dispatchMap[record.date] = dispatchMap[record.date] || {};
+        dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
       });
     });
     allIncomingDirect.forEach(record => {
-      record.items.forEach(item => {
-        
-        const qty = parseFloat(item.quantity) || 0;
-        totalReceived += qty;
-        rows.push({ date: record.date, type: 'Received (Direct)', material: getMaterialName(item, materials), qty, unit: getMaterialUnit(item, materials), ref: record.referenceNo || '-', note: record.notes || '-' });
+      (record.items || []).forEach(item => {
+        const matId = _resolveMatId(item.materialId);
+        if (!matId || !Store.Materials.getById(matId)) return;
+        dispatchedMatIds.add(matId);
+        dispatchMap[record.date] = dispatchMap[record.date] || {};
+        dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
       });
     });
     siteReturns.forEach(record => {
-      
-      const qty = parseFloat(record.quantity) || 0;
-      totalReturned += qty;
-      rows.push({ date: record.date, type: 'Returned', material: getMaterialName(record, materials), qty, unit: getMaterialUnit(record, materials), ref: 'SITE-RETURN', note: 'Returned from site' });
+      const matId = _resolveMatId(record.materialId);
+      if (!matId || !Store.Materials.getById(matId)) return;
+      returnedMatIds.add(matId);
+      returnMap[record.date] = returnMap[record.date] || {};
+      returnMap[record.date][matId] = (returnMap[record.date][matId] || 0) + (parseFloat(record.quantity) || 0);
     });
 
-    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
+    const dispatchMats = [...dispatchedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
+    const returnMats   = [...returnedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
+    const dispatchDates = Object.keys(dispatchMap).sort();
+    const returnDates   = Object.keys(returnMap).sort();
 
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-      <head>
-        <title>Site Report - ${site.name}</title>
-        <style>
-          body { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1e293b; padding: 40px; line-height: 1.5; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px; }
-          .title { font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; }
-          .meta { font-size: 14px; color: #64748b; margin-top: 5px; }
-          .meta strong { color: #334155; }
-          .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 35px; }
-          .stat-card { border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; background: #f8fafc; }
-          .stat-title { font-size: 12px; font-weight: 600; text-transform: uppercase; color: #64748b; margin-bottom: 5px; }
-          .stat-value { font-size: 20px; font-weight: 700; color: #0f172a; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background: #f1f5f9; text-align: left; padding: 12px 10px; font-size: 13px; font-weight: 600; color: #475569; border-bottom: 2px solid #cbd5e1; }
-          td { padding: 12px 10px; font-size: 13px; border-bottom: 1px solid #e2e8f0; color: #334155; }
-          .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; }
-          .badge-received { background: #dcfce7; color: #15803d; }
-          .badge-returned { background: #fee2e2; color: #b91c1c; }
-          .badge-used { background: #fef3c7; color: #b45309; }
-          @media print {
-            body { padding: 0; }
-            button { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="header">
-          <div>
-            <div class="title">SITE REPORT: ${site.name}</div>
-            <div class="meta">
-              Site ID: <strong>${site.id}</strong> | 
-              Token: <strong>${site.tokenNumber || '-'}</strong> | 
-              Customer: <strong>${site.customerName || '-'}</strong> | 
-              Location: <strong>${site.address || '-'}</strong> |
-              Status: <strong>${site.status}</strong>
-            </div>
-          </div>
-          <div style="text-align: right;">
-            <div style="font-size: 12px; color: #64748b;">Generated on</div>
-            <div style="font-weight: 600; font-size: 14px;">${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
-          </div>
-        </div>
+    const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-title">Allocated Budget</div>
-            <div class="stat-value">₹${(site.budget || 0).toLocaleString('en-IN')}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Total Received</div>
-            <div class="stat-value">${totalReceived.toLocaleString('en-IN')}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-title">Total Returned</div>
-            <div class="stat-value">${totalReturned.toLocaleString('en-IN')}</div>
-          </div>
-        </div>
+    const buildHeader = matList => matList.map(m =>
+      `<th style="border:1px solid #333;padding:5px 3px;font-size:10px;text-align:center;background:#e8edf2;min-width:46px;max-width:70px;word-break:break-word;">${m.name}<br><span style="font-weight:400;font-size:9px;color:#555;">${m.unit}</span></th>`
+    ).join('');
 
-        <h3>Stock Movement Ledger</h3>
-        <table>
+    const buildRows = (dates, matList, dataMap) => {
+      if (!dates.length) return `<tr><td colspan="99" style="text-align:center;padding:12px;color:#888;font-style:italic;">No records</td></tr>`;
+      return dates.map(date => {
+        const dayData = dataMap[date] || {};
+        const cells = matList.map(m => {
+          const qty = dayData[m.id] || 0;
+          return `<td style="text-align:center;border:1px solid #333;padding:5px 3px;font-size:12px;">${qty > 0 ? qty : ''}</td>`;
+        }).join('');
+        return `<tr>
+          <td style="border:1px solid #333;padding:5px 6px;font-size:12px;white-space:nowrap;">${fmtDate(date)}</td>
+          ${cells}
+          <td style="border:1px solid #333;padding:5px;width:55px;"></td>
+        </tr>`;
+      }).join('');
+    };
+
+    const fillerRows = (n, cols) => n <= 0 ? '' : Array.from({length: n}, () =>
+      `<tr>${'<td style="border:1px solid #333;height:24px;"></td>'.repeat(cols + 2)}</tr>`
+    ).join('');
+
+    const challanTable = (matList, dates, dataMap) => {
+      if (!matList.length) return '<p style="color:#888;font-style:italic;font-size:12px;padding:6px 0;">No records.</p>';
+      return `
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Type</th>
-              <th>Material</th>
-              <th>Quantity</th>
-              <th>Reference No</th>
-              <th>Notes</th>
+              <th style="border:1px solid #333;padding:5px 6px;text-align:left;background:#e8edf2;min-width:80px;font-size:11px;">Date</th>
+              ${buildHeader(matList)}
+              <th style="border:1px solid #333;padding:5px;width:55px;background:#e8edf2;font-size:11px;">Sign.</th>
             </tr>
           </thead>
           <tbody>
-            ${rows.map(r => {
-              const badgeClass = r.type === 'Returned' ? 'badge-returned' : r.type === 'Used' ? 'badge-used' : 'badge-received';
-              return `
-                <tr>
-                  <td>${new Date(r.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
-                  <td><span class="badge \${badgeClass}">${r.type}</span></td>
-                  <td><strong>${r.material}</strong></td>
-                  <td>${r.qty.toLocaleString('en-IN')} ${r.unit}</td>
-                  <td>${r.ref}</td>
-                  <td>${r.note}</td>
-                </tr>
-              `;
-            }).join('')}
+            ${buildRows(dates, matList, dataMap)}
+            ${fillerRows(Math.max(0, 5 - dates.length), matList.length)}
           </tbody>
-        </table>
+        </table>`;
+    };
 
-        <script>
-          window.onload = function() {
-            window.print();
-          };
-        </script>
-      </body>
-      </html>
-    `);
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html>
+      <html><head>
+        <title>Challan - ${site.name}</title>
+        <style>
+          @page { size: A4 landscape; margin: 10mm 12mm; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #fff; }
+          .company { text-align:center; font-size:15px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+          .info-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; font-size:13px; }
+          .ul { border-bottom:1px solid #333; display:inline-block; padding:0 4px; min-width:140px; }
+          .section-label { font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #333; padding-bottom:2px; margin:14px 0 4px; }
+          .footer { text-align:center; font-size:14px; font-weight:bold; margin-top:16px; border-top:2px solid #333; padding-top:8px; letter-spacing:3px; }
+          @media print { button { display:none; } }
+        </style>
+      </head>
+      <body>
+        <div class="company">KSS33 — Material Delivery Challan</div>
+
+        <div class="info-row">
+          <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
+          <span>Dated <span class="ul">${today}</span></span>
+        </div>
+        <div class="info-row">
+          <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+        </div>
+        <div class="info-row">
+          <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+          <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
+        </div>
+
+        <div class="section-label">Material Received at Site</div>
+        ${challanTable(dispatchMats, dispatchDates, dispatchMap)}
+
+        <div class="section-label">Material Returned from Site</div>
+        ${challanTable(returnMats, returnDates, returnMap)}
+
+        <div class="footer">CHALLAN (IN)</div>
+
+        <script>window.onload = function(){ window.print(); };<\/script>
+      </body></html>`);
     printWindow.document.close();
   },
+
+
 
   renderSiteInventory(site) {
     const materials = Store.Materials.getAll();
