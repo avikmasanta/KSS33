@@ -473,6 +473,10 @@ var ReportsPage = {
                 </td>`;
               }).join('');
 
+              if (totalRemaining === 0 && !sites.some(s => Store.Inventory.getSiteTotalSent(m.id, s.id) > 0)) {
+                return ''; // skip unused materials
+              }
+
               return `
                 <tr>
                   <td><strong>${m.name}</strong> <span style="font-size:11px; color:var(--text-secondary);">(${m.unit})</span></td>
@@ -516,15 +520,17 @@ var ReportsPage = {
       const used = Store.Inventory.getSiteUsage(m.id, site.id);
       const remaining = Store.Inventory.getSiteCurrentBalance(m.id, site.id);
 
-      rows += `
-        <tr>
-          <td><strong>${m.name}</strong></td>
-          <td>${sent > 0 ? formatNum(sent) : '0'} ${m.unit}</td>
-          <td style="color: var(--danger); font-weight: 500;">${returned > 0 ? formatNum(returned) : '-'} ${returned > 0 ? m.unit : ''}</td>
-          <td style="color: #d97706; font-weight: 500;">${used > 0 ? formatNum(used) : '-'} ${used > 0 ? m.unit : ''}</td>
-          <td><strong style="color: var(--success); font-size:1.05rem;">${formatNum(remaining)}</strong> ${m.unit}</td>
-        </tr>
-      `;
+      if (sent > 0 || returned > 0 || used > 0 || remaining > 0) {
+        rows += `
+          <tr>
+            <td><strong>${m.name}</strong></td>
+            <td>${sent > 0 ? formatNum(sent) : '0'} ${m.unit}</td>
+            <td style="color: var(--danger); font-weight: 500;">${returned > 0 ? formatNum(returned) : '-'} ${returned > 0 ? m.unit : ''}</td>
+            <td style="color: #d97706; font-weight: 500;">${used > 0 ? formatNum(used) : '-'} ${used > 0 ? m.unit : ''}</td>
+            <td><strong style="color: var(--success); font-size:1.05rem;">${formatNum(remaining)}</strong> ${m.unit}</td>
+          </tr>
+        `;
+      }
     });
 
     return `

@@ -295,10 +295,10 @@ var SitesPage = {
             </select>
           </td>
           <td>
-            <input type="number" class="form-control" placeholder="Received" min="1" value="${item.quantity}" onchange="SitesPage.onInitItemChange(${idx}, 'quantity', this.value)">
+            <input type="number" class="form-control" placeholder="Received" min="1" value="${item.quantity}">
           </td>
           <td>
-            <input type="number" class="form-control" placeholder="Returned" min="0" value="${item.returned || ''}" onchange="SitesPage.onInitItemChange(${idx}, 'returned', this.value)">
+            <input type="number" class="form-control" placeholder="Returned" min="0" value="${item.returned || ''}">
           </td>
           <td>
             ${this.initItems.length > 1 ? `<button type="button" class="btn btn-icon btn-ghost" onclick="SitesPage.removeInitItem(${idx})">${Icons.x}</button>` : ''}
@@ -373,6 +373,20 @@ var SitesPage = {
       Store.Sites.update(id, data);
     } else {
       const newSite = Store.Sites.add(data);
+
+      // Sync DOM state for initial materials to prevent lost inputs
+      const initRows = document.querySelectorAll('#site-initial-materials-list tbody tr');
+      if (initRows.length > 0) {
+        this.initItems = Array.from(initRows).map(row => {
+          const selects = row.querySelectorAll('select');
+          const inputs = row.querySelectorAll('input[type="number"]');
+          return {
+            materialId: selects.length ? selects[0].value : '',
+            quantity: inputs.length > 0 ? inputs[0].value : '',
+            returned: inputs.length > 1 ? inputs[1].value : ''
+          };
+        });
+      }
 
       // Process initial materials
       let items = [];
