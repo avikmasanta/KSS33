@@ -803,31 +803,49 @@ var SiteDetailsPage = {
           .ul { border-bottom:1px solid #333; display:inline-block; padding:0 4px; min-width:140px; }
           .section-label { font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #333; padding-bottom:2px; margin:14px 0 4px; }
           .footer { text-align:center; font-size:14px; font-weight:bold; margin-top:16px; border-top:2px solid #333; padding-top:8px; letter-spacing:3px; }
+          .page { width:100%; }
+          .page-break { page-break-after: always; }
           @media print { button { display:none; } }
         </style>
       </head>
       <body>
-        <div class="company">KSS33 — Material Delivery Challan</div>
-
-        <div class="info-row">
-          <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
-          <span>Dated <span class="ul">${today}</span></span>
+        <!-- PAGE 1: RECEIVED -->
+        <div class="page page-break">
+          <div class="company">KSS33 — Material Delivery Challan</div>
+          <div class="info-row">
+            <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
+          </div>
+          <div class="info-row">
+            <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+          </div>
+          <div class="info-row">
+            <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+            <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
+          </div>
+          <div class="section-label">Material Received at Site</div>
+          ${challanTable(dispatchMats, dispatchDates, dispatchMap)}
+          <div class="footer">CHALLAN (IN)</div>
         </div>
-        <div class="info-row">
-          <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+
+        <!-- PAGE 2: RETURNED -->
+        <div class="page">
+          <div class="company">KSS33 — Material Delivery Challan</div>
+          <div class="info-row">
+            <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
+          </div>
+          <div class="info-row">
+            <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+          </div>
+          <div class="info-row">
+            <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+            <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
+          </div>
+          <div class="section-label">Material Returned from Site</div>
+          ${challanTable(returnMats, returnDates, returnMap)}
+          <div class="footer">CHALLAN (IN)</div>
         </div>
-        <div class="info-row">
-          <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
-          <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
-        </div>
-
-        <div class="section-label">Material Received at Site</div>
-        ${challanTable(dispatchMats, dispatchDates, dispatchMap)}
-
-        <div class="section-label">Material Returned from Site</div>
-        ${challanTable(returnMats, returnDates, returnMap)}
-
-        <div class="footer">CHALLAN (IN)</div>
 
         <script>window.onload = function(){ window.print(); };<\/script>
       </body></html>`);
