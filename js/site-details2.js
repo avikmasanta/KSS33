@@ -881,7 +881,7 @@ var SiteDetailsPage = {
           <div class="company">KSS — Material Delivery Challan</div>
           <div class="info-row">
             <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
-            <span>Dated <span class="ul" style="min-width:100px;">&nbsp;</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
           </div>
           <div class="info-row">
             <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
@@ -901,7 +901,7 @@ var SiteDetailsPage = {
           <div class="company">KSS — Material Delivery Challan</div>
           <div class="info-row">
             <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
-            <span>Dated <span class="ul" style="min-width:100px;">&nbsp;</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
           </div>
           <div class="info-row">
             <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
@@ -921,7 +921,7 @@ var SiteDetailsPage = {
           <div class="company">KSS — Material Delivery Challan</div>
           <div class="info-row">
             <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
-            <span>Dated <span class="ul" style="min-width:100px;">&nbsp;</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
           </div>
           <div class="info-row">
             <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
