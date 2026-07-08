@@ -36,9 +36,40 @@ var ReportsPage = {
     `;
   },
 
-  init() {},
+  activeReportId: null,
+  selectedSiteId: null,
+
+  init() {
+    this.activeReportId = null;
+    this.selectedSiteId = null;
+  },
+
+  refresh() {
+    if (this.activeReportId) {
+      const selectVal = document.getElementById('site-cost-selector')?.value;
+      if (selectVal) {
+        this.selectedSiteId = selectVal;
+      }
+      this.generate(this.activeReportId);
+      if (this.activeReportId === 'site-cost' && this.selectedSiteId) {
+        const selectEl = document.getElementById('site-cost-selector');
+        if (selectEl) {
+          selectEl.value = this.selectedSiteId;
+          this.renderSiteCostReport(this.selectedSiteId);
+        }
+      }
+    }
+  },
+
+  closeReport() {
+    this.activeReportId = null;
+    this.selectedSiteId = null;
+    const output = document.getElementById('report-output');
+    if (output) output.innerHTML = '';
+  },
 
   generate(reportId) {
+    this.activeReportId = reportId;
     const output = document.getElementById('report-output');
     if (!output) return;
 
@@ -54,7 +85,7 @@ var ReportsPage = {
           <div class="card slide-up">
             <div class="card-header">
               <h3>Stock Summary Report</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
             </div>
             <div class="table-container">
               <table class="data-table">
@@ -88,7 +119,7 @@ var ReportsPage = {
           <div class="card slide-up">
             <div class="card-header">
               <h3>Stock Movement Report</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
             </div>
             <div class="table-container">
               <table class="data-table">
@@ -124,7 +155,7 @@ var ReportsPage = {
           <div class="card slide-up">
             <div class="card-header">
               <h3>Low Stock Report (${lowItems.length} items)</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
             </div>
             <div class="table-container">
               <table class="data-table">
@@ -198,7 +229,7 @@ var ReportsPage = {
           <div class="card slide-up">
             <div class="card-header">
               <h3>Material Utilization Report</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
             </div>
             <div class="table-container">
               <table class="data-table">
@@ -249,7 +280,7 @@ var ReportsPage = {
           <div class="card slide-up">
             <div class="card-header">
               <h3>Company Profitability Dashboard</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
             </div>
             <div class="card-body">
               <div class="stats-grid mb-4">
@@ -307,7 +338,7 @@ var ReportsPage = {
           <div class="card slide-up">
             <div class="card-header">
               <h3>Product Report</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
             </div>
             <div class="table-container">
               <table class="data-table">
@@ -357,7 +388,7 @@ var ReportsPage = {
           <div class="card slide-up">
             <div class="card-header">
               <h3>Supplier Report</h3>
-              <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
             </div>
             <div class="table-container">
               <table class="data-table">
@@ -395,7 +426,7 @@ var ReportsPage = {
                   <option value="all">All Sites</option>
                   ${sites.map(s => `<option value="${s.id}">${s.name}${s.customerName ? ' — ' + s.customerName : ''}</option>`).join('')}
                 </select>
-                <button class="btn btn-sm btn-outline" onclick="document.getElementById('report-output').innerHTML=''">Close</button>
+                <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
               </div>
             </div>
             <div id="site-cost-report-body" style="padding:0;">
