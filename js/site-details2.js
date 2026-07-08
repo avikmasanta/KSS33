@@ -774,6 +774,44 @@ var SiteDetailsPage = {
 
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
+    // Build the inventory summary table (Page 3)
+    const summaryMats = materials.filter(m => {
+      const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+      const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+      return sent > 0 || returned > 0;
+    });
+
+    const summaryTableHtml = `
+      <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+        <thead>
+          <tr style="background:#e8edf2;">
+            <th style="border:1px solid #333;padding:8px 10px;text-align:left;font-size:12px;">Material Name</th>
+            <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:150px;">Total Received (In)</th>
+            <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:150px;">Total Returned (Out)</th>
+            <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:180px;font-weight:bold;background:#dcfce7;color:#15803d;">Net Balance at Site</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${summaryMats.map(m => {
+            const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+            const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+            const net = sent - returned;
+            return `
+              <tr>
+                <td style="border:1px solid #333;padding:8px 10px;font-size:12px;font-weight:bold;">${m.name}</td>
+                <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;">${sent.toLocaleString('en-IN')} ${m.unit}</td>
+                <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;color:red;">${returned > 0 ? '-' + returned.toLocaleString('en-IN') : '0'} ${m.unit}</td>
+                <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:13px;font-weight:bold;background:#f0fdf4;color:#166534;">
+                  ${net.toLocaleString('en-IN')} ${m.unit}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+          ${summaryMats.length === 0 ? `<tr><td colspan="4" style="border:1px solid #333;text-align:center;padding:15px;color:#888;font-style:italic;">No material transaction records found.</td></tr>` : ''}
+        </tbody>
+      </table>
+    `;
+
     const buildHeader = matList => matList.map(m =>
       `<th style="border:1px solid #333;padding:5px 3px;font-size:10px;text-align:center;background:#e8edf2;min-width:46px;max-width:70px;word-break:break-word;">${m.name}<br><span style="font-weight:400;font-size:9px;color:#555;">${m.unit}</span></th>`
     ).join('');
@@ -858,7 +896,7 @@ var SiteDetailsPage = {
         </div>
 
         <!-- PAGE 2: RETURNED -->
-        <div class="page">
+        <div class="page page-break">
           <div class="company">KSS33 — Material Delivery Challan</div>
           <div class="info-row">
             <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
@@ -874,6 +912,24 @@ var SiteDetailsPage = {
           <div class="section-label">Material Returned from Site</div>
           ${challanTable(returnMats, returnRowKeys, returnMap)}
           <div class="footer">CHALLAN (RETURN)</div>
+        </div>
+
+        <!-- PAGE 3: SUMMARY / NET BALANCE -->
+        <div class="page">
+          <div class="company">KSS33 — Material Delivery Challan</div>
+          <div class="info-row">
+            <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
+          </div>
+          <div class="info-row">
+            <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+          </div>
+          <div class="info-row">
+            <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+          </div>
+          <div class="section-label">Material Inventory Summary (Net Balance at Site)</div>
+          ${summaryTableHtml}
+          <div class="footer">INVENTORY SUMMARY</div>
         </div>
 
         <script>window.onload = function(){ window.print(); };<\/script>
