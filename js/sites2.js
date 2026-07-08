@@ -609,7 +609,7 @@ var SitesPage = {
         }`;
 
       const headerHtml = `
-        <div style="text-align:center;font-size:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">KSS33 — Material Delivery Challan</div>
+        <div style="text-align:center;font-size:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">KSS — Material Delivery Challan</div>
         <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
           <span>No. <span style="border-bottom:1px solid #333;display:inline-block;min-width:120px;padding:0 3px;">${site.tokenNumber || '-'}</span></span>
           <span>Dated <span style="border-bottom:1px solid #333;display:inline-block;min-width:100px;padding:0 3px;">${today}</span></span>

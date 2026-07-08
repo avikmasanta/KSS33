@@ -878,7 +878,7 @@ var SiteDetailsPage = {
       <body>
         <!-- PAGE 1: RECEIVED -->
         <div class="page page-break">
-          <div class="company">KSS33 — Material Delivery Challan</div>
+          <div class="company">KSS — Material Delivery Challan</div>
           <div class="info-row">
             <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
             <span>Dated <span class="ul">${today}</span></span>
@@ -897,7 +897,7 @@ var SiteDetailsPage = {
 
         <!-- PAGE 2: RETURNED -->
         <div class="page page-break">
-          <div class="company">KSS33 — Material Delivery Challan</div>
+          <div class="company">KSS — Material Delivery Challan</div>
           <div class="info-row">
             <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
             <span>Dated <span class="ul">${today}</span></span>
@@ -916,7 +916,7 @@ var SiteDetailsPage = {
 
         <!-- PAGE 3: SUMMARY / NET BALANCE -->
         <div class="page">
-          <div class="company">KSS33 — Material Delivery Challan</div>
+          <div class="company">KSS — Material Delivery Challan</div>
           <div class="info-row">
             <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
             <span>Dated <span class="ul">${today}</span></span>

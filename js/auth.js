@@ -15,7 +15,7 @@ var AuthPage = {
               </svg>
             </div>
             <div>
-              <h1>KSS33</h1>
+              <h1>KSS</h1>
               <p>Construction Materials</p>
             </div>
           </div>
@@ -32,7 +32,7 @@ var AuthPage = {
           <form id="login-form" onsubmit="AuthPage.handleLogin(event)">
             <div class="form-group">
               <label for="login-email">Email Address</label>
-              <input type="email" id="login-email" class="form-control" placeholder="admin@kss33.com" value="admin@kss33.com" required>
+              <input type="email" id="login-email" class="form-control" placeholder="admin@kss.com" value="admin@kss.com" required>
             </div>
             <div class="form-group">
               <label for="login-password">Password</label>
@@ -52,7 +52,7 @@ var AuthPage = {
           </form>
 
           <div class="login-footer">
-            <p>Demo: admin@kss33.com / admin123</p>
+            <p>Demo: admin@kss.com / admin123</p>
           </div>
         </div>
       </div>
@@ -79,13 +79,13 @@ var AuthPage = {
     if (!emailInput || !pwdInput) return;
 
     if (role === 'Admin') {
-      emailInput.value = 'admin@kss33.com';
+      emailInput.value = 'admin@kss.com';
       pwdInput.value = 'admin123';
     } else if (role === 'Manager') {
-      emailInput.value = 'manager@kss33.com';
+      emailInput.value = 'manager@kss.com';
       pwdInput.value = 'manager123';
     } else if (role === 'Staff') {
-      emailInput.value = 'staff@kss33.com';
+      emailInput.value = 'staff@kss.com';
       pwdInput.value = 'staff123';
     }
   }
