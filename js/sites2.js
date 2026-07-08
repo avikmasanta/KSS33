@@ -9,15 +9,22 @@ var SitesPage = {
   initItems: [],
 
   render() {
+    const activeSites = Store.Sites.getAll().filter(s => s.status !== 'Archived');
     return `
       <div class="page-header">
         <div class="page-header-title">
           <h2>Sites</h2>
           <p>Manage customer sites</p>
         </div>
-        <div class="page-header-actions">
-          <button class="btn btn-outline" onclick="SitesPage.exportAllPDF()" style="display:inline-flex;align-items:center;gap:6px;">
-            ${Icons.fileText} Export All Sites PDF
+        <div class="page-header-actions" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <select id="site-export-select" class="filter-select" style="min-width: 180px; height: 38px; border-radius: 6px; padding: 0 12px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); font-weight: 500;">
+            <option value="ALL">Export All Sites</option>
+            ${activeSites.map(s => `
+              <option value="${s.id}">${s.name}</option>
+            `).join('')}
+          </select>
+          <button class="btn btn-outline" onclick="SitesPage.handlePDFExport()" style="display:inline-flex;align-items:center;gap:6px;">
+            ${Icons.fileText} Export PDF
           </button>
           <button class="btn btn-primary" onclick="SitesPage.openModal()">
             ${Icons.plus} Add Site
@@ -521,6 +528,18 @@ var SitesPage = {
   viewDetails(siteId) {
     SiteDetailsPage.siteId = siteId;
     App.navigate('site-details');
+  },
+
+  handlePDFExport() {
+    const selectEl = document.getElementById('site-export-select');
+    if (!selectEl) return;
+    const value = selectEl.value;
+    if (value === 'ALL') {
+      this.exportAllPDF();
+    } else {
+      SiteDetailsPage.siteId = value;
+      SiteDetailsPage.exportPDF();
+    }
   },
 
   exportAllPDF() {
