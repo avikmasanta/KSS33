@@ -888,7 +888,7 @@ var SiteDetailsPage = {
           </div>
           <div class="info-row">
             <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
-            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '&nbsp;'}</span></span>
             <span>Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
           </div>
           <div class="section-label">Material Received at Site</div>
@@ -908,7 +908,7 @@ var SiteDetailsPage = {
           </div>
           <div class="info-row">
             <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
-            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '&nbsp;'}</span></span>
             <span>Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
           </div>
           <div class="section-label">Material Returned from Site</div>
@@ -928,7 +928,8 @@ var SiteDetailsPage = {
           </div>
           <div class="info-row">
             <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
-            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '&nbsp;'}</span></span>
+            <span style="opacity:0; pointer-events:none;">Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
           </div>
           <div class="section-label">Material Inventory Summary (Net Balance at Site)</div>
           ${summaryTableHtml}
