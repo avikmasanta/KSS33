@@ -85,7 +85,7 @@ var SiteDetailsPage = {
             <h2 style="margin: 0;">${site.name}</h2>
             <span class="badge ${site.status === 'Active' ? 'badge-success' : site.status === 'Completed' ? 'badge-info' : 'badge-warning'}">${site.status}</span>
           </div>
-          <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Token: <strong>${site.tokenNumber || '-'}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Location: ${site.address || '-'}</p>
+          <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Token: <strong>${site.tokenNumber || '-'}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Lintel Date: <strong style="color:var(--success);">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</strong> | Location: ${site.address || '-'}</p>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
           ${site.status !== 'Completed'
@@ -888,7 +888,8 @@ var SiteDetailsPage = {
           </div>
           <div class="info-row">
             <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
-            <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</span></span>
+            <span>Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
           </div>
           <div class="section-label">Material Received at Site</div>
           ${challanTable(dispatchMats, dispatchRowKeys, dispatchMap)}
@@ -907,7 +908,8 @@ var SiteDetailsPage = {
           </div>
           <div class="info-row">
             <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
-            <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</span></span>
+            <span>Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
           </div>
           <div class="section-label">Material Returned from Site</div>
           ${challanTable(returnMats, returnRowKeys, returnMap)}
@@ -926,6 +928,7 @@ var SiteDetailsPage = {
           </div>
           <div class="info-row">
             <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</span></span>
           </div>
           <div class="section-label">Material Inventory Summary (Net Balance at Site)</div>
           ${summaryTableHtml}

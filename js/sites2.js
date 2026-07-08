@@ -110,6 +110,12 @@ var SitesPage = {
                   <input type="number" class="form-control" id="site-budget" placeholder="0.00" min="0" step="1">
                 </div>
               </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Lintel Date / Day</label>
+                  <input type="date" class="form-control" id="site-lintel-date">
+                </div>
+              </div>
               <div class="form-group">
                 <label>Location / Address</label>
                 <input type="text" class="form-control" id="site-address" placeholder="Site address or location">
@@ -363,6 +369,7 @@ var SitesPage = {
     document.getElementById('site-address').value = s.address || '';
     document.getElementById('site-token').value = s.tokenNumber || '';
     document.getElementById('site-budget').value = s.budget || '';
+    document.getElementById('site-lintel-date').value = s.lintelDate || '';
     this.openModal(id);
   },
 
@@ -378,7 +385,8 @@ var SitesPage = {
         startDate: document.getElementById('site-start-date').value,
         address: document.getElementById('site-address').value.trim(),
         tokenNumber: document.getElementById('site-token').value.trim(),
-        budget: parseFloat(document.getElementById('site-budget').value) || 0
+        budget: parseFloat(document.getElementById('site-budget').value) || 0,
+        lintelDate: document.getElementById('site-lintel-date').value
       };
 
       if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }
