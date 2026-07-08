@@ -853,7 +853,7 @@ var SiteDetailsPage = {
             <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
           </div>
           <div class="section-label">Material Received at Site</div>
-          ${challanTable(dispatchMats, dispatchDates, dispatchMap)}
+          ${challanTable(dispatchMats, dispatchRowKeys, dispatchMap)}
           <div class="footer">CHALLAN (IN)</div>
         </div>
 
@@ -872,8 +872,8 @@ var SiteDetailsPage = {
             <span>Driver <span class="ul" style="min-width:150px;">&nbsp;</span></span>
           </div>
           <div class="section-label">Material Returned from Site</div>
-          ${challanTable(returnMats, returnDates, returnMap)}
-          <div class="footer">CHALLAN (IN)</div>
+          ${challanTable(returnMats, returnRowKeys, returnMap)}
+          <div class="footer">CHALLAN (RETURN)</div>
         </div>
 
         <script>window.onload = function(){ window.print(); };<\/script>
