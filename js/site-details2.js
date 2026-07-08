@@ -8,6 +8,20 @@ function _resolveMatId(id) {
   return String(id);
 }
 
+function safeFormatDate(dateStr) {
+  if (!dateStr) return '';
+  const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+  const parts = datePart.split('-');
+  if (parts.length === 3) {
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${d.toString().padStart(2, '0')} ${months[m]} ${y}`;
+  }
+  return new Date(dateStr).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
 function getMaterialName(item, materials) {
   var matId = _resolveMatId(item.materialId);
   var mat = materials.find(function(m) { return _resolveMatId(m.id) === matId; });
@@ -467,7 +481,7 @@ var SiteDetailsPage = {
               ${sign}${r.qty.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);">${r.unit}</span>
             </div>
             <div class="text-sm text-tertiary" style="margin-top: 4px; display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
-              ${Icons.calendar} ${new Date(r.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+              ${Icons.calendar} ${safeFormatDate(r.date)}
             </div>
           </div>
         </div>
@@ -715,60 +729,68 @@ var SiteDetailsPage = {
     const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
     const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
 
-    // Build cross-tab maps: date -> materialId -> qty
+    // Build cross-tab maps: rowKey -> materialId -> qty
     const dispatchMap = {};
     const returnMap = {};
     const dispatchedMatIds = new Set();
     const returnedMatIds = new Set();
 
-    allOutgoing.forEach(record => {
+    allOutgoing.forEach((record, index) => {
       (record.items || []).forEach(item => {
         const matId = _resolveMatId(item.materialId);
         if (!matId || !Store.Materials.getById(matId)) return;
         dispatchedMatIds.add(matId);
-        dispatchMap[record.date] = dispatchMap[record.date] || {};
-        dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
+        const rowKey = record.id || (record.date + '-out-' + index);
+        dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || '-' };
+        dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
       });
     });
-    allIncomingDirect.forEach(record => {
+
+    allIncomingDirect.forEach((record, index) => {
       (record.items || []).forEach(item => {
         const matId = _resolveMatId(item.materialId);
         if (!matId || !Store.Materials.getById(matId)) return;
         dispatchedMatIds.add(matId);
-        dispatchMap[record.date] = dispatchMap[record.date] || {};
-        dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
+        const rowKey = record.id || (record.date + '-inc-' + index);
+        dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.invoiceNo || 'Direct' };
+        dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
       });
     });
-    siteReturns.forEach(record => {
+
+    siteReturns.forEach((record, index) => {
       const matId = _resolveMatId(record.materialId);
       if (!matId || !Store.Materials.getById(matId)) return;
       returnedMatIds.add(matId);
-      returnMap[record.date] = returnMap[record.date] || {};
-      returnMap[record.date][matId] = (returnMap[record.date][matId] || 0) + (parseFloat(record.quantity) || 0);
+      const rowKey = record.id || (record.date + '-ret-' + index);
+      returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
+      returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
     });
 
     const dispatchMats = [...dispatchedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
     const returnMats   = [...returnedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
-    const dispatchDates = Object.keys(dispatchMap).sort();
-    const returnDates   = Object.keys(returnMap).sort();
 
-    const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const dispatchRowKeys = Object.keys(dispatchMap).sort((a, b) => new Date(dispatchMap[a].date) - new Date(dispatchMap[b].date));
+    const returnRowKeys = Object.keys(returnMap).sort((a, b) => new Date(returnMap[a].date) - new Date(returnMap[b].date));
+
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
 
     const buildHeader = matList => matList.map(m =>
       `<th style="border:1px solid #333;padding:5px 3px;font-size:10px;text-align:center;background:#e8edf2;min-width:46px;max-width:70px;word-break:break-word;">${m.name}<br><span style="font-weight:400;font-size:9px;color:#555;">${m.unit}</span></th>`
     ).join('');
 
-    const buildRows = (dates, matList, dataMap) => {
-      if (!dates.length) return `<tr><td colspan="99" style="text-align:center;padding:12px;color:#888;font-style:italic;">No records</td></tr>`;
-      return dates.map(date => {
-        const dayData = dataMap[date] || {};
+    const buildRows = (rowKeys, matList, dataMap) => {
+      if (!rowKeys.length) return `<tr><td colspan="99" style="text-align:center;padding:12px;color:#888;font-style:italic;">No records</td></tr>`;
+      return rowKeys.map(key => {
+        const rowData = dataMap[key] || {};
         const cells = matList.map(m => {
-          const qty = dayData[m.id] || 0;
+          const qty = rowData[m.id] || 0;
           return `<td style="text-align:center;border:1px solid #333;padding:5px 3px;font-size:12px;">${qty > 0 ? qty : ''}</td>`;
         }).join('');
+        const refText = rowData.ref && rowData.ref !== '-' ? `<br><span style="font-size:10px;color:#666;">Ref: ${rowData.ref}</span>` : '';
         return `<tr>
-          <td style="border:1px solid #333;padding:5px 6px;font-size:12px;white-space:nowrap;">${fmtDate(date)}</td>
+          <td style="border:1px solid #333;padding:5px 6px;font-size:12px;white-space:nowrap;">
+            ${safeFormatDate(rowData.date)}${refText}
+          </td>
           ${cells}
           <td style="border:1px solid #333;padding:5px;width:55px;"></td>
         </tr>`;
@@ -779,20 +801,20 @@ var SiteDetailsPage = {
       `<tr>${'<td style="border:1px solid #333;height:24px;"></td>'.repeat(cols + 2)}</tr>`
     ).join('');
 
-    const challanTable = (matList, dates, dataMap) => {
+    const challanTable = (matList, rowKeys, dataMap) => {
       if (!matList.length) return '<p style="color:#888;font-style:italic;font-size:12px;padding:6px 0;">No records.</p>';
       return `
         <table style="width:100%;border-collapse:collapse;margin-top:6px;">
           <thead>
             <tr>
-              <th style="border:1px solid #333;padding:5px 6px;text-align:left;background:#e8edf2;min-width:80px;font-size:11px;">Date</th>
+              <th style="border:1px solid #333;padding:5px 6px;text-align:left;background:#e8edf2;min-width:80px;font-size:11px;">Date / Ref</th>
               ${buildHeader(matList)}
               <th style="border:1px solid #333;padding:5px;width:55px;background:#e8edf2;font-size:11px;">Sign.</th>
             </tr>
           </thead>
           <tbody>
-            ${buildRows(dates, matList, dataMap)}
-            ${fillerRows(Math.max(0, 5 - dates.length), matList.length)}
+            ${buildRows(rowKeys, matList, dataMap)}
+            ${fillerRows(Math.max(0, 5 - rowKeys.length), matList.length)}
           </tbody>
         </table>`;
     };
