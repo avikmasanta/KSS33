@@ -426,6 +426,9 @@ var ReportsPage = {
                   <option value="all">All Sites</option>
                   ${sites.map(s => `<option value="${s.id}">${s.name}${s.customerName ? ' — ' + s.customerName : ''}</option>`).join('')}
                 </select>
+                <button class="btn btn-sm btn-outline" id="site-cost-pdf-btn" onclick="ReportsPage.exportSelectedSitePDF()" style="display:none;align-items:center;gap:6px;">
+                  ${Icons.fileText} PDF
+                </button>
                 <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
               </div>
             </div>
@@ -455,8 +458,22 @@ var ReportsPage = {
     output.scrollIntoView({ behavior: 'smooth' });
   },
 
+  exportSelectedSitePDF() {
+    const selectEl = document.getElementById('site-cost-selector');
+    if (!selectEl) return;
+    const siteId = selectEl.value;
+    if (siteId && siteId !== 'all') {
+      SiteDetailsPage.siteId = siteId;
+      SiteDetailsPage.exportPDF();
+    }
+  },
+
   renderSiteCostReport(siteId) {
     const container = document.getElementById('site-cost-report-body');
+    const pdfBtn = document.getElementById('site-cost-pdf-btn');
+    if (pdfBtn) {
+      pdfBtn.style.display = (siteId === 'all') ? 'none' : 'inline-flex';
+    }
     const materials = Store.Materials.getAll();
     const allSites  = Store.Sites.getAll();
     const fmt = (v) => Number(v || 0).toLocaleString('en-IN');
