@@ -15,6 +15,51 @@ var App = (() => {
     'site-returns': { title: 'Warehouse', subtitle: 'View and manually log materials returned from sites', icon: 'arrowDownCircle', module: 'ReturnsPage' }
   };
 
+  function isSearchInput(input) {
+    return (
+      input.type === 'search' ||
+      (input.id && input.id.toLowerCase().includes('search')) ||
+      (input.placeholder && input.placeholder.toLowerCase().includes('search'))
+    );
+  }
+
+  function isPageDirty() {
+    // 1. Check if user is currently focusing/editing any input, textarea, select
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+      return true;
+    }
+
+    // 2. Check if any text/number/date/textarea inputs have been modified (excluding search inputs)
+    const inputs = document.querySelectorAll('input:not([type="hidden"]), textarea');
+    for (const input of inputs) {
+      if (isSearchInput(input)) {
+        continue;
+      }
+      if (input.value !== input.defaultValue) {
+        return true;
+      }
+    }
+
+    // 3. Check if any select elements have been changed from their initial selection
+    const selects = document.querySelectorAll('select');
+    for (const select of selects) {
+      if (select.options.length === 0) continue;
+      let defaultIndex = 0;
+      for (let i = 0; i < select.options.length; i++) {
+        if (select.options[i].defaultSelected) {
+          defaultIndex = i;
+          break;
+        }
+      }
+      if (select.selectedIndex !== defaultIndex) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   async function init() {
     // 1. Initialize Store and connect to cloud DB
     try {
@@ -47,6 +92,11 @@ var App = (() => {
       setInterval(async () => {
         // Skip refresh if any modal is active to prevent losing user input
         if (document.querySelector('.modal-backdrop.active') || document.querySelector('.modal.active')) {
+          return;
+        }
+
+        // Skip refresh if there are active edits or dirty forms on the page
+        if (isPageDirty()) {
           return;
         }
 
