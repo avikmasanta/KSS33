@@ -21,7 +21,8 @@ const Store = (() => {
     siteExpenses: [],
     sitePayments: [],
     transactions: [],
-    rentalSites: []
+    rentalSites: [],
+    categories: []
   };
 
   // Maps collection store key to cache object key and API endpoint
@@ -37,7 +38,8 @@ const Store = (() => {
     bm_siteExpenses: { cacheKey: 'siteExpenses', url: 'siteExpenses' },
     bm_sitePayments: { cacheKey: 'sitePayments', url: 'sitePayments' },
     bm_transactions: { cacheKey: 'transactions', url: 'transactions' },
-    bm_rentalSites: { cacheKey: 'rentalSites', url: 'rentalSites' }
+    bm_rentalSites: { cacheKey: 'rentalSites', url: 'rentalSites' },
+    bm_categories: { cacheKey: 'categories', url: 'categories' }
   };
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
