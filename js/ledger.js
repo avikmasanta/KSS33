@@ -8,8 +8,8 @@ var LedgerPage = {
     const defaultMaterial = materials[0]?.id || '';
 
     const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
+    const firstDay = localDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+    const todayStr = localDateStr();
 
     return `
       <div class="page-header">
@@ -64,8 +64,8 @@ var LedgerPage = {
     const material = Store.Materials.getById(pid);
 
     const today = new Date();
-    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
+    const firstDay = localDateStr(new Date(today.getFullYear(), today.getMonth(), 1));
+    const todayStr = localDateStr();
 
     const dateFrom = document.getElementById('ledger-from')?.value || firstDay;
     const dateTo = document.getElementById('ledger-to')?.value || todayStr;

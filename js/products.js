@@ -460,7 +460,7 @@ var MaterialsPage = {
     // Create an incoming transaction for the difference
     const material = Store.Materials.getById(matId);
     Store.Incoming.add({
-      date: new Date().toISOString().split('T')[0],
+      date: localDateStr(),
       referenceNo: 'ADJ-' + Date.now().toString().slice(-6),
       supplier: reason,
       destinationType: 'warehouse',

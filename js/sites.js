@@ -372,7 +372,7 @@ var SitesPage = {
       if (items.length > 0) {
         Store.Outgoing.add({
           siteId: newSite.id,
-          date: data.startDate || new Date().toISOString().split('T')[0],
+          date: data.startDate || localDateStr(),
           referenceNo: 'INIT-DISPATCH',
           notes: 'Initial material dispatch on site creation',
           items: items

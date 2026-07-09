@@ -33,7 +33,11 @@ function createCrudRoutes(modelName, Model) {
       if (req.body.id) {
         req.body._id = req.body.id;
       }
-      if (!req.body.createdAt) req.body.createdAt = new Date().toISOString().split('T')[0];
+      if (!req.body.createdAt) {
+        const now = new Date();
+        const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+        req.body.createdAt = ist.toISOString().split('T')[0];
+      }
       const newItem = new Model(req.body);
       const saved = await newItem.save();
       res.status(201).json(saved);

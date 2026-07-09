@@ -133,7 +133,7 @@ var OutgoingPage = {
           </div>
           <div class="form-group">
             <label>Date *</label>
-            <input type="date" class="form-control" id="out-date" value="${record ? record.date : new Date().toISOString().split('T')[0]}">
+            <input type="date" class="form-control" id="out-date" value="${record ? record.date : localDateStr()}">
           </div>
         </div>
         <div class="form-row">

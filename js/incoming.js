@@ -182,7 +182,7 @@ var IncomingPage = {
         <div class="form-row">
           <div class="form-group">
             <label>Date *</label>
-            <input type="date" class="form-control" id="inc-date" value="${record ? record.date : new Date().toISOString().split('T')[0]}">
+            <input type="date" class="form-control" id="inc-date" value="${record ? record.date : localDateStr()}">
           </div>
           <div class="form-group">
             <label>Reference No</label>

@@ -222,7 +222,7 @@ var SiteDetailsPage = {
               </div>
               <div class="form-group">
                 <label>Date</label>
-                <input type="date" class="form-control" id="site-dispatch-date" value="${new Date().toISOString().split('T')[0]}">
+                <input type="date" class="form-control" id="site-dispatch-date" value="${localDateStr()}">
               </div>
             </div>
             <div style="max-height: 340px; overflow-y: auto; margin-top: 8px;">
@@ -274,7 +274,7 @@ var SiteDetailsPage = {
           <div class="modal-body">
             <div class="form-group">
               <label>Date</label>
-              <input type="date" class="form-control" id="site-return-date" value="${new Date().toISOString().split('T')[0]}">
+              <input type="date" class="form-control" id="site-return-date" value="${localDateStr()}">
             </div>
             <div style="max-height: 340px; overflow-y: auto; margin-top: 8px;">
               ${(() => {
@@ -343,7 +343,7 @@ var SiteDetailsPage = {
               </div>
               <div class="form-group">
                 <label>Date Collected *</label>
-                <input type="date" class="form-control" id="site-collect-date" value="${new Date().toISOString().split('T')[0]}" required>
+                <input type="date" class="form-control" id="site-collect-date" value="${localDateStr()}" required>
               </div>
               <div class="form-group">
                 <label>Reference No / Mode (Optional)</label>

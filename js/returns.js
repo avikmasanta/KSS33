@@ -13,7 +13,7 @@ var ReturnsPage = {
       this.searchTerm = '';
       this.adjustments = {};
     }
-    const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
+    const selectedDate = this.selectedDate || localDateStr();
 
     return `
       <div class="page-header" style="background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%); padding: 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
@@ -70,7 +70,7 @@ var ReturnsPage = {
 
   renderTableOnly() {
     const materials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
-    const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
+    const selectedDate = this.selectedDate || localDateStr();
 
     const availableMap = {};
     materials.forEach(m => {

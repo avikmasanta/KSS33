@@ -270,11 +270,11 @@ var RentalsPage = {
         <div class="form-row">
           <div class="form-group">
             <label>Going Date (Lease Start) *</label>
-            <input type="date" class="form-control" id="rental-going-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.goingDate : new Date().toISOString().split('T')[0]}" style="background: var(--bg-body);">
+            <input type="date" class="form-control" id="rental-going-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.goingDate : localDateStr()}" style="background: var(--bg-body);">
           </div>
           <div class="form-group">
             <label>Coming Date (Lease End) *</label>
-            <input type="date" class="form-control" id="rental-coming-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.comingDate : new Date().toISOString().split('T')[0]}" style="background: var(--bg-body);">
+            <input type="date" class="form-control" id="rental-coming-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.comingDate : localDateStr()}" style="background: var(--bg-body);">
           </div>
         </div>
 

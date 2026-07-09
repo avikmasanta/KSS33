@@ -1,6 +1,19 @@
 /* ============================================
    KSS33 Global Store (MongoDB Atlas Cloud Sync)
    ============================================ */
+
+// ─── Timezone-safe date helper ───────────────────────────────────────────────
+// new Date().toISOString() gives UTC, which is 5h30m behind IST.
+// Before 05:30 IST it returns yesterday's date. Use localDateStr() everywhere.
+window.localDateStr = function(date) {
+  const d = date ? new Date(date) : new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 const Store = (() => {
 
   // Dynamic API URL: localhost uses local server, production uses Vercel serverless API
