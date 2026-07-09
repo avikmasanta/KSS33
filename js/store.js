@@ -109,10 +109,41 @@ const Store = (() => {
     });
   }
 
+  async function seedDefaultCategories() {
+    if (!cache.categories || cache.categories.length === 0) {
+      const defaults = [
+        { name: 'Steel Plate', sortOrder: 1 },
+        { name: 'Scaffolding', sortOrder: 2 },
+        { name: 'Cement', sortOrder: 3 },
+        { name: 'Sand', sortOrder: 4 },
+        { name: 'Steel', sortOrder: 5 },
+        { name: 'Bricks', sortOrder: 6 },
+        { name: 'Aggregate', sortOrder: 7 },
+        { name: 'Other', sortOrder: 999 }
+      ];
+      cache.categories = [];
+      for (const cat of defaults) {
+        const item = { id: cat.name, sortOrder: cat.sortOrder };
+        cache.categories.push(item);
+        try {
+          await fetch(`${API_URL}/categories`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+        } catch (e) { /* silent */ }
+      }
+      persistLocal('bm_categories', cache.categories);
+    }
+  }
+
   // Main init: instant local load, then silent background cloud sync
   async function init() {
     initFromLocal();
-    syncFromCloud().then(() => {
+    syncFromCloud().then(async () => {
+      // Seed default categories if empty
+      await seedDefaultCategories();
+
       // Clean up any orphaned records (from before cascade delete was implemented)
       const validSiteIds = new Set(cache.sites.map(s => s.id));
       
@@ -147,6 +178,7 @@ const Store = (() => {
   }
 
 
+
   // Backup sync to localStorage for offline redundancy
   function persistLocal(key, data) {
     try {
@@ -165,8 +197,8 @@ const Store = (() => {
       getById: (id) => cache[cacheKey].find(x => x.id === id) || null,
 
       add: (data) => {
-        // Generate a unique temporary ID
-        const id = 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        // Generate a unique temporary ID (preserve data.id if present)
+        const id = data.id || 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
         const newItem = { ...data, id };
         
         // 1. Instantly update in-memory cache and local backup
@@ -196,8 +228,9 @@ const Store = (() => {
       },
 
       addAsync: async (data) => {
-        const id = 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        const id = data.id || 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
         const newItem = { ...data, id };
+
         
         cache[cacheKey].push(newItem);
         persistLocal(lsKey, cache[cacheKey]);
@@ -270,8 +303,10 @@ const Store = (() => {
   const PaymentsStore  = makeStore('bm_sitePayments');
   const TransactionsStore = makeStore('bm_transactions');
   const RentalSitesStore = makeStore('bm_rentalSites');
+  const CategoriesStore  = makeStore('bm_categories');
  
   const Customers    = CustomersStore;
+  const Categories   = CategoriesStore;
   // Materials extended with getSorted() and getSqFtPerUnit() — defined after PLATE_SQFT_MAP below
   const Incoming     = IncomingStore;
   const Outgoing     = OutgoingStore;
@@ -281,6 +316,7 @@ const Store = (() => {
   const SiteExpenses = ExpensesStore;
   const Transactions = TransactionsStore;
   const RentalSites   = RentalSitesStore;
+
 
   function logTransaction(materialId, quantity, action, siteId = '') {
     const material = cache.materials.find(m => m.id === materialId);
@@ -891,14 +927,29 @@ const Store = (() => {
     ...MaterialsStore,
     getSorted() {
       const all = cache.materials || [];
+      const cats = cache.categories || [];
+      
+      const getCatOrder = (catName) => {
+        const found = cats.find(c => String(c.id).toLowerCase() === String(catName).toLowerCase());
+        return found ? (typeof found.sortOrder === 'number' ? found.sortOrder : 999) : 999;
+      };
+
       return [...all].sort((a, b) => {
-        // Sort strictly by custom sortOrder ascending
+        // 1. Sort by Category sortOrder first
+        const aCatOrder = getCatOrder(a.category);
+        const bCatOrder = getCatOrder(b.category);
+        if (aCatOrder !== bCatOrder) return aCatOrder - bCatOrder;
+
+        // 2. Sort by Material sortOrder second
         const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : 999;
         const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : 999;
         if (aOrder !== bOrder) return aOrder - bOrder;
+
+        // 3. Fallback to alphabetical sorting by name
         return (a.name || '').localeCompare(b.name || '');
       });
     },
+
     getSqFtPerUnit(materialId) {
       const m = cache.materials.find(x => String(x.id) === String(materialId) || String(x._id) === String(materialId));
       if (!m) return 0;
@@ -940,5 +991,6 @@ const Store = (() => {
     return { totalIssued, totalReturned, daily };
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
+
 })();

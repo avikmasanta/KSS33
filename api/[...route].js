@@ -27,7 +27,9 @@ const schemas = {
   sitePayments: new mongoose.Schema({ _id: String, siteId: String, date: String, amount: Number, paymentMode: String, reference: String, notes: String, createdAt: String }, schemaOptions),
   transactions: new mongoose.Schema({ _id: String, materialId: String, materialName: String, quantity: Number, action: String, siteId: String, siteName: String, date: String, user: String, createdAt: String }, schemaOptions),
   rentalSites: new mongoose.Schema({ _id: String, customerName: String, siteName: String, goingDate: String, comingDate: String, status: { type: String, default: 'Active' }, items: [{ materialId: String, quantity: Number, rate: Number }], createdAt: String }, schemaOptions),
+  categories: new mongoose.Schema({ _id: String, sortOrder: { type: Number, default: 999 }, createdAt: String }, schemaOptions),
 };
+
 
 // ─── Models (cached across warm invocations) ──────────────────────
 const models = {};
@@ -125,10 +127,12 @@ module.exports = async function handler(req, res) {
 
     // ── PUT (update) ─────────────────────────────────────────────
     if (req.method === 'PUT' && id) {
-      const updated = await Model.findByIdAndUpdate(id, req.body, { new: true });
+      const body = { ...req.body, _id: id };
+      const updated = await Model.findByIdAndUpdate(id, body, { new: true, upsert: true });
       if (!updated) return json(res, 404, { error: 'Not found' });
       return json(res, 200, updated);
     }
+
 
     // ── DELETE cascade (sites only) ──────────────────────────────
     if (req.method === 'DELETE' && id && action === 'cascade') {

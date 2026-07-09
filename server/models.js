@@ -172,6 +172,12 @@ const RentalSiteSchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+const CategorySchema = new mongoose.Schema({
+  _id: String, // Category Name (e.g. 'Steel Plate')
+  sortOrder: { type: Number, default: 999 },
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema),
   Site: mongoose.model('Site', SiteSchema),
@@ -184,5 +190,8 @@ module.exports = {
   SiteExpenses: mongoose.model('SiteExpenses', SiteExpensesSchema),
   SitePayments: mongoose.model('SitePayments', SitePaymentsSchema),
   Transaction: mongoose.model('Transaction', TransactionSchema),
-  RentalSite: mongoose.model('RentalSite', RentalSiteSchema)
+  RentalSite: mongoose.model('RentalSite', RentalSiteSchema),
+  Category: mongoose.model('Category', CategorySchema)
 };
+
+

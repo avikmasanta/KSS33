@@ -17,13 +17,16 @@ var MaterialsPage = {
           <h2>Materials</h2>
           <p>Manage all materials</p>
         </div>
-        <div class="page-header-actions">
-          <button class="btn btn-outline">${Icons.filter} Filter</button>
+        <div class="page-header-actions" style="display:flex; gap: 8px;">
+          <button class="btn btn-outline" onclick="MaterialsPage.openCategoriesModal()" style="display:inline-flex;align-items:center;gap:6px;">
+            ${Icons.settings || ''} Manage Categories
+          </button>
           <button class="btn btn-primary" onclick="MaterialsPage.openModal()">
             ${Icons.plus} Add Material
           </button>
         </div>
       </div>
+
 
       <div class="card">
         <div class="card-body" style="padding-bottom:0">
@@ -140,8 +143,31 @@ var MaterialsPage = {
           </div>
         </div>
       </div>
+
+      <!-- Manage Categories Modal -->
+      <div class="modal-backdrop" id="categories-modal">
+        <div class="modal" style="max-width: 500px;">
+          <div class="modal-header">
+            <h3>Manage Categories</h3>
+            <button class="modal-close" onclick="MaterialsPage.closeCategoriesModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body" style="max-height: 400px; overflow-y: auto;">
+            <p class="text-sm text-tertiary" style="margin-bottom: 16px;">Set numeric positions to determine category sorting sequence on pages:</p>
+            <form id="categories-order-form">
+              <div id="categories-list-container">
+                <!-- Loaded dynamically -->
+              </div>
+            </form>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="MaterialsPage.closeCategoriesModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="MaterialsPage.saveCategoriesOrder()">Save Order</button>
+          </div>
+        </div>
+      </div>
     `;
   },
+
 
   init() {},
 
@@ -432,5 +458,84 @@ var MaterialsPage = {
 
     this.closeAdjustModal();
     this.refresh(); // Refresh Materials table
+  },
+
+  openCategoriesModal() {
+    const listContainer = document.getElementById('categories-list-container');
+    if (!listContainer) return;
+
+    // Get all categories sorted
+    const cats = Store.Categories.getAll();
+    
+    // Ensure all unique categories present in materials are also in categories cache
+    const materials = Store.Materials.getAll();
+    const uniqueMatCats = [...new Set(materials.map(m => m.category).filter(Boolean))];
+    
+    // Merge database categories and default list
+    const defaultCategories = ['Steel Plate', 'Scaffolding', 'Cement', 'Sand', 'Steel', 'Bricks', 'Aggregate', 'Other'];
+    const mergedCats = [...new Set([...defaultCategories, ...uniqueMatCats, ...cats.map(c => c.id)])];
+    
+    // Map with existing sortOrder or 999
+    const listItems = mergedCats.map(name => {
+      const found = cats.find(c => String(c.id).toLowerCase() === String(name).toLowerCase());
+      return {
+        name,
+        sortOrder: found ? (typeof found.sortOrder === 'number' ? found.sortOrder : 999) : 999
+      };
+    }).sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+
+    listContainer.innerHTML = listItems.map(c => `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 8px 12px; background: var(--bg-body); border-radius: 6px; border: 1px solid var(--border-color);">
+        <span style="font-weight: 500; color: var(--text-primary);">${c.name}</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="text-xs text-tertiary">Position:</span>
+          <input type="number" class="form-control category-order-input" data-cat="${c.name}" value="${c.sortOrder !== 999 ? c.sortOrder : ''}" style="width: 80px; margin-bottom: 0;" placeholder="999">
+        </div>
+      </div>
+    `).join('');
+
+    document.getElementById('categories-modal').classList.add('active');
+  },
+
+  closeCategoriesModal() {
+    document.getElementById('categories-modal').classList.remove('active');
+  },
+
+  async saveCategoriesOrder() {
+    const inputs = document.querySelectorAll('.category-order-input');
+    const promises = [];
+    
+    inputs.forEach(input => {
+      const catName = input.getAttribute('data-cat');
+      const value = input.value.trim() !== '' ? parseInt(input.value) : 999;
+      
+      // Update in local cache
+      const cats = Store.Categories.getAll();
+      const idx = cats.findIndex(c => String(c.id).toLowerCase() === String(catName).toLowerCase());
+      if (idx > -1) {
+        cats[idx].sortOrder = value;
+      } else {
+        cats.push({ id: catName, sortOrder: value });
+      }
+
+      // Sync to database
+      promises.push(
+        fetch(`/api/categories/${catName}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: catName, sortOrder: value })
+        }).catch(err => console.error(`Error saving category ${catName}:`, err))
+      );
+    });
+
+    await Promise.all(promises);
+    localStorage.setItem('bm_categories', JSON.stringify(Store.Categories.getAll()));
+    
+    this.closeCategoriesModal();
+    this.refresh();
+    
+    // Force refresh navigation bar or materials drop downs
+    if (window.SitesPage && window.SitesPage.refresh) window.SitesPage.refresh();
   }
 };
+
