@@ -737,14 +737,52 @@ const Store = (() => {
   // Plate SKU sort order (largest → smallest)
   const PLATE_SKU_ORDER = ['SHUT-2x4','SHUT-18x4','SHUT-15x4','SHUT-12x4','SHUT-9x4','SHUT-6x4','SHUT-2x3','SHUT-18x3','SHUT-15x3','SHUT-12x3','SHUT-9x3','SHUT-6x3'];
 
+  // ---- SKU normalizer: converts unicode × → ASCII x, trims spaces, lowercase ----
+  function normSku(sku) {
+    if (!sku) return '';
+    return sku.replace(/[\u00D7\u2715Xx]/g, 'x').replace(/\s+/g, '').toLowerCase();
+  }
+
+  // Helper: is this material a plate? (case-insensitive, matches STEEL PLATE and Shuttering plate)
+  function isPlate(m) {
+    const cat = (m.category || '').trim().toLowerCase();
+    return cat === 'steel plate' || cat === 'shuttering plate';
+  }
+
+  // Build normalized lookup map for sqFtPerUnit (keys are normalized SKUs)
+  const PLATE_SQFT_MAP_NORM = {};
+  Object.keys(PLATE_SQFT_MAP).forEach(k => { PLATE_SQFT_MAP_NORM[normSku(k)] = PLATE_SQFT_MAP[k]; });
+
+  // Normalized plate sort order
+  const PLATE_SKU_ORDER_NORM = PLATE_SKU_ORDER.map(normSku);
+
   // ---- Auto-patch existing materials with sqFtPerUnit if missing ----
   async function patchMaterialSqFt() {
+    // Step 1: Remove duplicate ASCII-x 3-foot plates that were incorrectly seeded
+    // (The DB has real ones with unicode ×, we added duplicates with ASCII x)
+    const asciiThreeFootSkus = ['SHUT-2x3','SHUT-18x3','SHUT-15x3','SHUT-12x3','SHUT-9x3','SHUT-6x3'];
+    const duplicatesToRemove = [];
+    for (const sku of asciiThreeFootSkus) {
+      const withSku = cache.materials.filter(m => m.sku === sku);
+      // If more than one material has this exact ASCII sku, keep the one with sqFtPerUnit, delete others
+      if (withSku.length > 1) {
+        // Keep the one with highest sqFtPerUnit (or first), remove rest
+        const sortedByDate = [...withSku].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+        sortedByDate.slice(1).forEach(m => duplicatesToRemove.push(m.id));
+      }
+    }
+    for (const id of duplicatesToRemove) {
+      cache.materials = cache.materials.filter(m => m.id !== id);
+      try { await fetch(`${API_URL}/materials/${id}`, { method: 'DELETE' }); } catch(e) { /* silent */ }
+    }
+
+    // Step 2: Patch all plate materials that have sqFtPerUnit === 0 or missing
     const toUpdate = cache.materials.filter(m => {
-      if (m.category !== 'Shuttering plate') return false;
-      return (!m.sqFtPerUnit || m.sqFtPerUnit === 0) && PLATE_SQFT_MAP[m.sku];
+      if (!isPlate(m)) return false;
+      return (!m.sqFtPerUnit || m.sqFtPerUnit === 0) && PLATE_SQFT_MAP_NORM[normSku(m.sku)];
     });
     for (const m of toUpdate) {
-      const sqFt = PLATE_SQFT_MAP[m.sku];
+      const sqFt = PLATE_SQFT_MAP_NORM[normSku(m.sku)];
       m.sqFtPerUnit = sqFt;
       try {
         await fetch(`${API_URL}/materials/${m.id}`, {
@@ -754,34 +792,9 @@ const Store = (() => {
         });
       } catch (e) { /* silent */ }
     }
-    if (toUpdate.length > 0) persistLocal('bm_materials', cache.materials);
-
-    // Seed missing 3-foot plates if not yet in DB
-    const threeFootSkus = ['SHUT-2x3','SHUT-18x3','SHUT-15x3','SHUT-12x3','SHUT-9x3','SHUT-6x3'];
-    for (const sku of threeFootSkus) {
-      if (!cache.materials.find(m => m.sku === sku)) {
-        const newMat = {
-          name: {
-            'SHUT-2x3': 'Shuttering plate 2\'x3\'', 'SHUT-18x3': 'Shuttering plate 18"x3\'',
-            'SHUT-15x3': 'Shuttering plate 15"x3\'', 'SHUT-12x3': 'Shuttering plate 12"x3\'',
-            'SHUT-9x3': 'Shuttering plate 9"x3\'', 'SHUT-6x3': 'Shuttering plate 6"x3\''
-          }[sku],
-          sku, category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active',
-          sqFtPerUnit: PLATE_SQFT_MAP[sku]
-        };
-        const id = 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
-        newMat.id = id; newMat._id = id;
-        cache.materials.push(newMat);
-        try {
-          const r = await fetch(`${API_URL}/materials`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newMat)
-          });
-          if (r.ok) { const saved = await r.json(); const idx = cache.materials.findIndex(m => m.id === id); if (idx > -1) cache.materials[idx] = saved; }
-        } catch(e) { /* silent */ }
-      }
+    if (toUpdate.length > 0 || duplicatesToRemove.length > 0) {
+      persistLocal('bm_materials', cache.materials);
     }
-    persistLocal('bm_materials', cache.materials);
   }
 
   // ---- Extended Materials store with sorting ----
@@ -789,21 +802,26 @@ const Store = (() => {
     ...MaterialsStore,
     getSorted() {
       const all = cache.materials || [];
-      const plates = all.filter(m => m.category === 'Shuttering plate').sort((a, b) => {
-        const ai = PLATE_SKU_ORDER.indexOf(a.sku);
-        const bi = PLATE_SKU_ORDER.indexOf(b.sku);
+      const plates = all.filter(m => isPlate(m)).sort((a, b) => {
+        const ai = PLATE_SKU_ORDER_NORM.indexOf(normSku(a.sku));
+        const bi = PLATE_SKU_ORDER_NORM.indexOf(normSku(b.sku));
         const aOrder = ai === -1 ? 999 : ai;
         const bOrder = bi === -1 ? 999 : bi;
-        return aOrder - bOrder;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return (a.name || '').localeCompare(b.name || '');
       });
       const balli = all.filter(m => m.sku === 'BAL');
-      const rest = all.filter(m => m.category !== 'Shuttering plate' && m.sku !== 'BAL')
+      const rest = all.filter(m => !isPlate(m) && m.sku !== 'BAL')
         .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       return [...plates, ...balli, ...rest];
     },
     getSqFtPerUnit(materialId) {
       const m = cache.materials.find(x => String(x.id) === String(materialId) || String(x._id) === String(materialId));
-      return m ? (parseFloat(m.sqFtPerUnit) || 0) : 0;
+      if (!m) return 0;
+      // If already patched, use it
+      if (m.sqFtPerUnit && m.sqFtPerUnit > 0) return parseFloat(m.sqFtPerUnit);
+      // Fallback: look up by normalized SKU
+      return PLATE_SQFT_MAP_NORM[normSku(m.sku)] || 0;
     }
   };
 
