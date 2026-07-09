@@ -292,10 +292,46 @@ async function generateDailyWarehouseSummary({ date, models }) {
       currentY = drawTable(doc, currentY, outgoingHeaders, outgoingColumns, outgoingMovements);
     }
 
-    // 📍 Site Inventory Balances
+    // 🏢 SECTION 1: Current Warehouse Stock
+    doc.addPage();
+    currentY = 40;
+
+    doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(13);
+    doc.text('🏢 Current Warehouse Stock', 40, currentY);
+    doc.strokeColor(lightBorder).lineWidth(1).moveTo(40, currentY + 16).lineTo(555, currentY + 16).stroke();
+    currentY += 28;
+
+    const warehouseHeaders = [
+      { label: 'Material Name', x: 45, width: 220 },
+      { label: 'SKU', x: 275, width: 90 },
+      { label: 'Unit', x: 375, width: 60, align: 'center' },
+      { label: 'Warehouse Qty', x: 445, width: 105, align: 'right' }
+    ];
+    const warehouseColumns = [
+      { key: 'materialName', x: 45, width: 220 },
+      { key: 'sku', x: 275, width: 90 },
+      { key: 'unit', x: 375, width: 60, align: 'center' },
+      { key: 'quantity', x: 445, width: 105, align: 'right' }
+    ];
+
+    const warehouseRows = materials.map(m => {
+      const mId = String(m._id || m.id);
+      return {
+        materialName: m.name,
+        sku: m.sku || '-',
+        unit: m.unit || 'Nos',
+        quantity: currentStockMap[mId] || 0
+      };
+    }).sort((a, b) => a.materialName.localeCompare(b.materialName));
+
+    currentY = drawTable(doc, currentY, warehouseHeaders, warehouseColumns, warehouseRows);
+    currentY += 30;
+
+    // 📍 SECTION 2: Stock Deployed at Customer Sites
     const activeSites = sites.filter(s => s.status !== 'Archived');
     
     if (activeSites.length > 0) {
+      // Start Customer Sites on a new page
       doc.addPage();
       currentY = 40;
 
@@ -440,6 +476,87 @@ async function generateDailyWarehouseSummary({ date, models }) {
       if (!renderedAnySite) {
         doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(9);
         doc.text('No active materials or inventory deployed at customer sites currently.', 50, currentY + 10);
+      }
+    }
+
+    // 🚛 SECTION 3: Stock Leased to Rental Sites
+    const activeRentals = allRentals.filter(r => r.status === 'Active');
+    
+    if (activeRentals.length > 0) {
+      // Start Rental Sites on a new page
+      doc.addPage();
+      currentY = 40;
+
+      doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(13);
+      doc.text('🚛 Current Stock on Rent (Rental Sites)', 40, currentY);
+      doc.strokeColor(lightBorder).lineWidth(1).moveTo(40, currentY + 16).lineTo(555, currentY + 16).stroke();
+      currentY += 28;
+
+      let renderedAnyRental = false;
+
+      for (const rental of activeRentals) {
+        const itemsToRender = (rental.items || []).map(i => {
+          const mat = materialsMap[String(i.materialId)];
+          return {
+            materialName: mat ? mat.name : 'Unknown Material',
+            sku: mat ? mat.sku || '-' : '-',
+            unit: mat ? mat.unit : 'Nos',
+            quantity: parseFloat(i.quantity) || 0,
+            rate: `Rs ${parseFloat(i.rate) || 0}/day`
+          };
+        }).filter(item => item.quantity > 0);
+
+        if (itemsToRender.length > 0) {
+          renderedAnyRental = true;
+
+          // Check page break before rendering rental header + first few rows
+          if (currentY > 680) {
+            doc.addPage();
+            currentY = 40;
+          }
+
+          // Rental Header Box
+          doc.save();
+          doc.fillColor('#f0fdf4').rect(40, currentY, 515, 36).fill();
+          doc.strokeColor(lightBorder).lineWidth(0.5).rect(40, currentY, 515, 36).stroke();
+          
+          doc.fillColor('#166534').font('Helvetica-Bold').fontSize(10);
+          doc.text(`Customer: ${rental.customerName}`, 50, currentY + 6);
+          doc.fillColor(textColor).font('Helvetica').fontSize(8.5);
+          
+          const detailsString = [
+            rental.siteName ? `Site: ${rental.siteName}` : null,
+            rental.goingDate ? `Leased Since: ${new Date(rental.goingDate).toLocaleDateString('en-IN')}` : null
+          ].filter(Boolean).join('  |  ');
+          
+          doc.text(detailsString || '', 50, currentY + 20);
+          doc.restore();
+          currentY += 42;
+
+          // Draw Table
+          const rentalHeaders = [
+            { label: 'Material Name', x: 45, width: 180 },
+            { label: 'SKU', x: 235, width: 70 },
+            { label: 'Unit', x: 315, width: 50, align: 'center' },
+            { label: 'Qty Leased', x: 375, width: 75, align: 'right' },
+            { label: 'Day Rate', x: 460, width: 90, align: 'right' }
+          ];
+          const rentalColumns = [
+            { key: 'materialName', x: 45, width: 180 },
+            { key: 'sku', x: 235, width: 70 },
+            { key: 'unit', x: 315, width: 50, align: 'center' },
+            { key: 'quantity', x: 375, width: 75, align: 'right' },
+            { key: 'rate', x: 460, width: 90, align: 'right' }
+          ];
+
+          currentY = drawTable(doc, currentY, rentalHeaders, rentalColumns, itemsToRender);
+          currentY += 20;
+        }
+      }
+
+      if (!renderedAnyRental) {
+        doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(9);
+        doc.text('No active materials out on rent currently.', 50, currentY + 10);
       }
     }
 
