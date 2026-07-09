@@ -465,41 +465,45 @@ var SiteDetailsPage = {
       `;
     }
 
-    let html = `
-      <div style="display: flex; flex-direction: column; gap: 10px; padding: 15px;">
-    `;
+    let html = `<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 16px;">`;
 
     rows.forEach(r => {
-      let color, bgColor, icon, sign, label;
-
-      if (r.type === 'Outgoing') {
-        color = 'var(--danger)'; bgColor = '#fee2e2'; icon = Icons.arrowUpCircle; sign = '-'; label = 'Returned from Site';
-      } else {
-        color = 'var(--success)'; bgColor = '#dcfce7'; icon = Icons.arrowDownCircle; sign = '+'; label = 'Received at Site';
-      }
+      const isReturn = r.type === 'Outgoing';
+      const color     = isReturn ? '#dc2626' : '#16a34a';
+      const bgLight   = isReturn ? '#fef2f2' : '#f0fdf4';
+      const borderClr = isReturn ? '#fca5a5' : '#86efac';
+      const sign      = isReturn ? '−' : '+';
+      const label     = isReturn ? 'Returned' : 'Received';
+      const sqFtFmt   = r.sqFt > 0 ? (r.sqFt % 1 === 0 ? r.sqFt.toLocaleString('en-IN') : r.sqFt.toFixed(2)) : null;
 
       html += `
-        <div style="display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 2px 4px rgba(0,0,0,0.02); transition: transform 0.2s; cursor: default;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
-          <div style="display: flex; align-items: center; gap: 16px;">
-            <div style="width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background-color: ${bgColor}; color: ${color}; flex-shrink:0;">
-              ${icon}
-            </div>
-            <div>
-              <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-primary); margin-bottom: 4px;">${r.material}</div>
-              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <span class="badge" style="background-color: ${bgColor}; color: ${color}; font-size: 0.75rem;">${label}</span>
-                <span class="text-sm text-tertiary">Ref: ${r.ref}</span>
-                ${r.sqFt > 0 ? `<span style="background:#f0fdf4;color:#15803d;border-radius:6px;padding:1px 8px;font-size:0.75rem;font-weight:600;border:1px solid #bbf7d0;">&#9633; ${r.sqFt % 1 === 0 ? r.sqFt : r.sqFt.toFixed(2)} sq ft</span>` : ''}
-              </div>
+        <div style="
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 12px 14px;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-left: 4px solid ${color};
+          border-radius: 10px;
+          gap: 12px;
+          transition: background 0.15s;
+        " onmouseover="this.style.background='var(--surface-hover,rgba(0,0,0,0.03))'" onmouseout="this.style.background='var(--surface)'">
+
+          <!-- Left: info -->
+          <div style="flex:1; min-width:0;">
+            <div style="font-weight:700; font-size:0.92rem; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.material}</div>
+            <div style="display:flex; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap;">
+              <span style="background:${bgLight}; color:${color}; border:1px solid ${borderClr}; border-radius:4px; padding:1px 7px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px;">${label}</span>
+              <span style="color:var(--text-tertiary); font-size:0.75rem;">Ref: ${r.ref}</span>
+              ${sqFtFmt ? `<span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:1px 7px; font-size:0.7rem; font-weight:700;">${sqFtFmt} sq ft</span>` : ''}
             </div>
           </div>
-          <div style="text-align: right; min-width: 100px;">
-            <div style="font-weight: 800; font-size: 1.25rem; color: ${color};">
-              ${sign}${r.qty.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);">${r.unit}</span>
+
+          <!-- Right: qty + date -->
+          <div style="text-align:right; flex-shrink:0;">
+            <div style="font-weight:800; font-size:1.1rem; color:${color}; white-space:nowrap;">
+              ${sign}${r.qty.toLocaleString('en-IN')} <span style="font-size:0.78rem; font-weight:500; color:var(--text-secondary);">${r.unit}</span>
             </div>
-            <div class="text-sm text-tertiary" style="margin-top: 4px; display: flex; align-items: center; gap: 4px; justify-content: flex-end;">
-              ${Icons.calendar} ${safeFormatDate(r.date)}
-            </div>
+            <div style="font-size:0.72rem; color:var(--text-tertiary); margin-top:3px;">${safeFormatDate(r.date)}</div>
           </div>
         </div>
       `;
@@ -507,21 +511,27 @@ var SiteDetailsPage = {
 
     // Sq Ft Summary Footer
     if (totalSqFtIssued > 0 || totalSqFtReturned > 0) {
+      const net = totalSqFtIssued - totalSqFtReturned;
+      const fmtNum = n => n % 1 === 0 ? n.toLocaleString('en-IN') : n.toFixed(2);
       html += `
-        <div style="display: flex; gap: 16px; padding: 16px; background: linear-gradient(135deg,#f0fdf4,#dcfce7); border-radius: 12px; border: 1px solid #bbf7d0; margin-top: 4px; flex-wrap: wrap;">
-          <div style="flex:1; text-align:center;">
-            <div style="font-size:0.75rem;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Sq Ft Issued</div>
-            <div style="font-size:1.5rem;font-weight:800;color:#15803d;">${totalSqFtIssued % 1 === 0 ? totalSqFtIssued.toLocaleString('en-IN') : totalSqFtIssued.toFixed(2)} <span style="font-size:0.85rem;font-weight:500;">sq ft</span></div>
+        <div style="
+          display: grid; grid-template-columns: 1fr 1fr 1fr;
+          gap: 8px; margin-top: 10px; padding-top: 4px;
+        ">
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:12px 14px; text-align:center;">
+            <div style="font-size:0.65rem; color:#166534; text-transform:uppercase; font-weight:700; letter-spacing:0.6px; margin-bottom:4px;">Sq Ft Issued</div>
+            <div style="font-size:1.4rem; font-weight:800; color:#15803d; line-height:1;">${fmtNum(totalSqFtIssued)}</div>
+            <div style="font-size:0.7rem; color:#16a34a; margin-top:2px;">sq ft</div>
           </div>
-          <div style="width:1px;background:#86efac;"></div>
-          <div style="flex:1; text-align:center;">
-            <div style="font-size:0.75rem;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Sq Ft Returned</div>
-            <div style="font-size:1.5rem;font-weight:800;color:#15803d;">${totalSqFtReturned % 1 === 0 ? totalSqFtReturned.toLocaleString('en-IN') : totalSqFtReturned.toFixed(2)} <span style="font-size:0.85rem;font-weight:500;">sq ft</span></div>
+          <div style="background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:12px 14px; text-align:center;">
+            <div style="font-size:0.65rem; color:#9a3412; text-transform:uppercase; font-weight:700; letter-spacing:0.6px; margin-bottom:4px;">Sq Ft Returned</div>
+            <div style="font-size:1.4rem; font-weight:800; color:#ea580c; line-height:1;">${fmtNum(totalSqFtReturned)}</div>
+            <div style="font-size:0.7rem; color:#f97316; margin-top:2px;">sq ft</div>
           </div>
-          <div style="width:1px;background:#86efac;"></div>
-          <div style="flex:1; text-align:center;">
-            <div style="font-size:0.75rem;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Net Sq Ft at Site</div>
-            <div style="font-size:1.5rem;font-weight:800;color:#166534;">${(totalSqFtIssued - totalSqFtReturned) % 1 === 0 ? (totalSqFtIssued - totalSqFtReturned).toLocaleString('en-IN') : (totalSqFtIssued - totalSqFtReturned).toFixed(2)} <span style="font-size:0.85rem;font-weight:500;">sq ft</span></div>
+          <div style="background:${net >= 0 ? '#f0fdf4' : '#fef2f2'}; border:1px solid ${net >= 0 ? '#86efac' : '#fca5a5'}; border-radius:10px; padding:12px 14px; text-align:center;">
+            <div style="font-size:0.65rem; color:${net >= 0 ? '#166534' : '#991b1b'}; text-transform:uppercase; font-weight:700; letter-spacing:0.6px; margin-bottom:4px;">Net at Site</div>
+            <div style="font-size:1.4rem; font-weight:800; color:${net >= 0 ? '#15803d' : '#dc2626'}; line-height:1;">${fmtNum(net)}</div>
+            <div style="font-size:0.7rem; color:${net >= 0 ? '#16a34a' : '#ef4444'}; margin-top:2px;">sq ft</div>
           </div>
         </div>
       `;
