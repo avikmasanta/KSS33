@@ -3,7 +3,16 @@
    ============================================ */
 
 var ReturnsPage = {
+  searchTerm: '',
+  adjustments: {},
+  lastHash: '',
+
   render() {
+    if (this.lastHash !== window.location.hash) {
+      this.lastHash = window.location.hash;
+      this.searchTerm = '';
+      this.adjustments = {};
+    }
     const materials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
     const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
 
@@ -18,6 +27,12 @@ var ReturnsPage = {
     allReturns.forEach(r => {
       if (!returnsMap[r.materialId]) returnsMap[r.materialId] = 0;
       returnsMap[r.materialId] += parseFloat(r.quantity || 0);
+    });
+
+    const term = (this.searchTerm || '').toLowerCase().trim();
+    const filtered = materials.filter(m => {
+      if (!term) return true;
+      return m.name.toLowerCase().includes(term) || (m.sku || '').toLowerCase().includes(term);
     });
 
     return `
@@ -43,10 +58,17 @@ var ReturnsPage = {
 
       <div class="card" style="margin-bottom: 24px;">
         <div class="card-body" style="padding: 20px;">
-          <div class="form-row">
-            <div class="form-group" style="max-width: 250px; margin: 0;">
+          <div class="form-row" style="display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap;">
+            <div class="form-group" style="max-width: 250px; margin: 0; flex: 1; min-width: 150px;">
               <label style="font-weight: 600; color: var(--text-secondary);">Date of Adjustment</label>
               <input type="date" class="form-control" id="stock-date" value="${selectedDate}" onchange="ReturnsPage.onDateChange(this.value)" style="background: var(--bg-body);">
+            </div>
+            <div class="form-group" style="max-width: 300px; margin: 0; flex: 1; min-width: 200px;">
+              <label style="font-weight: 600; color: var(--text-secondary);">Search Material</label>
+              <div class="search-input" style="margin: 0; height: 38px; position:relative;">
+                ${Icons.search}
+                <input type="text" placeholder="Search materials..." id="returns-search" value="${this.searchTerm || ''}" oninput="ReturnsPage.onSearch(this.value)" style="background: var(--bg-body); padding-left: 35px;">
+              </div>
             </div>
           </div>
         </div>
@@ -63,8 +85,20 @@ var ReturnsPage = {
               </tr>
             </thead>
             <tbody>
-               ${materials.map(m => {
+               ${filtered.map(m => {
                 const currentStock = availableMap[m.id] || 0;
+                const adj = this.adjustments[m.id] || { action: 'add', qty: '' };
+                const adjQty = parseFloat(adj.qty) || 0;
+                const netStock = adj.action === 'add' ? (currentStock + adjQty) : (currentStock - adjQty);
+                let cellBg = 'var(--bg-body)';
+                let cellColor = 'var(--text-primary)';
+                if (adj.action === 'deduct' && adjQty > currentStock) {
+                  cellBg = 'rgba(239, 68, 68, 0.1)';
+                  cellColor = 'var(--danger)';
+                } else if (adjQty > 0) {
+                  cellBg = adj.action === 'add' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)';
+                  cellColor = adj.action === 'add' ? 'var(--success)' : 'var(--warning)';
+                }
                 return `
                   <tr data-mat-id="${m.id}" data-current-stock="${currentStock}" style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
                     <td style="padding: 16px;">
@@ -74,20 +108,21 @@ var ReturnsPage = {
                     <td style="padding: 16px;">
                       <div style="display: flex; gap: 8px; align-items: center;">
                         <select class="form-control adj-action-select" onchange="ReturnsPage.calculateRow(this)" style="max-width: 110px; font-weight: 600; background: var(--bg-body); height: 38px;">
-                          <option value="add" style="color: var(--success);">Add (+)</option>
-                          <option value="deduct" style="color: var(--danger);">Deduct (-)</option>
+                          <option value="add" style="color: var(--success);" ${adj.action === 'add' ? 'selected' : ''}>Add (+)</option>
+                          <option value="deduct" style="color: var(--danger);" ${adj.action === 'deduct' ? 'selected' : ''}>Deduct (-)</option>
                         </select>
-                        <input type="number" class="form-control new-stock-input" min="0" placeholder="0" oninput="ReturnsPage.calculateRow(this)" style="max-width: 110px; font-weight: 600; background: var(--bg-body); height: 38px;">
+                        <input type="number" class="form-control new-stock-input" min="0" placeholder="0" value="${adj.qty || ''}" oninput="ReturnsPage.calculateRow(this)" style="max-width: 110px; font-weight: 600; background: var(--bg-body); height: 38px;">
                       </div>
                     </td>
                     <td style="padding: 16px;">
-                      <div class="new-available-cell" data-unit="${m.unit}" style="font-weight: 700; font-size: 1.15rem; color: var(--text-primary); background: var(--bg-body); padding: 8px 12px; border-radius: 8px; display: inline-block; min-width: 100px; text-align: center;">
-                        ${currentStock.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${m.unit}</span>
+                      <div class="new-available-cell" data-unit="${m.unit}" style="font-weight: 700; font-size: 1.15rem; color: ${cellColor}; background: ${cellBg}; padding: 8px 12px; border-radius: 8px; display: inline-block; min-width: 100px; text-align: center;">
+                        ${netStock.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${m.unit}</span>
                       </div>
                     </td>
                   </tr>
                 `;
               }).join('')}
+              ${filtered.length === 0 ? '<tr><td colspan="3" style="text-align:center;padding:40px;color:var(--text-tertiary)">No matching materials found</td></tr>' : ''}
             </tbody>
           </table>
         </div>
@@ -102,7 +137,19 @@ var ReturnsPage = {
 
   onDateChange(val) {
     this.selectedDate = val;
+    this.adjustments = {};
     this.refresh();
+  },
+
+  onSearch(val) {
+    this.searchTerm = val;
+    this.refresh();
+    const input = document.getElementById('returns-search');
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    }
   },
 
   init() {
@@ -124,9 +171,18 @@ var ReturnsPage = {
 
   calculateRow(element) {
     const tr = element.closest('tr');
+    const matId = tr.getAttribute('data-mat-id');
     const currentStock = parseFloat(tr.getAttribute('data-current-stock')) || 0;
     const action = tr.querySelector('.adj-action-select').value;
     const inputVal = parseFloat(tr.querySelector('.new-stock-input').value) || 0;
+    
+    // Update in-memory state
+    if (!this.adjustments) this.adjustments = {};
+    if (inputVal > 0) {
+      this.adjustments[matId] = { action, qty: inputVal };
+    } else {
+      delete this.adjustments[matId];
+    }
     
     let newAvailable = currentStock;
     if (action === 'add') {
@@ -174,26 +230,30 @@ var ReturnsPage = {
 
   saveAll() {
     const date = document.getElementById('stock-date').value;
-    const rows = document.querySelectorAll('tr[data-mat-id]');
+    
+    if (!this.adjustments || Object.keys(this.adjustments).length === 0) {
+      alert("Please enter at least one quantity to save.");
+      return;
+    }
     
     let hasError = false;
     let updates = [];
+    const materials = Store.Materials.getAll();
     
-    rows.forEach(tr => {
-      const matId = tr.getAttribute('data-mat-id');
-      const action = tr.querySelector('.adj-action-select').value;
-      const qty = parseFloat(tr.querySelector('.new-stock-input').value) || 0;
-      const currentStock = parseFloat(tr.getAttribute('data-current-stock')) || 0;
+    Object.keys(this.adjustments).forEach(matId => {
+      const adj = this.adjustments[matId];
+      const material = materials.find(m => m.id === matId);
+      if (!material) return;
       
-      if (qty <= 0) return;
+      const currentStock = Store.Inventory.getWarehouseBalanceOn(matId, date);
       
-      if (action === 'deduct' && qty > currentStock) {
-        alert(`Cannot deduct more than available stock for ${tr.querySelector('strong').innerText}`);
+      if (adj.action === 'deduct' && adj.qty > currentStock) {
+        alert(`Cannot deduct more than available stock for ${material.name}`);
         hasError = true;
         return;
       }
       
-      updates.push({ matId, action, qty });
+      updates.push({ matId, action: adj.action, qty: adj.qty, material });
     });
     
     if (hasError) return;
@@ -210,29 +270,28 @@ var ReturnsPage = {
     }
     
     updates.forEach(u => {
-      const material = Store.Materials.getById(u.matId);
-      const isDeduct = u.action === 'deduct';
-      const actualQty = isDeduct ? -u.qty : u.qty;
+      const actualQty = u.action === 'deduct' ? -u.qty : u.qty;
       
       Store.Incoming.add({
         date: date,
-        vendorName: isDeduct ? 'Manual Stock Deduction' : 'User Input (Manual Add)',
+        vendorName: u.action === 'deduct' ? 'Manual Stock Deduction' : 'User Input (Manual Add)',
         referenceNo: 'Stock Update',
         destinationType: 'warehouse',
         destinationSiteId: '',
         items: [{
           materialId: u.matId,
           quantity: actualQty,
-          rate: material ? material.unitPrice : 0,
-          amount: actualQty * (material ? material.unitPrice : 0)
+          rate: u.material ? u.material.unitPrice : 0,
+          amount: actualQty * (u.material ? u.material.unitPrice : 0)
         }],
-        notes: isDeduct ? 'Deducted manually from Update Stock page' : 'Manually added from Update Stock page'
+        notes: u.action === 'deduct' ? 'Deducted manually from Update Stock page' : 'Manually added from Update Stock page'
       });
       
-      Store.logTransaction(u.matId, u.qty, isDeduct ? 'Deduct' : 'Add');
+      Store.logTransaction(u.matId, u.qty, u.action === 'deduct' ? 'Deduct' : 'Add');
     });
     
     alert("Stock updated successfully!");
+    this.adjustments = {};
     this.refresh();
   },
 
