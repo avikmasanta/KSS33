@@ -98,6 +98,42 @@ var DashboardPage = {
         </div>
       </div>
 
+      <!-- Sq Ft Movement Card (Last 7 Days) -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-header" style="border-bottom: none; padding-bottom: 0;">
+          <div class="chart-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h3 style="font-size: 1.1rem; color: #0f172a; margin-bottom: 4px;">&#9633; Sq Ft Movement (Last 7 Days)</h3>
+              <p style="font-size: 0.8rem; color: #64748b;">Daily plate area issued vs returned (in sq ft).</p>
+            </div>
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+              ${(() => {
+                const sqFtData = Store.getSqFtMovement7Days ? Store.getSqFtMovement7Days() : { totalIssued: 0, totalReturned: 0, daily: [] };
+                return `
+                  <div style="background: linear-gradient(135deg,#fff7ed,#fed7aa); border-radius: 12px; padding: 10px 18px; text-align:center; border:1px solid #fdba74;">
+                    <div style="font-size:0.7rem;color:#9a3412;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Issued</div>
+                    <div style="font-size:1.4rem;font-weight:800;color:#ea580c;">${sqFtData.totalIssued % 1 === 0 ? formatNum(sqFtData.totalIssued) : sqFtData.totalIssued.toFixed(1)} <span style="font-size:0.75rem;font-weight:500;">sq ft</span></div>
+                  </div>
+                  <div style="background: linear-gradient(135deg,#f0fdf4,#dcfce7); border-radius: 12px; padding: 10px 18px; text-align:center; border:1px solid #86efac;">
+                    <div style="font-size:0.7rem;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Returned</div>
+                    <div style="font-size:1.4rem;font-weight:800;color:#16a34a;">${sqFtData.totalReturned % 1 === 0 ? formatNum(sqFtData.totalReturned) : sqFtData.totalReturned.toFixed(1)} <span style="font-size:0.75rem;font-weight:500;">sq ft</span></div>
+                  </div>
+                `;
+              })()}
+              <div style="display: flex; gap: 12px; align-items: center; font-size: 0.8rem; color: #64748b; margin-left: 8px;">
+                <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 2px; background: #ea580c;"></div> Issued</div>
+                <div style="display: flex; align-items: center; gap: 6px;"><div style="width: 12px; height: 12px; border-radius: 2px; background: #16a34a;"></div> Returned</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-container" style="width: 100%;">
+            <canvas id="sqft-chart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
       <!-- Recent Movements Table -->
       <div class="card">
         <div class="card-header" style="padding: 20px; border-bottom: 1px solid var(--border-color);">
@@ -141,16 +177,97 @@ var DashboardPage = {
 
   init() {
     this.drawStockChart();
+    this.drawSqFtChart();
     
     // Fix canvas stretching on window resize
     if (!this._resizeBound) {
       window.addEventListener('resize', () => {
         if (window.location.hash === '' || window.location.hash === '#dashboard') {
           this.drawStockChart();
+          this.drawSqFtChart();
         }
       });
       this._resizeBound = true;
     }
+  },
+
+  drawSqFtChart() {
+    const canvas = document.getElementById('sqft-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = 200 * dpr;
+    ctx.scale(dpr, dpr);
+    canvas.style.width = '100%';
+    canvas.style.height = '200px';
+
+    const sqFtData = Store.getSqFtMovement7Days ? Store.getSqFtMovement7Days() : { daily: [] };
+    const data = sqFtData.daily || [];
+
+    const w = rect.width;
+    const h = 200;
+    const padding = { top: 16, right: 20, bottom: 36, left: 65 };
+    const chartW = w - padding.left - padding.right;
+    const chartH = h - padding.top - padding.bottom;
+
+    const maxVal = Math.max(...data.map(d => Math.max(d.issued || 0, d.returned || 0)), 1);
+    const niceMax = Math.ceil(maxVal / 10) * 10 || 10;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = '#e9ecef';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    const gridLines = 4;
+    for (let i = 0; i <= gridLines; i++) {
+      const y = padding.top + (chartH / gridLines) * i;
+      ctx.beginPath();
+      ctx.moveTo(padding.left, y);
+      ctx.lineTo(w - padding.right, y);
+      ctx.stroke();
+      if (i < gridLines) {
+        const val = niceMax - (niceMax / gridLines) * i;
+        ctx.fillStyle = '#6c757d';
+        ctx.font = '11px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(val % 1 === 0 ? val.toLocaleString() : val.toFixed(1), padding.left - 8, y);
+      }
+    }
+    ctx.setLineDash([]);
+    ctx.strokeStyle = '#6c757d';
+    ctx.beginPath();
+    ctx.moveTo(padding.left, padding.top + chartH);
+    ctx.lineTo(w - padding.right, padding.top + chartH);
+    ctx.stroke();
+    ctx.fillStyle = '#6c757d';
+    ctx.fillText('0', padding.left - 8, padding.top + chartH);
+
+    // Bars
+    const groupWidth = chartW / (data.length || 7);
+    const barWidth = Math.min(groupWidth * 0.35, 30);
+    data.forEach((item, i) => {
+      const x = padding.left + groupWidth * i + (groupWidth - barWidth * 2) / 2;
+      // Issued bar (orange)
+      const ih = ((item.issued || 0) / niceMax) * chartH;
+      ctx.fillStyle = '#ea580c';
+      this.rect(ctx, x, padding.top + chartH - ih, barWidth, ih);
+      ctx.fill();
+      // Returned bar (green)
+      const rh = ((item.returned || 0) / niceMax) * chartH;
+      ctx.fillStyle = '#16a34a';
+      this.rect(ctx, x + barWidth, padding.top + chartH - rh, barWidth, rh);
+      ctx.fill();
+      // X label
+      ctx.fillStyle = '#6c757d';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.fillText(item.date || '', x + barWidth, padding.top + chartH + 8);
+    });
   },
 
   drawStockChart() {

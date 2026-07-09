@@ -141,6 +141,8 @@ const Store = (() => {
           }
         });
       }
+      // Auto-patch plate materials with sqFtPerUnit (runs after cloud sync)
+      patchMaterialSqFt();
     }); // Fire and forget
   }
 
@@ -270,7 +272,7 @@ const Store = (() => {
   const RentalSitesStore = makeStore('bm_rentalSites');
  
   const Customers    = CustomersStore;
-  const Materials    = MaterialsStore;
+  // Materials extended with getSorted() and getSqFtPerUnit() — defined after PLATE_SQFT_MAP below
   const Incoming     = IncomingStore;
   const Outgoing     = OutgoingStore;
   const SiteUsage    = UsageStore;
@@ -679,20 +681,26 @@ const Store = (() => {
     }
 
     const defaults = [
-      { name: 'Shuttering plate 2\'x4\'', sku: 'SHUT-2x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Shuttering plate 18"x4\'', sku: 'SHUT-18x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Shuttering plate 15"x4\'', sku: 'SHUT-15x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Shuttering plate 12"x4\'', sku: 'SHUT-12x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Shuttering plate 9"x4\'', sku: 'SHUT-9x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Shuttering plate 6"x4\'', sku: 'SHUT-6x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Shuttering plate 2\'x4\'', sku: 'SHUT-2x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 8.0 },
+      { name: 'Shuttering plate 18"x4\'', sku: 'SHUT-18x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 6.0 },
+      { name: 'Shuttering plate 15"x4\'', sku: 'SHUT-15x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 5.0 },
+      { name: 'Shuttering plate 12"x4\'', sku: 'SHUT-12x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 4.0 },
+      { name: 'Shuttering plate 9"x4\'', sku: 'SHUT-9x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 3.0 },
+      { name: 'Shuttering plate 6"x4\'', sku: 'SHUT-6x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 2.0 },
+      { name: 'Shuttering plate 2\'x3\'', sku: 'SHUT-2x3', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 6.0 },
+      { name: 'Shuttering plate 18"x3\'', sku: 'SHUT-18x3', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 4.5 },
+      { name: 'Shuttering plate 15"x3\'', sku: 'SHUT-15x3', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 3.75 },
+      { name: 'Shuttering plate 12"x3\'', sku: 'SHUT-12x3', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 3.0 },
+      { name: 'Shuttering plate 9"x3\'', sku: 'SHUT-9x3', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 2.25 },
+      { name: 'Shuttering plate 6"x3\'', sku: 'SHUT-6x3', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 1.5 },
       
-      { name: 'Channels', sku: 'CHAN', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Balli', sku: 'BAL', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Props', sku: 'PROP', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Pipe', sku: 'PIPE', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
-      { name: 'Ledger', sku: 'LEDG', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' },
+      { name: 'Channels', sku: 'CHAN', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 0 },
+      { name: 'Balli', sku: 'BAL', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 0 },
+      { name: 'Props', sku: 'PROP', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 0 },
+      { name: 'Pipe', sku: 'PIPE', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 0 },
+      { name: 'Ledger', sku: 'LEDG', category: 'Scaffolding', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 0 },
       
-      { name: 'Miscellaneous', sku: 'MISC', category: 'General', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active' }
+      { name: 'Miscellaneous', sku: 'MISC', category: 'General', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 0 }
     ];
 
     await Promise.all(defaults.map(async (m) => {
@@ -720,5 +728,114 @@ const Store = (() => {
     persistLocal('bm_materials', cache.materials);
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, logTransaction, resetStock, Inventory, Auth, init };
+  // ---- Plate Sq Ft Lookup Map (by SKU) ----
+  const PLATE_SQFT_MAP = {
+    'SHUT-2x4': 8.0, 'SHUT-18x4': 6.0, 'SHUT-15x4': 5.0, 'SHUT-12x4': 4.0, 'SHUT-9x4': 3.0, 'SHUT-6x4': 2.0,
+    'SHUT-2x3': 6.0, 'SHUT-18x3': 4.5, 'SHUT-15x3': 3.75, 'SHUT-12x3': 3.0, 'SHUT-9x3': 2.25, 'SHUT-6x3': 1.5
+  };
+
+  // Plate SKU sort order (largest → smallest)
+  const PLATE_SKU_ORDER = ['SHUT-2x4','SHUT-18x4','SHUT-15x4','SHUT-12x4','SHUT-9x4','SHUT-6x4','SHUT-2x3','SHUT-18x3','SHUT-15x3','SHUT-12x3','SHUT-9x3','SHUT-6x3'];
+
+  // ---- Auto-patch existing materials with sqFtPerUnit if missing ----
+  async function patchMaterialSqFt() {
+    const toUpdate = cache.materials.filter(m => {
+      if (m.category !== 'Shuttering plate') return false;
+      return (!m.sqFtPerUnit || m.sqFtPerUnit === 0) && PLATE_SQFT_MAP[m.sku];
+    });
+    for (const m of toUpdate) {
+      const sqFt = PLATE_SQFT_MAP[m.sku];
+      m.sqFtPerUnit = sqFt;
+      try {
+        await fetch(`${API_URL}/materials/${m.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sqFtPerUnit: sqFt })
+        });
+      } catch (e) { /* silent */ }
+    }
+    if (toUpdate.length > 0) persistLocal('bm_materials', cache.materials);
+
+    // Seed missing 3-foot plates if not yet in DB
+    const threeFootSkus = ['SHUT-2x3','SHUT-18x3','SHUT-15x3','SHUT-12x3','SHUT-9x3','SHUT-6x3'];
+    for (const sku of threeFootSkus) {
+      if (!cache.materials.find(m => m.sku === sku)) {
+        const newMat = {
+          name: {
+            'SHUT-2x3': 'Shuttering plate 2\'x3\'', 'SHUT-18x3': 'Shuttering plate 18"x3\'',
+            'SHUT-15x3': 'Shuttering plate 15"x3\'', 'SHUT-12x3': 'Shuttering plate 12"x3\'',
+            'SHUT-9x3': 'Shuttering plate 9"x3\'', 'SHUT-6x3': 'Shuttering plate 6"x3\''
+          }[sku],
+          sku, category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active',
+          sqFtPerUnit: PLATE_SQFT_MAP[sku]
+        };
+        const id = 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+        newMat.id = id; newMat._id = id;
+        cache.materials.push(newMat);
+        try {
+          const r = await fetch(`${API_URL}/materials`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newMat)
+          });
+          if (r.ok) { const saved = await r.json(); const idx = cache.materials.findIndex(m => m.id === id); if (idx > -1) cache.materials[idx] = saved; }
+        } catch(e) { /* silent */ }
+      }
+    }
+    persistLocal('bm_materials', cache.materials);
+  }
+
+  // ---- Extended Materials store with sorting ----
+  const Materials = {
+    ...MaterialsStore,
+    getSorted() {
+      const all = cache.materials || [];
+      const plates = all.filter(m => m.category === 'Shuttering plate').sort((a, b) => {
+        const ai = PLATE_SKU_ORDER.indexOf(a.sku);
+        const bi = PLATE_SKU_ORDER.indexOf(b.sku);
+        const aOrder = ai === -1 ? 999 : ai;
+        const bOrder = bi === -1 ? 999 : bi;
+        return aOrder - bOrder;
+      });
+      const balli = all.filter(m => m.sku === 'BAL');
+      const rest = all.filter(m => m.category !== 'Shuttering plate' && m.sku !== 'BAL')
+        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      return [...plates, ...balli, ...rest];
+    },
+    getSqFtPerUnit(materialId) {
+      const m = cache.materials.find(x => String(x.id) === String(materialId) || String(x._id) === String(materialId));
+      return m ? (parseFloat(m.sqFtPerUnit) || 0) : 0;
+    }
+  };
+
+  // ---- Sq Ft Movement (last 7 days) for dashboard ----
+  function getSqFtMovement7Days() {
+    const dates = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    const siteReturns = cache.siteReturns || [];
+    const outgoing = cache.outgoing || [];
+    let totalIssued = 0, totalReturned = 0;
+    const daily = dates.map(date => {
+      let issued = 0, returned = 0;
+      outgoing.filter(r => r.date === date).forEach(r => {
+        (r.items || []).forEach(item => {
+          const sqFt = Materials.getSqFtPerUnit(item.materialId);
+          issued += (parseFloat(item.quantity) || 0) * sqFt;
+        });
+      });
+      siteReturns.filter(r => r.date === date).forEach(r => {
+        const sqFt = Materials.getSqFtPerUnit(r.materialId);
+        returned += (parseFloat(r.quantity) || 0) * sqFt;
+      });
+      totalIssued += issued;
+      totalReturned += returned;
+      return { date: date.substring(5), issued, returned };
+    });
+    return { totalIssued, totalReturned, daily };
+  }
+
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
 })();

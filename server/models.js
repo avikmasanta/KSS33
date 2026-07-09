@@ -35,6 +35,10 @@ const SiteSchema = new mongoose.Schema({
   startDate: String,
   address: String,
   budget: Number,
+  ratePerSqFt: Number,
+  tokenNumber: String,
+  lintelDate: String,
+  archivedAt: String,
   createdAt: String
 }, schemaOptions);
 
@@ -46,6 +50,7 @@ const MaterialSchema = new mongoose.Schema({
   unit: String,
   unitPrice: Number,
   reorderLevel: Number,
+  sqFtPerUnit: { type: Number, default: 0 },
   status: { type: String, default: 'Active' },
   createdAt: String
 }, schemaOptions);

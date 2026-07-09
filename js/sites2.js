@@ -115,6 +115,10 @@ var SitesPage = {
                   <label>Lintel Date / Day</label>
                   <input type="date" class="form-control" id="site-lintel-date">
                 </div>
+                <div class="form-group">
+                  <label>Rate per Sq Ft (₹/sq ft)</label>
+                  <input type="number" class="form-control" id="site-rate-sqft" placeholder="e.g. 12" min="0" step="0.01">
+                </div>
               </div>
               <div class="form-group">
                 <label>Location / Address</label>
@@ -370,6 +374,7 @@ var SitesPage = {
     document.getElementById('site-token').value = s.tokenNumber || '';
     document.getElementById('site-budget').value = s.budget || '';
     document.getElementById('site-lintel-date').value = s.lintelDate || '';
+    document.getElementById('site-rate-sqft').value = s.ratePerSqFt || '';
     this.openModal(id);
   },
 
@@ -386,7 +391,8 @@ var SitesPage = {
         address: document.getElementById('site-address').value.trim(),
         tokenNumber: document.getElementById('site-token').value.trim(),
         budget: parseFloat(document.getElementById('site-budget').value) || 0,
-        lintelDate: document.getElementById('site-lintel-date').value
+        lintelDate: document.getElementById('site-lintel-date').value,
+        ratePerSqFt: parseFloat(document.getElementById('site-rate-sqft').value) || 0
       };
 
       if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }

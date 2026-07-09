@@ -85,7 +85,7 @@ var SiteDetailsPage = {
             <h2 style="margin: 0;">${site.name}</h2>
             <span class="badge ${site.status === 'Active' ? 'badge-success' : site.status === 'Completed' ? 'badge-info' : 'badge-warning'}">${site.status}</span>
           </div>
-          <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Token: <strong>${site.tokenNumber || '-'}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Lintel Date: <strong style="color:var(--success);">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</strong> | Location: ${site.address || '-'}</p>
+          <p style="margin-top: 4px; color: var(--text-secondary);">Site ID: <strong style="color:var(--primary); font-family: monospace;">${site.id}</strong> | Token: <strong>${site.tokenNumber || '-'}</strong> | Customer: <strong>${site.customerName || '-'}</strong> | Lintel Date: <strong style="color:var(--success);">${site.lintelDate ? safeFormatDate(site.lintelDate) : '-'}</strong>${site.ratePerSqFt > 0 ? ` | <span style="display:inline-flex;align-items:center;gap:4px;background:linear-gradient(135deg,#f0fdf4,#dcfce7);color:#166534;border-radius:8px;padding:2px 10px;font-weight:700;font-size:0.82rem;border:1px solid #bbf7d0;">&#9633; ₹${site.ratePerSqFt}/sq ft</span>` : ''} | Location: ${site.address || '-'}</p>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
           ${site.status !== 'Completed'
@@ -370,6 +370,13 @@ var SiteDetailsPage = {
     const rows = [];
     let totalDispatched = 0;
     let totalReturned = 0;
+    let totalSqFtIssued = 0;
+    let totalSqFtReturned = 0;
+
+    // Helper: get sq ft for a materialId
+    function getSqFt(materialId, qty) {
+      return (Store.Materials.getSqFtPerUnit ? Store.Materials.getSqFtPerUnit(materialId) : 0) * qty;
+    }
 
     // Outgoing from warehouse to site (Dispatched)
     allOutgoing.forEach(record => {
@@ -377,13 +384,16 @@ var SiteDetailsPage = {
         const matName = getMaterialName(item, materials);
         if (!matName) return; // skip deleted materials
         const qty = parseFloat(item.quantity) || 0;
+        const sqFt = getSqFt(typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId, qty);
         totalDispatched += qty;
+        totalSqFtIssued += sqFt;
         rows.push({
           date: record.date,
           type: 'Incoming',
           material: matName,
           unit: getMaterialUnit(item, materials),
           qty: qty,
+          sqFt: sqFt,
           ref: record.referenceNo || '-',
           note: record.notes || '-'
         });
@@ -396,13 +406,16 @@ var SiteDetailsPage = {
         const matName = getMaterialName(item, materials);
         if (!matName) return; // skip deleted materials
         const qty = parseFloat(item.quantity) || 0;
+        const sqFt = getSqFt(typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId, qty);
         totalDispatched += qty;
+        totalSqFtIssued += sqFt;
         rows.push({
           date: record.date,
           type: 'Incoming',
           material: matName,
           unit: getMaterialUnit(item, materials),
           qty: qty,
+          sqFt: sqFt,
           ref: record.referenceNo || record.invoiceNo || '-',
           note: record.notes || 'Direct from supplier'
         });
@@ -414,13 +427,16 @@ var SiteDetailsPage = {
       const matName = getMaterialName(record, materials);
       if (!matName) return; // skip deleted materials
       const qty = parseFloat(record.quantity) || 0;
+      const sqFt = getSqFt(typeof record.materialId === 'object' ? (record.materialId._id || record.materialId.id) : record.materialId, qty);
       totalReturned += qty;
+      totalSqFtReturned += sqFt;
       rows.push({
         date: record.date,
         type: 'Outgoing',
         material: matName,
         unit: getMaterialUnit(record, materials),
         qty: qty,
+        sqFt: sqFt,
         ref: 'SITE-RETURN',
         note: 'Returned from site'
       });
@@ -473,6 +489,7 @@ var SiteDetailsPage = {
               <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <span class="badge" style="background-color: ${bgColor}; color: ${color}; font-size: 0.75rem;">${label}</span>
                 <span class="text-sm text-tertiary">Ref: ${r.ref}</span>
+                ${r.sqFt > 0 ? `<span style="background:#f0fdf4;color:#15803d;border-radius:6px;padding:1px 8px;font-size:0.75rem;font-weight:600;border:1px solid #bbf7d0;">&#9633; ${r.sqFt % 1 === 0 ? r.sqFt : r.sqFt.toFixed(2)} sq ft</span>` : ''}
               </div>
             </div>
           </div>
@@ -487,6 +504,28 @@ var SiteDetailsPage = {
         </div>
       `;
     });
+
+    // Sq Ft Summary Footer
+    if (totalSqFtIssued > 0 || totalSqFtReturned > 0) {
+      html += `
+        <div style="display: flex; gap: 16px; padding: 16px; background: linear-gradient(135deg,#f0fdf4,#dcfce7); border-radius: 12px; border: 1px solid #bbf7d0; margin-top: 4px; flex-wrap: wrap;">
+          <div style="flex:1; text-align:center;">
+            <div style="font-size:0.75rem;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Sq Ft Issued</div>
+            <div style="font-size:1.5rem;font-weight:800;color:#15803d;">${totalSqFtIssued % 1 === 0 ? totalSqFtIssued.toLocaleString('en-IN') : totalSqFtIssued.toFixed(2)} <span style="font-size:0.85rem;font-weight:500;">sq ft</span></div>
+          </div>
+          <div style="width:1px;background:#86efac;"></div>
+          <div style="flex:1; text-align:center;">
+            <div style="font-size:0.75rem;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Total Sq Ft Returned</div>
+            <div style="font-size:1.5rem;font-weight:800;color:#15803d;">${totalSqFtReturned % 1 === 0 ? totalSqFtReturned.toLocaleString('en-IN') : totalSqFtReturned.toFixed(2)} <span style="font-size:0.85rem;font-weight:500;">sq ft</span></div>
+          </div>
+          <div style="width:1px;background:#86efac;"></div>
+          <div style="flex:1; text-align:center;">
+            <div style="font-size:0.75rem;color:#166534;text-transform:uppercase;font-weight:700;letter-spacing:0.5px;">Net Sq Ft at Site</div>
+            <div style="font-size:1.5rem;font-weight:800;color:#166534;">${(totalSqFtIssued - totalSqFtReturned) % 1 === 0 ? (totalSqFtIssued - totalSqFtReturned).toLocaleString('en-IN') : (totalSqFtIssued - totalSqFtReturned).toFixed(2)} <span style="font-size:0.85rem;font-weight:500;">sq ft</span></div>
+          </div>
+        </div>
+      `;
+    }
 
     html += `
       <!-- Site Status Confirm Modal -->
