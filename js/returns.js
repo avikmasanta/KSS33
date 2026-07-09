@@ -13,27 +13,7 @@ var ReturnsPage = {
       this.searchTerm = '';
       this.adjustments = {};
     }
-    const materials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
     const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
-
-    // Get historical warehouse stock for each material as of selected date
-    const availableMap = {};
-    materials.forEach(m => {
-      availableMap[m.id] = Store.Inventory.getWarehouseBalanceOn(m.id, selectedDate);
-    });
-
-    const allReturns = Store.SiteReturns.getAll();
-    const returnsMap = {};
-    allReturns.forEach(r => {
-      if (!returnsMap[r.materialId]) returnsMap[r.materialId] = 0;
-      returnsMap[r.materialId] += parseFloat(r.quantity || 0);
-    });
-
-    const term = (this.searchTerm || '').toLowerCase().trim();
-    const filtered = materials.filter(m => {
-      if (!term) return true;
-      return m.name.toLowerCase().includes(term) || (m.sku || '').toLowerCase().includes(term);
-    });
 
     return `
       <div class="page-header" style="background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%); padding: 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
@@ -75,56 +55,8 @@ var ReturnsPage = {
       </div>
 
       <div class="card" style="box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); overflow: hidden;">
-        <div class="table-container" style="max-height: 65vh; overflow-y: auto;">
-          <table class="data-table" style="width: 100%; border-collapse: collapse;">
-            <thead style="position: sticky; top: 0; background: var(--bg-card); z-index: 10; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-              <tr>
-                <th style="padding: 16px; font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">MATERIAL</th>
-                <th style="padding: 16px; font-weight: 600; color: var(--success); border-bottom: 2px solid var(--border-color); width: 35%;">ADJUST STOCK</th>
-                <th style="padding: 16px; font-weight: 600; color: var(--text-primary); border-bottom: 2px solid var(--border-color); width: 25%;">AVAILABLE STOCK</th>
-              </tr>
-            </thead>
-            <tbody>
-               ${filtered.map(m => {
-                const currentStock = availableMap[m.id] || 0;
-                const adj = this.adjustments[m.id] || { action: 'add', qty: '' };
-                const adjQty = parseFloat(adj.qty) || 0;
-                const netStock = adj.action === 'add' ? (currentStock + adjQty) : (currentStock - adjQty);
-                let cellBg = 'var(--bg-body)';
-                let cellColor = 'var(--text-primary)';
-                if (adj.action === 'deduct' && adjQty > currentStock) {
-                  cellBg = 'rgba(239, 68, 68, 0.1)';
-                  cellColor = 'var(--danger)';
-                } else if (adjQty > 0) {
-                  cellBg = adj.action === 'add' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)';
-                  cellColor = adj.action === 'add' ? 'var(--success)' : 'var(--warning)';
-                }
-                return `
-                  <tr data-mat-id="${m.id}" data-current-stock="${currentStock}" style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
-                    <td style="padding: 16px;">
-                      <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">${m.name}</div>
-                      <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-top: 4px;">${m.sku || '-'}</div>
-                    </td>
-                    <td style="padding: 16px;">
-                      <div style="display: flex; gap: 8px; align-items: center;">
-                        <select class="form-control adj-action-select" onchange="ReturnsPage.calculateRow(this)" style="max-width: 110px; font-weight: 600; background: var(--bg-body); height: 38px;">
-                          <option value="add" style="color: var(--success);" ${adj.action === 'add' ? 'selected' : ''}>Add (+)</option>
-                          <option value="deduct" style="color: var(--danger);" ${adj.action === 'deduct' ? 'selected' : ''}>Deduct (-)</option>
-                        </select>
-                        <input type="number" class="form-control new-stock-input" min="0" placeholder="0" value="${adj.qty || ''}" oninput="ReturnsPage.calculateRow(this)" style="max-width: 110px; font-weight: 600; background: var(--bg-body); height: 38px;">
-                      </div>
-                    </td>
-                    <td style="padding: 16px;">
-                      <div class="new-available-cell" data-unit="${m.unit}" style="font-weight: 700; font-size: 1.15rem; color: ${cellColor}; background: ${cellBg}; padding: 8px 12px; border-radius: 8px; display: inline-block; min-width: 100px; text-align: center;">
-                        ${netStock.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${m.unit}</span>
-                      </div>
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-              ${filtered.length === 0 ? '<tr><td colspan="3" style="text-align:center;padding:40px;color:var(--text-tertiary)">No matching materials found</td></tr>' : ''}
-            </tbody>
-          </table>
+        <div class="table-container" id="returns-table-container" style="max-height: 65vh; overflow-y: auto;">
+          ${this.renderTableOnly()}
         </div>
         <div class="card-footer" style="padding: 20px; display: flex; justify-content: flex-end; background: var(--bg-card); border-top: 1px solid var(--border-color);">
             <button class="btn btn-primary" onclick="ReturnsPage.saveAll()" style="font-size: 1.1rem; padding: 12px 32px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);">
@@ -132,6 +64,74 @@ var ReturnsPage = {
             </button>
         </div>
       </div>
+    `;
+  },
+
+  renderTableOnly() {
+    const materials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
+    const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
+
+    const availableMap = {};
+    materials.forEach(m => {
+      availableMap[m.id] = Store.Inventory.getWarehouseBalanceOn(m.id, selectedDate);
+    });
+
+    const term = (this.searchTerm || '').toLowerCase().trim();
+    const filtered = materials.filter(m => {
+      if (!term) return true;
+      return m.name.toLowerCase().includes(term) || (m.sku || '').toLowerCase().includes(term);
+    });
+
+    return `
+      <table class="data-table" style="width: 100%; border-collapse: collapse;">
+        <thead style="position: sticky; top: 0; background: var(--bg-card); z-index: 10; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          <tr>
+            <th style="padding: 16px; font-weight: 600; color: var(--text-secondary); border-bottom: 2px solid var(--border-color);">MATERIAL</th>
+            <th style="padding: 16px; font-weight: 600; color: var(--success); border-bottom: 2px solid var(--border-color); width: 35%;">ADJUST STOCK</th>
+            <th style="padding: 16px; font-weight: 600; color: var(--text-primary); border-bottom: 2px solid var(--border-color); width: 25%;">AVAILABLE STOCK</th>
+          </tr>
+        </thead>
+        <tbody>
+           ${filtered.map(m => {
+            const currentStock = availableMap[m.id] || 0;
+            const adj = this.adjustments[m.id] || { action: 'add', qty: '' };
+            const adjQty = parseFloat(adj.qty) || 0;
+            const netStock = adj.action === 'add' ? (currentStock + adjQty) : (currentStock - adjQty);
+            let cellBg = 'var(--bg-body)';
+            let cellColor = 'var(--text-primary)';
+            if (adj.action === 'deduct' && adjQty > currentStock) {
+              cellBg = 'rgba(239, 68, 68, 0.1)';
+              cellColor = 'var(--danger)';
+            } else if (adjQty > 0) {
+              cellBg = adj.action === 'add' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)';
+              cellColor = adj.action === 'add' ? 'var(--success)' : 'var(--warning)';
+            }
+            return `
+              <tr data-mat-id="${m.id}" data-current-stock="${currentStock}" style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
+                <td style="padding: 16px;">
+                  <div style="font-weight: 600; font-size: 1rem; color: var(--text-primary);">${m.name}</div>
+                  <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-top: 4px;">${m.sku || '-'}</div>
+                </td>
+                <td style="padding: 16px;">
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <select class="form-control adj-action-select" onchange="ReturnsPage.calculateRow(this)" style="max-width: 110px; font-weight: 600; background: var(--bg-body); height: 38px;">
+                      <option value="add" style="color: var(--success);" ${adj.action === 'add' ? 'selected' : ''}>Add (+)</option>
+                      <option value="deduct" style="color: var(--danger);" ${adj.action === 'deduct' ? 'selected' : ''}>Deduct (-)</option>
+                    </select>
+                    <input type="number" class="form-control new-stock-input" min="0" placeholder="0" value="${adj.qty || ''}" oninput="ReturnsPage.calculateRow(this)" style="max-width: 110px; font-weight: 600; background: var(--bg-body); height: 38px;">
+                  </div>
+                </td>
+                <td style="padding: 16px;">
+                  <div class="new-available-cell" data-unit="${m.unit}" style="font-weight: 700; font-size: 1.15rem; color: ${cellColor}; background: ${cellBg}; padding: 8px 12px; border-radius: 8px; display: inline-block; min-width: 100px; text-align: center;">
+                    ${netStock.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${m.unit}</span>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+          ${filtered.length === 0 ? '<tr><td colspan="3" style="text-align:center;padding:40px;color:var(--text-tertiary)">No matching materials found</td></tr>' : ''}
+        </tbody>
+      </table>
     `;
   },
 
@@ -143,12 +143,9 @@ var ReturnsPage = {
 
   onSearch(val) {
     this.searchTerm = val;
-    this.refresh();
-    const input = document.getElementById('returns-search');
-    if (input) {
-      input.focus();
-      const len = input.value.length;
-      input.setSelectionRange(len, len);
+    const container = document.getElementById('returns-table-container');
+    if (container) {
+      container.innerHTML = this.renderTableOnly();
     }
   },
 
