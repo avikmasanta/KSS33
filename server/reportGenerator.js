@@ -314,39 +314,60 @@ async function generateDailyWarehouseSummary({ date, models }) {
           let totalSent = 0;
 
           // 1. Outgoing dispatches to this site
-          allOutgoing.filter(r => String(r.siteId) === String(site._id || site.id)).forEach(r => {
-            (r.items || []).forEach(i => {
-              if (String(i.materialId) === mId) {
-                totalSent += parseFloat(i.quantity) || 0;
-              }
-            });
+          allOutgoing.forEach(r => {
+            if (String(r.siteId) === String(site._id || site.id)) {
+              (r.items || []).forEach(i => {
+                const matIdStr = String(i.materialId || '');
+                if (matIdStr === mId) {
+                  totalSent += parseFloat(i.quantity) || 0;
+                }
+              });
+            }
           });
 
           // 2. Incoming dispatches direct to this site
-          allIncoming.filter(r => r.destinationType === 'site' && String(r.destinationSiteId) === String(site._id || site.id)).forEach(r => {
-            (r.items || []).forEach(i => {
-              if (String(i.materialId) === mId) {
-                totalSent += parseFloat(i.quantity) || 0;
-              }
-            });
+          allIncoming.forEach(r => {
+            if (r.destinationType === 'site' && String(r.destinationSiteId) === String(site._id || site.id)) {
+              (r.items || []).forEach(i => {
+                const matIdStr = String(i.materialId || '');
+                if (matIdStr === mId) {
+                  totalSent += parseFloat(i.quantity) || 0;
+                }
+              });
+            }
           });
 
           // 3. Site returns
           let totalReturned = 0;
-          allReturns.filter(r => String(r.siteId) === String(site._id || site.id) && String(r.materialId) === mId).forEach(r => {
-            totalReturned += parseFloat(r.quantity) || 0;
+          allReturns.forEach(r => {
+            if (String(r.siteId) === String(site._id || site.id)) {
+              const matIdStr = String(r.materialId || '');
+              if (matIdStr === mId) {
+                totalReturned += parseFloat(r.quantity) || 0;
+              }
+            }
           });
 
           // 4. Site usage
           let totalUsed = 0;
-          allUsage.filter(r => String(r.siteId) === String(site._id || site.id) && String(r.materialId) === mId).forEach(r => {
-            totalUsed += parseFloat(r.quantity) || 0;
+          allUsage.forEach(r => {
+            if (String(r.siteId) === String(site._id || site.id)) {
+              const matIdStr = String(r.materialId || '');
+              if (matIdStr === mId) {
+                totalUsed += parseFloat(r.quantity) || 0;
+              }
+            }
           });
 
           // 5. Site damaged
           let totalDamaged = 0;
-          allDamaged.filter(r => String(r.siteId) === String(site._id || site.id) && String(r.materialId) === mId).forEach(r => {
-            totalDamaged += parseFloat(r.quantity) || 0;
+          allDamaged.forEach(r => {
+            if (String(r.siteId) === String(site._id || site.id)) {
+              const matIdStr = String(r.materialId || '');
+              if (matIdStr === mId) {
+                totalDamaged += parseFloat(r.quantity) || 0;
+              }
+            }
           });
 
           const netRemaining = totalSent - totalReturned - totalUsed - totalDamaged;

@@ -186,19 +186,19 @@ const TelegramChatSchema = new mongoose.Schema({
 }, schemaOptions);
 
 module.exports = {
-  Customer: mongoose.model('Customer', CustomerSchema),
-  Site: mongoose.model('Site', SiteSchema),
-  Material: mongoose.model('Material', MaterialSchema),
-  Incoming: mongoose.model('Incoming', IncomingSchema),
-  Outgoing: mongoose.model('Outgoing', OutgoingSchema),
-  SiteUsage: mongoose.model('SiteUsage', SiteUsageSchema),
-  SiteReturns: mongoose.model('SiteReturns', SiteReturnsSchema),
-  SiteDamaged: mongoose.model('SiteDamaged', SiteDamagedSchema),
-  SiteExpenses: mongoose.model('SiteExpenses', SiteExpensesSchema),
-  SitePayments: mongoose.model('SitePayments', SitePaymentsSchema),
-  Transaction: mongoose.model('Transaction', TransactionSchema),
-  RentalSite: mongoose.model('RentalSite', RentalSiteSchema),
-  Category: mongoose.model('Category', CategorySchema),
+  Customer: mongoose.model('Customer', CustomerSchema, 'customers'),
+  Site: mongoose.model('Site', SiteSchema, 'sites'),
+  Material: mongoose.model('Material', MaterialSchema, 'materials'),
+  Incoming: mongoose.model('Incoming', IncomingSchema, 'incoming'),
+  Outgoing: mongoose.model('Outgoing', OutgoingSchema, 'outgoing'),
+  SiteUsage: mongoose.model('SiteUsage', SiteUsageSchema, 'siteUsage'),
+  SiteReturns: mongoose.model('SiteReturns', SiteReturnsSchema, 'siteReturns'),
+  SiteDamaged: mongoose.model('SiteDamaged', SiteDamagedSchema, 'siteDamaged'),
+  SiteExpenses: mongoose.model('SiteExpenses', SiteExpensesSchema, 'siteExpenses'),
+  SitePayments: mongoose.model('SitePayments', SitePaymentsSchema, 'sitePayments'),
+  Transaction: mongoose.model('Transaction', TransactionSchema, 'transactions'),
+  RentalSite: mongoose.model('RentalSite', RentalSiteSchema, 'rentalSites'),
+  Category: mongoose.model('Category', CategorySchema, 'categories'),
   TelegramChat: mongoose.model('TelegramChat', TelegramChatSchema, 'telegramChats')
 };
 
