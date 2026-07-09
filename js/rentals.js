@@ -474,22 +474,6 @@ var RentalsPage = {
 
     const record = this.selectedId ? Store.RentalSites.getById(this.selectedId) : null;
 
-    // Validate stock levels
-    let stockValid = true;
-    items.forEach(item => {
-      const prod = Store.Materials.getById(item.materialId);
-      if (prod) {
-        // If editing, exclude current quantity from calculation
-        const currentAllocated = record ? (record.items.find(i => i.materialId === item.materialId)?.quantity || 0) : 0;
-        const available = Store.Inventory.getWarehouseCurrentBalance(prod.id) + parseFloat(currentAllocated);
-        if (parseFloat(item.quantity) > available) {
-          alert(`Insufficient warehouse stock for "${prod.name}". Available: ${available} ${prod.unit}, Requested: ${item.quantity} ${prod.unit}`);
-          stockValid = false;
-        }
-      }
-    });
-
-    if (!stockValid) return;
 
     const data = {
       customerName,

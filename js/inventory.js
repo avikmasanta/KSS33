@@ -13,10 +13,16 @@ var InventoryPage = {
     let totalWarehouseValue = 0;
     let totalSiteValue = 0;
     let lowStockCount = 0;
+    let totalWarehouseSqFt = 0;
     overview.forEach(o => {
       totalWarehouseValue += o.warehouseStock * (o.material.unitPrice || 0);
       totalSiteValue += o.totalSiteStock * (o.material.unitPrice || 0);
       if (o.warehouseStock < o.reorderLevel) lowStockCount++;
+      
+      const sqFtPerUnit = parseFloat(o.material.sqFtPerUnit) || 0;
+      if (sqFtPerUnit > 0) {
+        totalWarehouseSqFt += (parseFloat(o.warehouseStock) || 0) * sqFtPerUnit;
+      }
     });
     const totalValue = totalWarehouseValue + totalSiteValue;
 
@@ -38,6 +44,27 @@ var InventoryPage = {
           </button>
         </div>
       </div>
+
+      <!-- Summary Cards -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div class="card" style="border-left: 4px solid var(--success); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 0;">
+          <div class="card-body" style="padding: 16px 20px;">
+            <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Warehouse Plate Stock</div>
+            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-top: 8px;">
+              ${totalWarehouseSqFt.toLocaleString('en-IN', { maximumFractionDigits: 2 })} <span style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary);">sq ft</span>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="border-left: 4px solid var(--primary); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 0;">
+          <div class="card-body" style="padding: 16px 20px;">
+            <div style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Total Inventory Value</div>
+            <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-top: 8px;">
+              ₹ ${totalValue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
+          </div>
+        </div>
+      </div>
+
 
       <!-- Split Layout -->
       <div class="split-layout">
@@ -122,6 +149,10 @@ var InventoryPage = {
         <tbody>
           ${filtered.map((o, i) => {
             const isLow = o.warehouseStock < o.reorderLevel;
+            const sqFtPerUnit = parseFloat(o.material.sqFtPerUnit) || 0;
+            const warehouseSqFt = o.warehouseStock * sqFtPerUnit;
+            const displaySqFt = sqFtPerUnit > 0 ? `<br><span class="badge badge-success" style="font-size: 0.75rem; padding: 2px 6px; margin-top: 4px; display: inline-block; font-weight: 600;">${warehouseSqFt.toLocaleString('en-IN', { maximumFractionDigits: 2 })} sq ft</span>` : '';
+            
             return `
               <tr>
                 <td class="secondary">${i + 1}</td>
@@ -133,9 +164,13 @@ var InventoryPage = {
                 <td style="color: var(--text-secondary); font-weight: 500;">${formatNum(o.totalPurchased || 0)}</td>
                 <td style="color: var(--danger); font-weight: 500;">+${formatNum(o.totalReturned || 0)}</td>
                 <td style="color: var(--warning); font-weight: 500;">-${formatNum(o.totalSent || 0)}</td>
-                <td style="color: var(--success); font-weight: 700;">${formatNum(o.warehouseStock)}</td>
+                <td style="color: var(--success); font-weight: 700;">
+                  ${formatNum(o.warehouseStock)}
+                  ${displaySqFt}
+                </td>
                 <td>${formatNum(o.totalSiteStock)}</td>
                 <td><strong>${formatNum(o.totalStock)}</strong></td>
+
                 <td>
                   <div class="table-actions">
                     <button class="btn btn-sm btn-primary" style="padding: 4px 8px; font-size: 12px; margin-right: 5px;" onclick="InventoryPage.openAdjustModal('${o.material.id}', '${o.material.name.replace(/'/g, "\\'")}', ${o.warehouseStock})">
