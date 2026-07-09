@@ -22,7 +22,8 @@ const Store = (() => {
     sitePayments: [],
     transactions: [],
     rentalSites: [],
-    categories: []
+    categories: [],
+    telegramChats: []
   };
 
   // Maps collection store key to cache object key and API endpoint
@@ -39,7 +40,8 @@ const Store = (() => {
     bm_sitePayments: { cacheKey: 'sitePayments', url: 'sitePayments' },
     bm_transactions: { cacheKey: 'transactions', url: 'transactions' },
     bm_rentalSites: { cacheKey: 'rentalSites', url: 'rentalSites' },
-    bm_categories: { cacheKey: 'categories', url: 'categories' }
+    bm_categories: { cacheKey: 'categories', url: 'categories' },
+    bm_telegramChats: { cacheKey: 'telegramChats', url: 'telegramChats' }
   };
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
@@ -306,6 +308,7 @@ const Store = (() => {
   const TransactionsStore = makeStore('bm_transactions');
   const RentalSitesStore = makeStore('bm_rentalSites');
   const CategoriesStore  = makeStore('bm_categories');
+  const TelegramChatsStore = makeStore('bm_telegramChats');
  
   const Customers    = CustomersStore;
   const Categories   = CategoriesStore;
@@ -318,6 +321,7 @@ const Store = (() => {
   const SiteExpenses = ExpensesStore;
   const Transactions = TransactionsStore;
   const RentalSites   = RentalSitesStore;
+  const TelegramChats = TelegramChatsStore;
 
 
   function logTransaction(materialId, quantity, action, siteId = '') {
@@ -993,6 +997,6 @@ const Store = (() => {
     return { totalIssued, totalReturned, daily };
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
 
 })();

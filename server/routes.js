@@ -81,6 +81,7 @@ router.use('/siteExpenses', createCrudRoutes('SiteExpenses', models.SiteExpenses
 router.use('/sitePayments', createCrudRoutes('SitePayments', models.SitePayments));
 router.use('/transactions', createCrudRoutes('Transaction', models.Transaction));
 router.use('/rentalSites', createCrudRoutes('RentalSite', models.RentalSite));
+router.use('/telegramChats', createCrudRoutes('TelegramChat', models.TelegramChat));
 
 
 // Special Cascade Delete for Sites
@@ -117,6 +118,67 @@ router.post('/reset-stock', async (req, res) => {
     res.json({ message: 'Stock reset completed' });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// Daily Warehouse Summary Telegram endpoints
+router.get('/telegram-report/preview', async (req, res) => {
+  function getYesterdayIST() {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+    const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+    const yesterday = new Date(istTime.getTime() - 24 * 60 * 60 * 1000);
+    return yesterday.toISOString().split('T')[0];
+  }
+
+  const reportDate = req.query.date || getYesterdayIST();
+  const reportModels = {
+    Material: models.Material,
+    Incoming: models.Incoming,
+    Outgoing: models.Outgoing,
+    SiteReturns: models.SiteReturns,
+    RentalSite: models.RentalSite,
+    Site: models.Site,
+    TelegramChat: models.TelegramChat
+  };
+
+  try {
+    const { generateDailyWarehouseSummary } = require('./reportGenerator');
+    const pdfBuffer = await generateDailyWarehouseSummary({ date: reportDate, models: reportModels });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="KSS_Warehouse_Summary_${reportDate}.pdf"`);
+    res.status(200).send(pdfBuffer);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate PDF preview: ' + err.message });
+  }
+});
+
+router.all('/telegram-report/send', async (req, res) => {
+  function getYesterdayIST() {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+    const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+    const yesterday = new Date(istTime.getTime() - 24 * 60 * 60 * 1000);
+    return yesterday.toISOString().split('T')[0];
+  }
+
+  const reportDate = req.query.date || getYesterdayIST();
+  const reportModels = {
+    Material: models.Material,
+    Incoming: models.Incoming,
+    Outgoing: models.Outgoing,
+    SiteReturns: models.SiteReturns,
+    RentalSite: models.RentalSite,
+    Site: models.Site,
+    TelegramChat: models.TelegramChat
+  };
+
+  try {
+    const { sendTelegramReport } = require('./telegramService');
+    const result = await sendTelegramReport({ date: reportDate, models: reportModels });
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send Telegram report: ' + err.message });
   }
 });
 

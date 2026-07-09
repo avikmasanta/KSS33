@@ -2,6 +2,8 @@
   "name": "kss33-api",
   "version": "1.0.0",
   "dependencies": {
-    "mongoose": "^8.0.0"
+    "mongoose": "^8.0.0",
+    "pdfkit": "^0.15.0",
+    "node-cron": "^3.0.3"
   }
 }

@@ -179,6 +179,12 @@ const CategorySchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+const TelegramChatSchema = new mongoose.Schema({
+  _id: String, // Chat ID
+  name: String, // Chat name/label
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema),
   Site: mongoose.model('Site', SiteSchema),
@@ -192,7 +198,8 @@ module.exports = {
   SitePayments: mongoose.model('SitePayments', SitePaymentsSchema),
   Transaction: mongoose.model('Transaction', TransactionSchema),
   RentalSite: mongoose.model('RentalSite', RentalSiteSchema),
-  Category: mongoose.model('Category', CategorySchema)
+  Category: mongoose.model('Category', CategorySchema),
+  TelegramChat: mongoose.model('TelegramChat', TelegramChatSchema, 'telegramChats')
 };
 
 

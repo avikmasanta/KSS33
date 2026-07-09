@@ -7,7 +7,8 @@ var ReportsPage = {
     const reports = [
       { id: 'stock-summary', title: 'Stock Summary Report', desc: 'Current stock levels across all products', icon: 'box', color: '#3b82f6', colorBg: '#dbeafe' },
       { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' },
-      { id: 'site-cost', title: 'Site Cost & Material Report', desc: 'Total project cost, materials issued & returned per site', icon: 'mapPin', color: '#8b5cf6', colorBg: '#ede9fe' }
+      { id: 'site-cost', title: 'Site Cost & Material Report', desc: 'Total project cost, materials issued & returned per site', icon: 'mapPin', color: '#8b5cf6', colorBg: '#ede9fe' },
+      { id: 'telegram-summary', title: 'Telegram Reports', desc: 'Configure Telegram Bot chat alerts and send daily summaries', icon: 'settings', color: '#f59e0b', colorBg: '#fef3c7' }
     ];
 
     return `
@@ -107,6 +108,101 @@ var ReportsPage = {
                   `).join('')}
                 </tbody>
               </table>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'telegram-summary': {
+        const chats = Store.TelegramChats.getAll();
+        const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        content = `
+          <div class="card slide-up">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>Telegram Bot & Daily Reports</h3>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
+            </div>
+            <div class="card-body">
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:24px;">
+                
+                <!-- Left: Configured Chats -->
+                <div>
+                  <h4 style="margin-bottom:12px;color:var(--text-primary);">Configured Chats / Groups</h4>
+                  <div class="table-container" style="border: 1px solid var(--border-color); border-radius:8px;">
+                    <table class="data-table" style="width:100%;">
+                      <thead>
+                        <tr>
+                          <th>Chat ID</th>
+                          <th>Name / Label</th>
+                          <th style="text-align:right;">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${chats.map(c => `
+                          <tr>
+                            <td><code style="font-family:monospace;background:var(--bg-body);padding:2px 6px;border-radius:4px;">${c.id}</code></td>
+                            <td><strong>${c.name || 'Group Chat'}</strong></td>
+                            <td style="text-align:right;">
+                              <button class="btn btn-icon btn-ghost" onclick="ReportsPage.deleteTelegramChat('${c.id}')" title="Delete Chat" style="color:var(--danger); border:none; background:none; cursor:pointer;">
+                                ${Icons.trash}
+                              </button>
+                            </td>
+                          </tr>
+                        `).join('')}
+                        ${chats.length === 0 ? `
+                          <tr>
+                            <td colspan="3" style="text-align:center;padding:24px;color:var(--text-tertiary);">No chats registered yet. Add one below!</td>
+                          </tr>
+                        ` : ''}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Form to add chat -->
+                  <div style="margin-top:20px; background:var(--bg-body); padding:16px; border-radius:8px; border:1px solid var(--border-color);">
+                    <h5 style="margin:0 0 12px 0; color:var(--text-primary);">Add Telegram Chat / Group</h5>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <input type="text" id="tg-chat-id" class="form-control" placeholder="e.g. -100123456789 or 123456" style="flex:1; min-width:140px; background: var(--bg-card);">
+                      <input type="text" id="tg-chat-name" class="form-control" placeholder="Group/User Name" style="flex:1; min-width:140px; background: var(--bg-card);">
+                      <button class="btn btn-primary" onclick="ReportsPage.addTelegramChat()">Add</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right: Test / Preview Actions -->
+                <div>
+                  <h4 style="margin-bottom:12px;color:var(--text-primary);">Send / Preview Report</h4>
+                  <div style="background:var(--bg-body); padding:20px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:20px;">
+                    <div class="form-group" style="margin-bottom:15px;">
+                      <label>Select Report Target Date</label>
+                      <input type="date" id="tg-report-date" class="form-control" value="${yesterday}" style="background: var(--bg-card);">
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <button class="btn btn-outline" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.previewTelegramReport()">
+                        ${Icons.fileText} Preview PDF
+                      </button>
+                      <button class="btn btn-success" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.sendTelegramReportNow()">
+                        ${Icons.check} Send to Telegram
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Guide/Help Card -->
+                  <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius:12px; padding:16px; color:#1e40af;">
+                    <h5 style="margin:0 0 8px 0; font-weight:700; color:#1e3a8a;">🤖 Telegram Bot Setup Instructions</h5>
+                    <p style="font-size:0.8rem; margin:0; line-height:1.5;">
+                      1. Open Telegram and search for <strong>@KSS33_bot</strong> (or click <a href="https://t.me/KSS33_bot" target="_blank" style="font-weight:700; text-decoration:underline;">t.me/KSS33_bot</a>).<br>
+                      2. Add the bot to your group, or start a direct chat with it.<br>
+                      3. Send a message like <strong>/start</strong> to wake up the bot.<br>
+                      4. To find the chat ID, search for <strong>@userinfobot</strong> in Telegram and start it to see your user ID, or use <strong>@MissRose_bot</strong> in your group (command <code>/id</code>).<br>
+                      5. Register that ID here to receive automatic morning reports!
+                    </p>
+                  </div>
+                </div>
+
+              </div>
             </div>
           </div>
         `;
@@ -711,5 +807,79 @@ var ReportsPage = {
         </table>
       </div>
     `;
+  },
+
+  async addTelegramChat() {
+    const idInput = document.getElementById('tg-chat-id');
+    const nameInput = document.getElementById('tg-chat-name');
+    if (!idInput || !nameInput) return;
+
+    const id = idInput.value.trim();
+    const name = nameInput.value.trim();
+
+    if (!id || !name) {
+      alert('Please fill out both Chat ID and Name/Label.');
+      return;
+    }
+
+    try {
+      await Store.TelegramChats.addAsync({ id, name });
+      alert('Telegram Chat added successfully!');
+      this.generate('telegram-summary');
+    } catch (err) {
+      alert('Failed to add Telegram Chat: ' + err.message);
+    }
+  },
+
+  async deleteTelegramChat(id) {
+    if (confirm('Are you sure you want to remove this Telegram Chat?\nIt will no longer receive daily reports.')) {
+      try {
+        await Store.TelegramChats.remove(id);
+        alert('Telegram Chat removed successfully!');
+        this.generate('telegram-summary');
+      } catch (err) {
+        alert('Failed to remove: ' + err.message);
+      }
+    }
+  },
+
+  previewTelegramReport() {
+    const dateInput = document.getElementById('tg-report-date');
+    if (!dateInput) return;
+    const date = dateInput.value;
+    const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : '/api';
+    window.open(`${API_URL}/telegram-report/preview?date=${date}`, '_blank');
+  },
+
+  async sendTelegramReportNow() {
+    const dateInput = document.getElementById('tg-report-date');
+    if (!dateInput) return;
+    const date = dateInput.value;
+
+    const btn = document.querySelector('button[onclick="ReportsPage.sendTelegramReportNow()"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+
+    const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : '/api';
+
+    try {
+      const res = await fetch(`${API_URL}/telegram-report/send?date=${date}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Report sent successfully! Details: ' + data.message);
+      } else {
+        alert('Failed to send report: ' + (data.error || data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error sending report: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
   }
 };

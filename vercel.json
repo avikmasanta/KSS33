@@ -4,6 +4,12 @@
       "maxDuration": 10
     }
   },
+  "crons": [
+    {
+      "path": "/api/telegram-report/send",
+      "schedule": "30 2 * * *"
+    }
+  ],
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/[...route]" },
     { "source": "/(.*)", "destination": "/index.html" }

@@ -28,6 +28,7 @@ const schemas = {
   transactions: new mongoose.Schema({ _id: String, materialId: String, materialName: String, quantity: Number, action: String, siteId: String, siteName: String, date: String, user: String, createdAt: String }, schemaOptions),
   rentalSites: new mongoose.Schema({ _id: String, customerName: String, siteName: String, goingDate: String, comingDate: String, status: { type: String, default: 'Active' }, items: [{ materialId: String, quantity: Number, rate: Number }], createdAt: String }, schemaOptions),
   categories: new mongoose.Schema({ _id: String, sortOrder: { type: Number, default: 999 }, createdAt: String }, schemaOptions),
+  telegramChats: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
 };
 
 
@@ -77,6 +78,53 @@ module.exports = async function handler(req, res) {
   const collection = segments[0];
   const id = segments[1];
   const action = segments[2]; // e.g. "cascade"
+
+  if (collection === 'telegram-report') {
+    function getYesterdayIST() {
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+      const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+      const yesterday = new Date(istTime.getTime() - 24 * 60 * 60 * 1000);
+      return yesterday.toISOString().split('T')[0];
+    }
+
+    const dateParam = req.query?.date || new URL(`http://localhost${req.url}`).searchParams.get('date');
+    const reportDate = dateParam || getYesterdayIST();
+
+    const reportModels = {
+      Material: getModel('materials'),
+      Incoming: getModel('incoming'),
+      Outgoing: getModel('outgoing'),
+      SiteReturns: getModel('siteReturns'),
+      RentalSite: getModel('rentalSites'),
+      Site: getModel('sites'),
+      TelegramChat: getModel('telegramChats')
+    };
+
+    if (id === 'preview') {
+      try {
+        const { generateDailyWarehouseSummary } = require('../server/reportGenerator');
+        const pdfBuffer = await generateDailyWarehouseSummary({ date: reportDate, models: reportModels });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="KSS_Warehouse_Summary_${reportDate}.pdf"`);
+        return res.status(200).send(pdfBuffer);
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to generate PDF preview: ' + err.message });
+      }
+    }
+
+    if (id === 'send') {
+      try {
+        const { sendTelegramReport } = require('../server/telegramService');
+        const result = await sendTelegramReport({ date: reportDate, models: reportModels });
+        return json(res, 200, result);
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to send Telegram report: ' + err.message });
+      }
+    }
+
+    return json(res, 400, { error: 'Invalid telegram-report action. Use /preview or /send' });
+  }
 
   if (collection === 'reset-stock') {
     if (req.method === 'POST') {
