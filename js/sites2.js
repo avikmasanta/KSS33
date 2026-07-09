@@ -126,7 +126,13 @@ var SitesPage = {
               </div>
               <div class="form-group" id="site-initial-materials-container" style="display: none;">
                 <hr style="margin: 15px 0;">
-                <label style="margin-bottom:10px;">Initial Material Dispatch (Optional)</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                  <label style="margin:0;">Initial Material Dispatch (Optional)</label>
+                  <div class="search-input" style="max-width:200px; margin:0; height:34px;">
+                    ${Icons.search}
+                    <input type="text" placeholder="Search material..." id="site-init-mat-search" style="padding:6px 12px 6px 30px; font-size:0.85rem;" oninput="SitesPage.onInitMatSearch(this.value)">
+                  </div>
+                </div>
                 <p class="text-sm text-tertiary mb-2">Enter quantities to dispatch materials to this site immediately upon creation.</p>
                 <div id="site-initial-materials-list"></div>
               </div>
@@ -268,6 +274,9 @@ var SitesPage = {
 
       if (matContainer) {
         matContainer.style.display = 'block';
+        this.initMatSearchTerm = '';
+        const searchInput = document.getElementById('site-init-mat-search');
+        if (searchInput) searchInput.value = '';
         // Pre-populate ALL materials sorted (plates first) — user only types quantities
         const allMaterials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
         this.initItems = allMaterials.map(m => ({ materialId: m.id, quantity: '', returned: '' }));
@@ -289,6 +298,8 @@ var SitesPage = {
       return;
     }
 
+    const searchStr = (this.initMatSearchTerm || '').toLowerCase().trim();
+
     let html = `
       <table class="inline-table w-100 mb-2" style="border-collapse:collapse;">
         <thead>
@@ -302,9 +313,16 @@ var SitesPage = {
         <tbody>
     `;
 
+    let matchedCount = 0;
     this.initItems.forEach((item, idx) => {
       const mat = materials.find(m => m.id === item.materialId);
       if (!mat) return;
+
+      const matchName = mat.name.toLowerCase().includes(searchStr);
+      const matchSku = (mat.sku || '').toLowerCase().includes(searchStr);
+      if (searchStr && !matchName && !matchSku) return;
+
+      matchedCount++;
       const sqFtPer = Store.Materials.getSqFtPerUnit ? Store.Materials.getSqFtPerUnit(mat.id) : 0;
       const isPlate = sqFtPer > 0;
       const qty = parseFloat(item.quantity) || 0;
@@ -356,12 +374,21 @@ var SitesPage = {
       `;
     });
 
+    if (matchedCount === 0) {
+      html += `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-tertiary);font-size:0.9rem;">No matching materials found</td></tr>`;
+    }
+
     html += `
         </tbody>
       </table>
     `;
 
     list.innerHTML = html;
+  },
+
+  onInitMatSearch(val) {
+    this.initMatSearchTerm = val;
+    this.renderInitItems();
   },
 
   updateSqFtDisplay(idx) {
@@ -460,20 +487,6 @@ var SitesPage = {
           try { localStorage.setItem('bm_sites', JSON.stringify(Store.Sites.getAll())); } catch(e) {}
         }
 
-      // Sync DOM state for initial materials — read from data attributes (no dropdowns)
-      const initRows = document.querySelectorAll('#site-initial-materials-list tbody tr');
-      if (initRows.length > 0) {
-        this.initItems = Array.from(initRows).map(row => {
-          const qtyInput = row.querySelector('input[data-field="quantity"]');
-          const retInput = row.querySelector('input[data-field="returned"]');
-          const matId = qtyInput ? qtyInput.getAttribute('data-material-id') : '';
-          return {
-            materialId: matId,
-            quantity: qtyInput ? qtyInput.value : '',
-            returned: retInput ? retInput.value : ''
-          };
-        });
-      }
 
       // Process initial materials
       let items = [];
