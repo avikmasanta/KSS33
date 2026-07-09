@@ -290,20 +290,19 @@ var SitesPage = {
     }
 
     let html = `
-      <table class="inline-table w-100 mb-2">
+      <table class="inline-table w-100 mb-2" style="border-collapse:collapse;">
         <thead>
-          <tr>
-            <th style="width:42%">Material</th>
-            <th style="width:20%; color: var(--success)">Received at Site</th>
-            <th style="width:20%; color: var(--danger)">Returned from Site</th>
-            <th style="width:18%; color: #15803d; font-size:0.75rem;">&#9633; Sq Ft</th>
+          <tr style="border-bottom: 2px solid var(--border-color);">
+            <th style="width:44%; padding: 10px 8px; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-tertiary); font-weight:600;">Material</th>
+            <th style="width:19%; padding: 10px 8px; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#16a34a; font-weight:600; text-align:center;">Received</th>
+            <th style="width:19%; padding: 10px 8px; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#dc2626; font-weight:600; text-align:center;">Returned</th>
+            <th style="width:18%; padding: 10px 8px; font-size:0.72rem; text-transform:uppercase; letter-spacing:0.5px; color:#15803d; font-weight:600; text-align:center;">Sq Ft</th>
           </tr>
         </thead>
         <tbody>
     `;
 
     this.initItems.forEach((item, idx) => {
-      // Find mat from sorted list (by index mapping)
       const mat = materials.find(m => m.id === item.materialId);
       if (!mat) return;
       const sqFtPer = Store.Materials.getSqFtPerUnit ? Store.Materials.getSqFtPerUnit(mat.id) : 0;
@@ -311,12 +310,12 @@ var SitesPage = {
       const qty = parseFloat(item.quantity) || 0;
       const totalSqFt = qty * sqFtPer;
       html += `
-        <tr id="init-row-${idx}" style="${isPlate ? 'background: rgba(240,253,244,0.3);' : ''}">
-          <td>
-            <div style="font-weight: 600; font-size: 0.95rem;">${mat.name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat.unit}${mat.sku ? ' &bull; ' + mat.sku : ''}${isPlate ? ` &bull; <span style="color:#15803d;font-weight:600;">${sqFtPer} sq ft/unit</span>` : ''}</div>
+        <tr id="init-row-${idx}" style="border-bottom: 1px solid var(--border-color);">
+          <td style="padding: 10px 8px;">
+            <div style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;">${mat.name}</div>
+            <div style="font-size: 0.72rem; color: var(--text-tertiary); margin-top: 1px;">${mat.unit}${mat.sku ? ' · ' + mat.sku : ''}</div>
           </td>
-          <td>
+          <td style="padding: 8px 6px; text-align:center;">
             <input
               type="number"
               class="form-control"
@@ -328,10 +327,11 @@ var SitesPage = {
               data-idx="${idx}"
               data-field="quantity"
               value="${item.quantity || ''}"
-              oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'quantity', this.value); SitesPage.updateSqFtDisplay(${idx}, '${mat.id}');"
+              style="text-align:center; padding: 6px 4px;"
+              oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'quantity', this.value); SitesPage.updateSqFtDisplay(${idx});"
             >
           </td>
-          <td>
+          <td style="padding: 8px 6px; text-align:center;">
             <input
               type="number"
               class="form-control"
@@ -341,11 +341,16 @@ var SitesPage = {
               data-material-id="${mat.id}"
               data-field="returned"
               value="${item.returned || ''}"
+              style="text-align:center; padding: 6px 4px;"
               oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'returned', this.value)"
             >
           </td>
-          <td id="sqft-display-${idx}" style="font-weight:700; font-size:0.85rem; color:${isPlate ? '#15803d' : 'var(--text-tertiary)'}; text-align:center;">
-            ${isPlate ? (totalSqFt > 0 ? (totalSqFt % 1 === 0 ? totalSqFt : totalSqFt.toFixed(2)) + ' sq ft' : `<span style="color:var(--text-tertiary);font-weight:400;">${sqFtPer}/unit</span>`) : '—'}
+          <td id="sqft-display-${idx}" style="padding: 8px 6px; text-align:center; vertical-align:middle;">
+            ${isPlate
+              ? (totalSqFt > 0
+                  ? `<span style="background:#dcfce7;color:#15803d;border-radius:6px;padding:3px 8px;font-size:0.78rem;font-weight:700;white-space:nowrap;">${totalSqFt % 1 === 0 ? totalSqFt : totalSqFt.toFixed(2)} sq ft</span>`
+                  : `<span style="color:var(--text-tertiary);font-size:0.75rem;">${sqFtPer}/unit</span>`)
+              : `<span style="color:var(--border-color);">—</span>`}
           </td>
         </tr>
       `;
@@ -359,7 +364,7 @@ var SitesPage = {
     list.innerHTML = html;
   },
 
-  updateSqFtDisplay(idx, matId) {
+  updateSqFtDisplay(idx) {
     const input = document.querySelector(`input[data-idx="${idx}"][data-field="quantity"]`);
     const display = document.getElementById(`sqft-display-${idx}`);
     if (!input || !display) return;
@@ -367,11 +372,12 @@ var SitesPage = {
     if (sqFtPer <= 0) return;
     const qty = parseFloat(input.value) || 0;
     const total = qty * sqFtPer;
-    display.style.color = qty > 0 ? '#15803d' : 'var(--text-tertiary)';
-    display.style.fontWeight = qty > 0 ? '700' : '400';
-    display.innerHTML = qty > 0
-      ? (total % 1 === 0 ? total.toLocaleString('en-IN') : total.toFixed(2)) + ' sq ft'
-      : `<span style="color:var(--text-tertiary);font-weight:400;">${sqFtPer}/unit</span>`;
+    if (qty > 0) {
+      const formatted = total % 1 === 0 ? total.toLocaleString('en-IN') : total.toFixed(2);
+      display.innerHTML = `<span style="background:#dcfce7;color:#15803d;border-radius:6px;padding:3px 8px;font-size:0.78rem;font-weight:700;white-space:nowrap;">${formatted} sq ft</span>`;
+    } else {
+      display.innerHTML = `<span style="color:var(--text-tertiary);font-size:0.75rem;">${sqFtPer}/unit</span>`;
+    }
   },
 
   onInitNumInput(idx, field, value) {
