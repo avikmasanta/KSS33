@@ -446,7 +446,7 @@ const Store = (() => {
     },
 
     getOverview: () => {
-      const materials   = cache.materials;
+      const materials   = Materials.getSorted ? Materials.getSorted() : cache.materials;
       const allIncoming = cache.incoming;
       const allOutgoing = cache.outgoing;
       const siteReturns = cache.siteReturns;

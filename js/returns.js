@@ -4,7 +4,7 @@
 
 var ReturnsPage = {
   render() {
-    const materials = Store.Materials.getAll();
+    const materials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
     const selectedDate = this.selectedDate || new Date().toISOString().split('T')[0];
 
     // Get historical warehouse stock for each material as of selected date
