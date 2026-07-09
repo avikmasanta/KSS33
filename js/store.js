@@ -344,19 +344,33 @@ const Store = (() => {
       return SitesStore.update(id, { status: 'Archived', archivedAt: new Date().toISOString() });
     },
     hardDelete: async (id) => {
-      // Cascade delete all associated records (null-safe filters)
-      Outgoing.getAll().filter(r => r && r.siteId === id).forEach(r => Outgoing.remove(r.id));
-      Incoming.getAll().filter(r => r && r.destinationType === 'site' && r.destinationSiteId === id).forEach(r => Incoming.remove(r.id));
-      SiteReturns.getAll().filter(r => r && r.siteId === id).forEach(r => SiteReturns.remove(r.id));
-      SiteUsage.getAll().filter(r => r && r.siteId === id).forEach(r => SiteUsage.remove(r.id));
-      SiteDamaged.getAll().filter(r => r && r.siteId === id).forEach(r => SiteDamaged.remove(r.id));
-      SiteExpenses.getAll().filter(r => r && r.siteId === id).forEach(r => SiteExpenses.remove(r.id));
-      SitePayments.getAll().filter(r => r && r.siteId === id).forEach(r => SitePayments.remove(r.id));
+      // 1. Instantly update all client caches locally
+      cache.outgoing = (cache.outgoing || []).filter(r => r && r.siteId !== id);
+      cache.incoming = (cache.incoming || []).filter(r => r && !(r.destinationType === 'site' && r.destinationSiteId === id));
+      cache.siteReturns = (cache.siteReturns || []).filter(r => r && r.siteId !== id);
+      cache.siteUsage = (cache.siteUsage || []).filter(r => r && r.siteId !== id);
+      cache.siteDamaged = (cache.siteDamaged || []).filter(r => r && r.siteId !== id);
+      cache.siteExpenses = (cache.siteExpenses || []).filter(r => r && r.siteId !== id);
+      cache.sitePayments = (cache.sitePayments || []).filter(r => r && r.siteId !== id);
+      cache.sites = (cache.sites || []).filter(r => r && r.id !== id);
 
-      // Perform a real deletion from the database
-      return await SitesStore.remove(id);
+      persistLocal('bm_outgoing', cache.outgoing);
+      persistLocal('bm_incoming', cache.incoming);
+      persistLocal('bm_siteReturns', cache.siteReturns);
+      persistLocal('bm_siteUsage', cache.siteUsage);
+      persistLocal('bm_siteDamaged', cache.siteDamaged);
+      persistLocal('bm_siteExpenses', cache.siteExpenses);
+      persistLocal('bm_sitePayments', cache.sitePayments);
+      persistLocal('bm_sites', cache.sites);
+
+      // 2. Perform a single cascade delete on backend
+      const r = await fetch(`${API_URL}/sites/${id}/cascade`, {
+        method: 'DELETE'
+      });
+      return await r.json();
     }
   };
+
 
   const Auth = {
     login(email, password) {
