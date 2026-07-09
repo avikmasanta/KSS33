@@ -26,6 +26,7 @@ const schemas = {
   siteExpenses: new mongoose.Schema({ _id: String, siteId: String, date: String, amount: Number, category: String, description: String, createdAt: String }, schemaOptions),
   sitePayments: new mongoose.Schema({ _id: String, siteId: String, date: String, amount: Number, paymentMode: String, reference: String, notes: String, createdAt: String }, schemaOptions),
   transactions: new mongoose.Schema({ _id: String, materialId: String, materialName: String, quantity: Number, action: String, siteId: String, siteName: String, date: String, user: String, createdAt: String }, schemaOptions),
+  rentalSites: new mongoose.Schema({ _id: String, customerName: String, siteName: String, goingDate: String, comingDate: String, status: { type: String, default: 'Active' }, items: [{ materialId: String, quantity: Number, rate: Number }], createdAt: String }, schemaOptions),
 };
 
 // ─── Models (cached across warm invocations) ──────────────────────
