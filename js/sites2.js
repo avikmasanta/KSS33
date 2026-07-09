@@ -268,8 +268,8 @@ var SitesPage = {
 
       if (matContainer) {
         matContainer.style.display = 'block';
-        // Pre-populate ALL materials — user only types quantities
-        const allMaterials = Store.Materials.getAll();
+        // Pre-populate ALL materials sorted (plates first) — user only types quantities
+        const allMaterials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
         this.initItems = allMaterials.map(m => ({ materialId: m.id, quantity: '', returned: '' }));
         this.renderInitItems();
       }
@@ -282,7 +282,7 @@ var SitesPage = {
     const list = document.getElementById('site-initial-materials-list');
     if (!list) return;
 
-    const materials = Store.Materials.getAll();
+    const materials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
 
     if (this.initItems.length === 0) {
       list.innerHTML = '<p class="text-sm text-tertiary">No materials found. Add materials in the Products page first.</p>';
@@ -293,22 +293,28 @@ var SitesPage = {
       <table class="inline-table w-100 mb-2">
         <thead>
           <tr>
-            <th style="width:45%">Material</th>
-            <th style="width:22%; color: var(--success)">Received at Site</th>
-            <th style="width:22%; color: var(--danger)">Returned from Site</th>
+            <th style="width:42%">Material</th>
+            <th style="width:20%; color: var(--success)">Received at Site</th>
+            <th style="width:20%; color: var(--danger)">Returned from Site</th>
+            <th style="width:18%; color: #15803d; font-size:0.75rem;">&#9633; Sq Ft</th>
           </tr>
         </thead>
         <tbody>
     `;
 
     this.initItems.forEach((item, idx) => {
+      // Find mat from sorted list (by index mapping)
       const mat = materials.find(m => m.id === item.materialId);
       if (!mat) return;
+      const sqFtPer = Store.Materials.getSqFtPerUnit ? Store.Materials.getSqFtPerUnit(mat.id) : 0;
+      const isPlate = sqFtPer > 0;
+      const qty = parseFloat(item.quantity) || 0;
+      const totalSqFt = qty * sqFtPer;
       html += `
-        <tr>
+        <tr id="init-row-${idx}" style="${isPlate ? 'background: rgba(240,253,244,0.3);' : ''}">
           <td>
             <div style="font-weight: 600; font-size: 0.95rem;">${mat.name}</div>
-            <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat.unit}${mat.sku ? ' &bull; ' + mat.sku : ''}</div>
+            <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat.unit}${mat.sku ? ' &bull; ' + mat.sku : ''}${isPlate ? ` &bull; <span style="color:#15803d;font-weight:600;">${sqFtPer} sq ft/unit</span>` : ''}</div>
           </td>
           <td>
             <input
@@ -318,9 +324,11 @@ var SitesPage = {
               min="0"
               step="1"
               data-material-id="${mat.id}"
+              data-sqft-per="${sqFtPer}"
+              data-idx="${idx}"
               data-field="quantity"
               value="${item.quantity || ''}"
-              oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'quantity', this.value)"
+              oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'quantity', this.value); SitesPage.updateSqFtDisplay(${idx}, '${mat.id}');"
             >
           </td>
           <td>
@@ -336,6 +344,9 @@ var SitesPage = {
               oninput="this.value = this.value.replace(/[^0-9.]/g, ''); SitesPage.onInitNumInput(${idx}, 'returned', this.value)"
             >
           </td>
+          <td id="sqft-display-${idx}" style="font-weight:700; font-size:0.85rem; color:${isPlate ? '#15803d' : 'var(--text-tertiary)'}; text-align:center;">
+            ${isPlate ? (totalSqFt > 0 ? (totalSqFt % 1 === 0 ? totalSqFt : totalSqFt.toFixed(2)) + ' sq ft' : `<span style="color:var(--text-tertiary);font-weight:400;">${sqFtPer}/unit</span>`) : '—'}
+          </td>
         </tr>
       `;
     });
@@ -346,6 +357,21 @@ var SitesPage = {
     `;
 
     list.innerHTML = html;
+  },
+
+  updateSqFtDisplay(idx, matId) {
+    const input = document.querySelector(`input[data-idx="${idx}"][data-field="quantity"]`);
+    const display = document.getElementById(`sqft-display-${idx}`);
+    if (!input || !display) return;
+    const sqFtPer = parseFloat(input.getAttribute('data-sqft-per')) || 0;
+    if (sqFtPer <= 0) return;
+    const qty = parseFloat(input.value) || 0;
+    const total = qty * sqFtPer;
+    display.style.color = qty > 0 ? '#15803d' : 'var(--text-tertiary)';
+    display.style.fontWeight = qty > 0 ? '700' : '400';
+    display.innerHTML = qty > 0
+      ? (total % 1 === 0 ? total.toLocaleString('en-IN') : total.toFixed(2)) + ' sq ft'
+      : `<span style="color:var(--text-tertiary);font-weight:400;">${sqFtPer}/unit</span>`;
   },
 
   onInitNumInput(idx, field, value) {
