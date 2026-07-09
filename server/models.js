@@ -150,6 +150,21 @@ const TransactionSchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+const RentalSiteSchema = new mongoose.Schema({
+  _id: String,
+  customerName: String,
+  siteName: String,
+  goingDate: String,
+  comingDate: String,
+  status: { type: String, default: 'Active' },
+  items: [{
+    materialId: String,
+    quantity: Number,
+    rate: Number
+  }],
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema),
   Site: mongoose.model('Site', SiteSchema),
@@ -161,5 +176,6 @@ module.exports = {
   SiteDamaged: mongoose.model('SiteDamaged', SiteDamagedSchema),
   SiteExpenses: mongoose.model('SiteExpenses', SiteExpensesSchema),
   SitePayments: mongoose.model('SitePayments', SitePaymentsSchema),
-  Transaction: mongoose.model('Transaction', TransactionSchema)
+  Transaction: mongoose.model('Transaction', TransactionSchema),
+  RentalSite: mongoose.model('RentalSite', RentalSiteSchema)
 };

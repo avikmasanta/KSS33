@@ -78,6 +78,8 @@ router.use('/siteDamaged', createCrudRoutes('SiteDamaged', models.SiteDamaged));
 router.use('/siteExpenses', createCrudRoutes('SiteExpenses', models.SiteExpenses));
 router.use('/sitePayments', createCrudRoutes('SitePayments', models.SitePayments));
 router.use('/transactions', createCrudRoutes('Transaction', models.Transaction));
+router.use('/rentalSites', createCrudRoutes('RentalSite', models.RentalSite));
+
 
 // Special Cascade Delete for Sites
 router.delete('/sites/:id/cascade', async (req, res) => {
@@ -106,6 +108,7 @@ router.post('/reset-stock', async (req, res) => {
     await models.SiteReturns.deleteMany({});
     await models.SiteUsage.deleteMany({});
     await models.SiteDamaged.deleteMany({});
+    await models.RentalSite.deleteMany({});
     if (models.Transaction) {
       await models.Transaction.deleteMany({});
     }

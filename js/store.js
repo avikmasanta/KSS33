@@ -20,7 +20,8 @@ const Store = (() => {
     siteDamaged: [],
     siteExpenses: [],
     sitePayments: [],
-    transactions: []
+    transactions: [],
+    rentalSites: []
   };
 
   // Maps collection store key to cache object key and API endpoint
@@ -35,12 +36,13 @@ const Store = (() => {
     bm_siteDamaged: { cacheKey: 'siteDamaged', url: 'siteDamaged' },
     bm_siteExpenses: { cacheKey: 'siteExpenses', url: 'siteExpenses' },
     bm_sitePayments: { cacheKey: 'sitePayments', url: 'sitePayments' },
-    bm_transactions: { cacheKey: 'transactions', url: 'transactions' }
+    bm_transactions: { cacheKey: 'transactions', url: 'transactions' },
+    bm_rentalSites: { cacheKey: 'rentalSites', url: 'rentalSites' }
   };
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
   function initFromLocal() {
-    const CACHE_VERSION = 'kss33_v7';
+    const CACHE_VERSION = 'kss33_v8';
     if (localStorage.getItem('bm_cache_version') !== CACHE_VERSION) {
       // Clear old cache keys if version mismatch
       Object.keys(endpointMap).forEach(key => localStorage.removeItem(key));
@@ -265,6 +267,7 @@ const Store = (() => {
   const ExpensesStore  = makeStore('bm_siteExpenses');
   const PaymentsStore  = makeStore('bm_sitePayments');
   const TransactionsStore = makeStore('bm_transactions');
+  const RentalSitesStore = makeStore('bm_rentalSites');
  
   const Customers    = CustomersStore;
   const Materials    = MaterialsStore;
@@ -275,6 +278,7 @@ const Store = (() => {
   const SiteDamaged  = DamagedStore;
   const SiteExpenses = ExpensesStore;
   const Transactions = TransactionsStore;
+  const RentalSites   = RentalSitesStore;
 
   function logTransaction(materialId, quantity, action, siteId = '') {
     const material = cache.materials.find(m => m.id === materialId);
@@ -486,7 +490,18 @@ const Store = (() => {
           totalSiteStock += (totalIn - totalOut);
         });
 
-        const warehouseStock = (totalPurchased + totalReturned) - totalSent;
+        const warehouseStock = (totalPurchased + totalReturned) - totalSent - (() => {
+          let totalRented = 0;
+          (cache.rentalSites || []).filter(r => r.status === 'Active').forEach(r => {
+            (r.items || []).forEach(i => {
+              if (resolveId(i.materialId) === resolveId(material.id)) {
+                totalRented += (parseFloat(i.quantity) || 0);
+              }
+            });
+          });
+          return totalRented;
+        })();
+
         return { 
           material, 
           totalPurchased, 
@@ -514,7 +529,19 @@ const Store = (() => {
       allOutgoing.filter(r => !date || r.date <= date).forEach(r => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalOut += (parseFloat(i.quantity) || 0); });
       });
-      return totalIn - totalOut;
+      let totalRented = 0;
+      (cache.rentalSites || []).forEach(r => {
+        if (r.goingDate <= date) {
+          if (r.status === 'Active' || (r.comingDate && r.comingDate > date)) {
+            (r.items || []).forEach(i => {
+              if (resolveId(i.materialId) === resolveId(materialId)) {
+                totalRented += (parseFloat(i.quantity) || 0);
+              }
+            });
+          }
+        }
+      });
+      return totalIn - totalOut - totalRented;
     },
 
     getWarehouseCurrentBalance: (materialId) => {
@@ -532,7 +559,15 @@ const Store = (() => {
       allOutgoing.forEach(r => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalOut += (parseFloat(i.quantity) || 0); });
       });
-      return totalIn - totalOut;
+      let totalRented = 0;
+      (cache.rentalSites || []).filter(r => r.status === 'Active').forEach(r => {
+        (r.items || []).forEach(i => {
+          if (resolveId(i.materialId) === resolveId(materialId)) {
+            totalRented += (parseFloat(i.quantity) || 0);
+          }
+        });
+      });
+      return totalIn - totalOut - totalRented;
     },
 
     getSiteCurrentBalance: (materialId, siteId) => {
@@ -685,5 +720,5 @@ const Store = (() => {
     persistLocal('bm_materials', cache.materials);
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, logTransaction, resetStock, Inventory, Auth, init };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, logTransaction, resetStock, Inventory, Auth, init };
 })();
