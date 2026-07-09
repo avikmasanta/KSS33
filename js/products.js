@@ -139,7 +139,7 @@ var MaterialsPage = {
   init() {},
 
   renderTable() {
-    const allMaterials = Store.Materials.getAll();
+    const allMaterials = Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll();
     const overview = Store.Inventory.getOverview();
 
     const filtered = allMaterials.filter(p => {

@@ -756,6 +756,36 @@ const Store = (() => {
   // Normalized plate sort order
   const PLATE_SKU_ORDER_NORM = PLATE_SKU_ORDER.map(normSku);
 
+  // Robust dimension extractor looking at Name first, then SKU
+  function extractSqFtFromNameOrSku(name, sku) {
+    function parseStr(str) {
+      if (!str) return 0;
+      const s = str.replace(/[\u00D7\u2715Xx]/g, 'x').replace(/[\u2019\u2018']/g, "'").replace(/[\u201D\u201C"]/g, '"').toLowerCase();
+      
+      // Look for exact dimension combinations
+      if (s.includes("2'x4'") || s.includes("2'x4") || s.includes("2x4'") || s.includes("2 x 4") || /\b2\s*x\s*4\b/.test(s)) return 8.0;
+      if (s.includes("2'x3'") || s.includes("2'x3") || s.includes("2x3'") || s.includes("2 x 3") || /\b2\s*x\s*3\b/.test(s)) return 6.0;
+
+      if (/18\D*4/.test(s)) return 6.0;
+      if (/15\D*4/.test(s)) return 5.0;
+      if (/12\D*4/.test(s)) return 4.0;
+      if (/9\D*4/.test(s)) return 3.0;
+      if (/6\D*4/.test(s)) return 2.0;
+
+      if (/18\D*3/.test(s)) return 4.5;
+      if (/15\D*3/.test(s)) return 3.75;
+      if (/12\D*3/.test(s)) return 3.0;
+      if (/9\D*3/.test(s)) return 2.25;
+      if (/6\D*3/.test(s)) return 1.5;
+      
+      return 0;
+    }
+    
+    const valFromName = parseStr(name);
+    if (valFromName > 0) return valFromName;
+    return parseStr(sku);
+  }
+
   // ---- Auto-patch existing materials with sqFtPerUnit if missing ----
   async function patchMaterialSqFt() {
     // Step 1: Remove duplicate ASCII-x 3-foot plates that were incorrectly seeded
@@ -764,9 +794,7 @@ const Store = (() => {
     const duplicatesToRemove = [];
     for (const sku of asciiThreeFootSkus) {
       const withSku = cache.materials.filter(m => m.sku === sku);
-      // If more than one material has this exact ASCII sku, keep the one with sqFtPerUnit, delete others
       if (withSku.length > 1) {
-        // Keep the one with highest sqFtPerUnit (or first), remove rest
         const sortedByDate = [...withSku].sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
         sortedByDate.slice(1).forEach(m => duplicatesToRemove.push(m.id));
       }
@@ -776,13 +804,14 @@ const Store = (() => {
       try { await fetch(`${API_URL}/materials/${id}`, { method: 'DELETE' }); } catch(e) { /* silent */ }
     }
 
-    // Step 2: Patch all plate materials that have sqFtPerUnit === 0 or missing
+    // Step 2: Patch all plate materials that have sqFtPerUnit === 0 or incorrect values
     const toUpdate = cache.materials.filter(m => {
       if (!isPlate(m)) return false;
-      return (!m.sqFtPerUnit || m.sqFtPerUnit === 0) && PLATE_SQFT_MAP_NORM[normSku(m.sku)];
+      const expected = extractSqFtFromNameOrSku(m.name, m.sku);
+      return expected > 0 && (!m.sqFtPerUnit || parseFloat(m.sqFtPerUnit) !== expected);
     });
     for (const m of toUpdate) {
-      const sqFt = PLATE_SQFT_MAP_NORM[normSku(m.sku)];
+      const sqFt = extractSqFtFromNameOrSku(m.name, m.sku);
       m.sqFtPerUnit = sqFt;
       try {
         await fetch(`${API_URL}/materials/${m.id}`, {
@@ -803,11 +832,10 @@ const Store = (() => {
     getSorted() {
       const all = cache.materials || [];
       const plates = all.filter(m => isPlate(m)).sort((a, b) => {
-        const ai = PLATE_SKU_ORDER_NORM.indexOf(normSku(a.sku));
-        const bi = PLATE_SKU_ORDER_NORM.indexOf(normSku(b.sku));
-        const aOrder = ai === -1 ? 999 : ai;
-        const bOrder = bi === -1 ? 999 : bi;
-        if (aOrder !== bOrder) return aOrder - bOrder;
+        // Sort by Sq Ft size descending (largest to smallest)
+        const aSq = extractSqFtFromNameOrSku(a.name, a.sku);
+        const bSq = extractSqFtFromNameOrSku(b.name, b.sku);
+        if (aSq !== bSq) return bSq - aSq;
         return (a.name || '').localeCompare(b.name || '');
       });
       const balli = all.filter(m => m.sku === 'BAL');
@@ -818,12 +846,12 @@ const Store = (() => {
     getSqFtPerUnit(materialId) {
       const m = cache.materials.find(x => String(x.id) === String(materialId) || String(x._id) === String(materialId));
       if (!m) return 0;
-      // If already patched, use it
-      if (m.sqFtPerUnit && m.sqFtPerUnit > 0) return parseFloat(m.sqFtPerUnit);
-      // Fallback: look up by normalized SKU
-      return PLATE_SQFT_MAP_NORM[normSku(m.sku)] || 0;
+      const parsed = extractSqFtFromNameOrSku(m.name, m.sku);
+      if (parsed > 0) return parsed;
+      return parseFloat(m.sqFtPerUnit) || 0;
     }
   };
+
 
   // ---- Sq Ft Movement (last 7 days) for dashboard ----
   function getSqFtMovement7Days() {
