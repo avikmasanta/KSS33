@@ -124,6 +124,10 @@ var SitesPage = {
                 <label>Location / Address</label>
                 <input type="text" class="form-control" id="site-address" placeholder="Site address or location">
               </div>
+              <div class="form-group">
+                <label>Notes</label>
+                <textarea class="form-control" id="site-notes" placeholder="Any remarks, instructions or special notes about this site..." rows="3" style="resize: vertical; min-height: 80px;"></textarea>
+              </div>
               <div class="form-group" id="site-initial-materials-container" style="display: none;">
                 <hr style="margin: 15px 0;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
@@ -434,6 +438,7 @@ var SitesPage = {
     document.getElementById('site-budget').value = s.budget || '';
     document.getElementById('site-lintel-date').value = s.lintelDate || '';
     document.getElementById('site-rate-sqft').value = s.ratePerSqFt || '';
+    document.getElementById('site-notes').value = s.notes || '';
     this.openModal(id);
   },
 
@@ -451,7 +456,8 @@ var SitesPage = {
         tokenNumber: document.getElementById('site-token').value.trim(),
         budget: parseFloat(document.getElementById('site-budget').value) || 0,
         lintelDate: document.getElementById('site-lintel-date').value,
-        ratePerSqFt: parseFloat(document.getElementById('site-rate-sqft').value) || 0
+        ratePerSqFt: parseFloat(document.getElementById('site-rate-sqft').value) || 0,
+        notes: document.getElementById('site-notes').value.trim()
       };
 
       if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }

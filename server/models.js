@@ -39,6 +39,7 @@ const SiteSchema = new mongoose.Schema({
   tokenNumber: String,
   lintelDate: String,
   archivedAt: String,
+  notes: { type: String, default: '' },
   createdAt: String
 }, schemaOptions);
 
