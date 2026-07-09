@@ -51,9 +51,11 @@ const MaterialSchema = new mongoose.Schema({
   unitPrice: Number,
   reorderLevel: Number,
   sqFtPerUnit: { type: Number, default: 0 },
+  sortOrder: { type: Number, default: 999 },
   status: { type: String, default: 'Active' },
   createdAt: String
 }, schemaOptions);
+
 
 const IncomingSchema = new mongoose.Schema({
   _id: String,

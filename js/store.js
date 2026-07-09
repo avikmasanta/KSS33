@@ -800,10 +800,47 @@ const Store = (() => {
     return parseStr(sku);
   }
 
-  // ---- Auto-patch existing materials with sqFtPerUnit if missing ----
+  // Robust default sort order extractor matching the user's target sequence (1-13)
+  function getDefaultSortOrder(name, sku) {
+    const combined = ((name || '') + ' ' + (sku || '')).replace(/[\u00D7\u2715Xx]/g, 'x').replace(/[\u2019\u2018']/g, "'").replace(/[\u201D\u201C"]/g, '"').toLowerCase();
+    
+    // Check 2x4
+    if (combined.includes("2'x4'") || combined.includes("2'x4") || combined.includes("2x4'") || combined.includes("2 x 4") || /\b2\s*x\s*4\b/.test(combined)) return 1;
+    
+    // Check 18"x4'
+    if (combined.includes("18") && combined.includes("4")) return 2;
+    // Check 15"x4'
+    if (combined.includes("15") && combined.includes("4")) return 3;
+    // Check 12"x4'
+    if (combined.includes("12") && combined.includes("4")) return 4;
+    // Check 9"x4'
+    if (combined.includes("9") && combined.includes("4")) return 5;
+    // Check 6"x4'
+    if (combined.includes("6") && combined.includes("4")) return 6;
+    
+    // Check 2x3
+    if (combined.includes("2'x3'") || combined.includes("2'x3") || combined.includes("2x3'") || combined.includes("2 x 3") || /\b2\s*x\s*3\b/.test(combined)) return 7;
+    
+    // Check 18"x3'
+    if (combined.includes("18") && combined.includes("3")) return 8;
+    // Check 15"x3'
+    if (combined.includes("15") && combined.includes("3")) return 9;
+    // Check 12"x3'
+    if (combined.includes("12") && combined.includes("3")) return 10;
+    // Check 9"x3'
+    if (combined.includes("9") && combined.includes("3")) return 11;
+    // Check 6"x3'
+    if (combined.includes("6") && combined.includes("3")) return 12;
+
+    // Check Balli
+    if (combined.includes("balli") || (sku || '').toLowerCase() === 'bal') return 13;
+
+    return 999;
+  }
+
+  // ---- Auto-patch existing materials with sqFtPerUnit and sortOrder if missing ----
   async function patchMaterialSqFt() {
     // Step 1: Remove duplicate ASCII-x 3-foot plates that were incorrectly seeded
-    // (The DB has real ones with unicode ×, we added duplicates with ASCII x)
     const asciiThreeFootSkus = ['SHUT-2x3','SHUT-18x3','SHUT-15x3','SHUT-12x3','SHUT-9x3','SHUT-6x3'];
     const duplicatesToRemove = [];
     for (const sku of asciiThreeFootSkus) {
@@ -818,20 +855,29 @@ const Store = (() => {
       try { await fetch(`${API_URL}/materials/${id}`, { method: 'DELETE' }); } catch(e) { /* silent */ }
     }
 
-    // Step 2: Patch all plate materials that have sqFtPerUnit === 0 or incorrect values
+    // Step 2: Patch all plate/balli materials that have missing/incorrect values
     const toUpdate = cache.materials.filter(m => {
-      if (!isPlate(m)) return false;
-      const expected = extractSqFtFromNameOrSku(m.name, m.sku);
-      return expected > 0 && (!m.sqFtPerUnit || parseFloat(m.sqFtPerUnit) !== expected);
+      const expectedSqFt = extractSqFtFromNameOrSku(m.name, m.sku);
+      const expectedOrder = getDefaultSortOrder(m.name, m.sku);
+      
+      const needsSqFt = expectedSqFt > 0 && (!m.sqFtPerUnit || parseFloat(m.sqFtPerUnit) !== expectedSqFt);
+      const needsOrder = !m.hasOwnProperty('sortOrder') || m.sortOrder === undefined || (m.sortOrder !== expectedOrder && expectedOrder !== 999);
+      
+      return needsSqFt || needsOrder;
     });
+
     for (const m of toUpdate) {
       const sqFt = extractSqFtFromNameOrSku(m.name, m.sku);
-      m.sqFtPerUnit = sqFt;
+      const order = getDefaultSortOrder(m.name, m.sku);
+      
+      if (sqFt > 0) m.sqFtPerUnit = sqFt;
+      if (order !== 999) m.sortOrder = order;
+      
       try {
         await fetch(`${API_URL}/materials/${m.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sqFtPerUnit: sqFt })
+          body: JSON.stringify({ sqFtPerUnit: m.sqFtPerUnit || 0, sortOrder: m.sortOrder || 999 })
         });
       } catch (e) { /* silent */ }
     }
@@ -845,17 +891,13 @@ const Store = (() => {
     ...MaterialsStore,
     getSorted() {
       const all = cache.materials || [];
-      const plates = all.filter(m => isPlate(m)).sort((a, b) => {
-        // Sort by Sq Ft size descending (largest to smallest)
-        const aSq = extractSqFtFromNameOrSku(a.name, a.sku);
-        const bSq = extractSqFtFromNameOrSku(b.name, b.sku);
-        if (aSq !== bSq) return bSq - aSq;
+      return [...all].sort((a, b) => {
+        // Sort strictly by custom sortOrder ascending
+        const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : 999;
+        const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : 999;
+        if (aOrder !== bOrder) return aOrder - bOrder;
         return (a.name || '').localeCompare(b.name || '');
       });
-      const balli = all.filter(m => m.sku === 'BAL');
-      const rest = all.filter(m => !isPlate(m) && m.sku !== 'BAL')
-        .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-      return [...plates, ...balli, ...rest];
     },
     getSqFtPerUnit(materialId) {
       const m = cache.materials.find(x => String(x.id) === String(materialId) || String(x._id) === String(materialId));
@@ -865,6 +907,7 @@ const Store = (() => {
       return parseFloat(m.sqFtPerUnit) || 0;
     }
   };
+
 
 
   // ---- Sq Ft Movement (last 7 days) for dashboard ----

@@ -89,13 +89,20 @@ var MaterialsPage = {
                   </select>
                 </div>
               </div>
-              <div class="form-group">
-                <label>Status</label>
-                <select class="form-control" id="prod-status">
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Status</label>
+                  <select class="form-control" id="prod-status">
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>Sort Position (Order)</label>
+                  <input type="number" class="form-control" id="prod-sortorder" placeholder="e.g., 1, 2 (defaults to 999)">
+                </div>
               </div>
+
             </form>
           </div>
           <div class="modal-footer">
@@ -174,13 +181,14 @@ var MaterialsPage = {
             <th>SKU / Code</th>
             <th>Category</th>
             <th>Unit</th>
+            <th>Sort Order</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           ${pageItems.length === 0 ? `
-            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--text-tertiary)">No materials found</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-tertiary)">No materials found</td></tr>
           ` : pageItems.map((p, i) => `
             <tr>
               <td class="secondary">${start + i + 1}</td>
@@ -188,6 +196,7 @@ var MaterialsPage = {
               <td>${p.sku || '-'}</td>
               <td><span class="badge badge-neutral">${p.category || '-'}</span></td>
               <td>${p.unit || '-'}</td>
+              <td><span class="badge badge-neutral">${(p.hasOwnProperty('sortOrder') && p.sortOrder !== 999) ? p.sortOrder : '999 (Default)'}</span></td>
               <td><span class="badge ${p.status === 'Active' ? 'badge-success' : 'badge-warning'}">${p.status || 'Active'}</span></td>
               <td>
                 <div class="table-actions">
@@ -256,7 +265,9 @@ var MaterialsPage = {
     if (!editId) {
       document.getElementById('material-form').reset();
       document.getElementById('prod-id').value = '';
+      document.getElementById('prod-sortorder').value = '';
     }
+
   },
 
   onCategorySelectChange(selectEl) {
@@ -337,16 +348,20 @@ var MaterialsPage = {
     document.getElementById('prod-category').value = p.category || 'Other';
     document.getElementById('prod-unit').value = p.unit || 'Bag';
     document.getElementById('prod-status').value = p.status || 'Active';
+    document.getElementById('prod-sortorder').value = (p.hasOwnProperty('sortOrder') && p.sortOrder !== 999) ? p.sortOrder : '';
   },
+
 
   save() {
     const id = document.getElementById('prod-id').value;
+    const rawOrder = document.getElementById('prod-sortorder').value;
     const data = {
       name: document.getElementById('prod-name').value.trim(),
       sku: document.getElementById('prod-sku').value.trim(),
       category: document.getElementById('prod-category').value,
       unit: document.getElementById('prod-unit').value,
-      status: document.getElementById('prod-status').value
+      status: document.getElementById('prod-status').value,
+      sortOrder: rawOrder.trim() !== '' ? parseInt(rawOrder) : 999
     };
 
     if (!data.name || !data.sku) { alert('Material name and SKU are required'); return; }
@@ -356,6 +371,7 @@ var MaterialsPage = {
     } else {
       Store.Materials.add(data);
     }
+
 
     this.closeModal();
     this.refresh();
