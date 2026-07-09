@@ -45,7 +45,9 @@ cron.schedule('0 8 * * *', async () => {
       SiteReturns: models.SiteReturns,
       RentalSite: models.RentalSite,
       Site: models.Site,
-      TelegramChat: models.TelegramChat
+      TelegramChat: models.TelegramChat,
+      SiteUsage: models.SiteUsage,
+      SiteDamaged: models.SiteDamaged
     };
 
     const result = await sendTelegramReport({ date: yesterdayStr, models: reportModels });

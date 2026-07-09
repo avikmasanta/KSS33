@@ -139,7 +139,9 @@ router.get('/telegram-report/preview', async (req, res) => {
     SiteReturns: models.SiteReturns,
     RentalSite: models.RentalSite,
     Site: models.Site,
-    TelegramChat: models.TelegramChat
+    TelegramChat: models.TelegramChat,
+    SiteUsage: models.SiteUsage,
+    SiteDamaged: models.SiteDamaged
   };
 
   try {
@@ -170,7 +172,9 @@ router.all('/telegram-report/send', async (req, res) => {
     SiteReturns: models.SiteReturns,
     RentalSite: models.RentalSite,
     Site: models.Site,
-    TelegramChat: models.TelegramChat
+    TelegramChat: models.TelegramChat,
+    SiteUsage: models.SiteUsage,
+    SiteDamaged: models.SiteDamaged
   };
 
   try {

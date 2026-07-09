@@ -98,7 +98,9 @@ module.exports = async function handler(req, res) {
       SiteReturns: getModel('siteReturns'),
       RentalSite: getModel('rentalSites'),
       Site: getModel('sites'),
-      TelegramChat: getModel('telegramChats')
+      TelegramChat: getModel('telegramChats'),
+      SiteUsage: getModel('siteUsage'),
+      SiteDamaged: getModel('siteDamaged')
     };
 
     if (id === 'preview') {

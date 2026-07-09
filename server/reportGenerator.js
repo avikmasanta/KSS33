@@ -13,6 +13,8 @@ async function generateDailyWarehouseSummary({ date, models }) {
   const SiteReturns = models.SiteReturns;
   const RentalSite = models.RentalSite;
   const Site = models.Site;
+  const SiteUsage = models.SiteUsage;
+  const SiteDamaged = models.SiteDamaged;
 
   // 1. Fetch data
   const materials = await Material.find({ status: { $ne: 'Archived' } });
@@ -21,6 +23,8 @@ async function generateDailyWarehouseSummary({ date, models }) {
   const allOutgoing = await Outgoing.find({});
   const allReturns = await SiteReturns.find({});
   const allRentals = await RentalSite.find({});
+  const allUsage = await SiteUsage.find({});
+  const allDamaged = await SiteDamaged.find({});
 
   // Map for easy ID lookups
   const materialsMap = {};
@@ -286,6 +290,136 @@ async function generateDailyWarehouseSummary({ date, models }) {
         { key: 'challanNumber', x: 465, width: 85 }
       ];
       currentY = drawTable(doc, currentY, outgoingHeaders, outgoingColumns, outgoingMovements);
+    }
+
+    // 📍 Site Inventory Balances
+    const activeSites = sites.filter(s => s.status !== 'Archived');
+    
+    if (activeSites.length > 0) {
+      doc.addPage();
+      currentY = 40;
+
+      doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(13);
+      doc.text('📍 Current Stock at Customer Sites', 40, currentY);
+      doc.strokeColor(lightBorder).lineWidth(1).moveTo(40, currentY + 16).lineTo(555, currentY + 16).stroke();
+      currentY += 28;
+
+      let renderedAnySite = false;
+
+      for (const site of activeSites) {
+        const siteBalances = [];
+
+        materials.forEach(m => {
+          const mId = String(m._id || m.id);
+          let totalSent = 0;
+
+          // 1. Outgoing dispatches to this site
+          allOutgoing.filter(r => String(r.siteId) === String(site._id || site.id)).forEach(r => {
+            (r.items || []).forEach(i => {
+              if (String(i.materialId) === mId) {
+                totalSent += parseFloat(i.quantity) || 0;
+              }
+            });
+          });
+
+          // 2. Incoming dispatches direct to this site
+          allIncoming.filter(r => r.destinationType === 'site' && String(r.destinationSiteId) === String(site._id || site.id)).forEach(r => {
+            (r.items || []).forEach(i => {
+              if (String(i.materialId) === mId) {
+                totalSent += parseFloat(i.quantity) || 0;
+              }
+            });
+          });
+
+          // 3. Site returns
+          let totalReturned = 0;
+          allReturns.filter(r => String(r.siteId) === String(site._id || site.id) && String(r.materialId) === mId).forEach(r => {
+            totalReturned += parseFloat(r.quantity) || 0;
+          });
+
+          // 4. Site usage
+          let totalUsed = 0;
+          allUsage.filter(r => String(r.siteId) === String(site._id || site.id) && String(r.materialId) === mId).forEach(r => {
+            totalUsed += parseFloat(r.quantity) || 0;
+          });
+
+          // 5. Site damaged
+          let totalDamaged = 0;
+          allDamaged.filter(r => String(r.siteId) === String(site._id || site.id) && String(r.materialId) === mId).forEach(r => {
+            totalDamaged += parseFloat(r.quantity) || 0;
+          });
+
+          const netRemaining = totalSent - totalReturned - totalUsed - totalDamaged;
+
+          if (netRemaining > 0 || totalSent > 0 || totalReturned > 0) {
+            siteBalances.push({
+              materialName: m.name,
+              sku: m.sku || '-',
+              unit: m.unit || '',
+              sent: totalSent,
+              returned: totalReturned,
+              used: totalUsed,
+              damaged: totalDamaged,
+              remaining: netRemaining
+            });
+          }
+        });
+
+        // Only display site block if it has records with remaining balance > 0
+        const itemsToRender = siteBalances.filter(b => b.remaining > 0);
+        if (itemsToRender.length > 0) {
+          renderedAnySite = true;
+
+          // Check page break before rendering site header + first few rows
+          if (currentY > 680) {
+            doc.addPage();
+            currentY = 40;
+          }
+
+          // Site Header Box
+          doc.save();
+          doc.fillColor('#f8fafc').rect(40, currentY, 515, 36).fill();
+          doc.strokeColor(lightBorder).lineWidth(0.5).rect(40, currentY, 515, 36).stroke();
+          
+          doc.fillColor(secondaryColor).font('Helvetica-Bold').fontSize(10);
+          doc.text(`Site: ${site.name}`, 50, currentY + 6);
+          doc.fillColor(textColor).font('Helvetica').fontSize(8.5);
+          
+          const detailsString = [
+            site.customerName ? `Customer: ${site.customerName}` : null,
+            site.contactNumber ? `Ph: ${site.contactNumber}` : null,
+            site.address ? `Address: ${site.address}` : null
+          ].filter(Boolean).join('  |  ');
+          
+          doc.text(detailsString || 'No customer or address details provided.', 50, currentY + 20);
+          doc.restore();
+          currentY += 42;
+
+          // Draw Table
+          const siteHeaders = [
+            { label: 'Material Name', x: 45, width: 180 },
+            { label: 'SKU', x: 235, width: 70 },
+            { label: 'Sent', x: 315, width: 50, align: 'right' },
+            { label: 'Returned', x: 375, width: 60, align: 'right' },
+            { label: 'Net at Site', x: 445, width: 105, align: 'right' }
+          ];
+          const siteColumns = [
+            { key: 'materialName', x: 45, width: 180 },
+            { key: 'sku', x: 235, width: 70 },
+            { key: 'sent', x: 315, width: 50, align: 'right' },
+            { key: 'returned', x: 375, width: 60, align: 'right' },
+            { key: 'remaining', x: 445, width: 105, align: 'right' }
+          ];
+
+          currentY = drawTable(doc, currentY, siteHeaders, siteColumns, itemsToRender);
+          currentY += 20;
+        }
+      }
+
+      if (!renderedAnySite) {
+        doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(9);
+        doc.text('No active materials or inventory deployed at customer sites currently.', 50, currentY + 10);
+      }
     }
 
     // Page Numbering Footer (Second Pass)
