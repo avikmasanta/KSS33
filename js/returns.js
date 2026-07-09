@@ -126,6 +126,11 @@ var ReturnsPage = {
                   <div class="new-available-cell" data-unit="${m.unit}" style="font-weight: 700; font-size: 1.15rem; color: ${cellColor}; background: ${cellBg}; padding: 8px 12px; border-radius: 8px; display: inline-block; min-width: 100px; text-align: center;">
                     ${netStock.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${m.unit}</span>
                   </div>
+                  ${(() => {
+                    const sqFtPerUnit = parseFloat(m.sqFtPerUnit) || 0;
+                    const netSqFt = netStock * sqFtPerUnit;
+                    return sqFtPerUnit > 0 ? `<div class="new-sqft-cell" data-sqft-per-unit="${sqFtPerUnit}" style="font-size: 0.8rem; font-weight: 600; color: var(--success); margin-top: 4px;">${netSqFt.toLocaleString('en-IN', { maximumFractionDigits: 2 })} sq ft</div>` : '';
+                  })()}
                 </td>
               </tr>
             `;
@@ -193,6 +198,13 @@ var ReturnsPage = {
     const materialUnit = cell.getAttribute('data-unit') || '';
     
     cell.innerHTML = `${newAvailable.toLocaleString('en-IN')} <span style="font-size: 0.9rem; font-weight: 600; color: var(--text-tertiary);">${materialUnit}</span>`;
+    
+    const sqftCell = tr.querySelector('.new-sqft-cell');
+    if (sqftCell) {
+      const sqFtPerUnit = parseFloat(sqftCell.getAttribute('data-sqft-per-unit')) || 0;
+      const newSqFt = newAvailable * sqFtPerUnit;
+      sqftCell.innerText = `${newSqFt.toLocaleString('en-IN', { maximumFractionDigits: 2 })} sq ft`;
+    }
     
     if (action === 'deduct' && inputVal > currentStock) {
       cell.style.background = 'rgba(239, 68, 68, 0.1)';
