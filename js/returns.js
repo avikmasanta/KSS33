@@ -26,21 +26,16 @@ var ReturnsPage = {
             <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Add or deduct warehouse material stock</p>
           </div>
         </div>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="btn btn-outline" onclick="ReturnsPage.shareStock('whatsapp')" style="display:inline-flex;align-items:center;gap:6px;border-color:#22c55e;color:#22c55e;">
-            <svg viewBox="0 0 24 24" fill="currentColor" style="width:14px;height:14px;"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.005 5.319 5.324.0 11.83.0c3.15.0 6.11 1.227 8.337 3.454a11.75 11.75 0 0 1 3.451 8.351c-.005 6.515-5.324 11.834-11.83 11.834-2.008-.002-3.982-.51-5.751-1.474L0 24zm5.835-3.666c1.67.991 3.486 1.514 5.334 1.515 5.56.0 10.083-4.524 10.088-10.086.002-2.695-1.047-5.229-2.952-7.136C16.45 2.72 13.916 1.67 11.218 1.67c-5.566.0-10.088 4.52-10.093 10.082-.001 1.93.504 3.812 1.464 5.483L1.581 22.04l4.311-1.706z"/></svg> WhatsApp
-          </button>
-          <button class="btn btn-outline" onclick="ReturnsPage.shareStock('sms')" style="display:inline-flex;align-items:center;gap:6px;border-color:#0284c7;color:#0284c7;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> SMS
-          </button>
+        <div style="display: flex; gap: 12px;">
           <button class="btn btn-outline" onclick="ReturnsPage.exportPDF()" style="display:inline-flex;align-items:center;gap:6px;">
-            ${Icons.fileText || ''} PDF
+            ${Icons.fileText || ''} Export PDF
           </button>
           <button class="btn btn-danger" onclick="ReturnsPage.resetStock()" style="display:inline-flex;align-items:center;gap:6px; box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);">
-            ${Icons.trash || ''} Reset
+            ${Icons.trash || ''} Reset Stock
           </button>
         </div>
       </div>
+
 
       <div class="card" style="margin-bottom: 24px;">
         <div class="card-body" style="padding: 20px;">
@@ -353,30 +348,7 @@ var ReturnsPage = {
       </body></html>
     `);
     printWindow.document.close();
-  },
-
-  shareStock(method) {
-    const overview = Store.Inventory.getOverview();
-    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    
-    let text = `*KSS Warehouse Stock Report (${today})*\n\n`;
-    let count = 0;
-    overview.forEach(o => {
-      if (o.warehouseStock !== 0) {
-        text += `• ${o.material.name}: ${o.warehouseStock.toLocaleString('en-IN')} ${o.material.unit}\n`;
-        count++;
-      }
-    });
-    if (count === 0) {
-      text += "All warehouse stocks are currently 0.\n";
-    }
-    
-    const encoded = encodeURIComponent(text);
-    if (method === 'whatsapp') {
-      window.open(`https://api.whatsapp.com/send?text=${encoded}`, '_blank');
-    } else if (method === 'sms') {
-      window.open(`sms:?body=${encoded}`, '_blank');
-    }
   }
 };
+
 
