@@ -96,7 +96,7 @@ var ReportsPage = {
                 <tbody>
                   ${overview.map((o, i) => `
                     <tr>
-                      <td>${i+1}</td>
+                      <td>${i + 1}</td>
                       <td><strong>${o.product.name}</strong></td>
                       <td>${o.product.unit}</td>
                       <td>${formatNum(o.warehouseStock)}</td>
@@ -117,7 +117,7 @@ var ReportsPage = {
       case 'telegram-summary': {
         const chats = Store.TelegramChats.getAll();
         const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
+
         content = `
           <div class="card slide-up">
             <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
@@ -242,7 +242,7 @@ var ReportsPage = {
         break;
       }
 
-      
+
 
       case 'low-stock': {
         const overview = Store.Inventory.getOverview();
@@ -260,11 +260,11 @@ var ReportsPage = {
                 </thead>
                 <tbody>
                   ${lowItems.length === 0 ? '<tr><td colspan="7" style="text-align:center;padding:40px">No low stock items</td></tr>' :
-                    lowItems.map((o, i) => {
-                      const deficit = o.reorderLevel - o.warehouseStock;
-                      return `
+            lowItems.map((o, i) => {
+              const deficit = o.reorderLevel - o.warehouseStock;
+              return `
                         <tr>
-                          <td>${i+1}</td>
+                          <td>${i + 1}</td>
                           <td><strong>${o.product.name}</strong></td>
                           <td><span class="text-danger font-semibold">${formatNum(o.warehouseStock)}</span></td>
                           <td>${formatNum(o.reorderLevel)}</td>
@@ -273,8 +273,8 @@ var ReportsPage = {
                           <td>${formatCurrency(deficit * o.product.unitPrice)}</td>
                         </tr>
                       `;
-                    }).join('')
-                  }
+            }).join('')
+          }
                 </tbody>
               </table>
             </div>
@@ -297,7 +297,7 @@ var ReportsPage = {
             totalDamaged += Store.Inventory.getSiteDamaged(m.id, s.id);
             totalBal += Store.Inventory.getSiteCurrentBalance(m.id, s.id);
           });
-          
+
           if (totalSent > 0) {
             const utilization = ((totalUsed / totalSent) * 100).toFixed(1);
             rows += `
@@ -351,7 +351,7 @@ var ReportsPage = {
           const rev = Store.Inventory.getSiteRevenue(s.id);
           const exp = Store.Inventory.getTotalSiteExpenses(s.id);
           const profit = rev - exp;
-          
+
           let loss = 0;
           Store.Materials.getAll().forEach(m => {
             loss += Store.Inventory.getSiteDamaged(m.id, s.id) * (parseFloat(m.unitPrice) || 0);
@@ -360,14 +360,14 @@ var ReportsPage = {
           totalRev += rev;
           totalExp += exp;
           totalDamagedLoss += loss;
-          
+
           if (rev > 0 || exp > 0) {
-             siteProfits.push({ site: s, rev, exp, profit, loss });
+            siteProfits.push({ site: s, rev, exp, profit, loss });
           }
         });
 
         siteProfits.sort((a, b) => b.profit - a.profit);
-        
+
         let bestSite = siteProfits.length > 0 ? siteProfits[0].site.name : 'N/A';
         let worstSite = siteProfits.length > 0 ? siteProfits[siteProfits.length - 1].site.name : 'N/A';
         let totalProfit = totalRev - totalExp;
@@ -444,7 +444,7 @@ var ReportsPage = {
                 <tbody>
                   ${products.map((p, i) => `
                     <tr>
-                      <td>${i+1}</td>
+                      <td>${i + 1}</td>
                       <td><strong>${p.name}</strong></td>
                       <td>${p.sku}</td>
                       <td><span class="badge badge-neutral">${p.category}</span></td>
@@ -571,7 +571,7 @@ var ReportsPage = {
       pdfBtn.style.display = (siteId === 'all') ? 'none' : 'inline-flex';
     }
     const materials = Store.Materials.getAll();
-    const allSites  = Store.Sites.getAll();
+    const allSites = Store.Sites.getAll();
     const fmt = (v) => Number(v || 0).toLocaleString('en-IN');
 
     const getSiteRows = (site) => {
@@ -581,8 +581,8 @@ var ReportsPage = {
       Store.SiteReturns.getAll().filter(r => r.siteId === site.id).forEach(r => matIds.add(typeof r.materialId === 'object' ? (r.materialId._id || r.materialId.id) : r.materialId));
       const rows = [];
       matIds.forEach(mId => {
-        const mat      = materials.find(m => m.id === mId);
-        const issued   = Store.Inventory.getSiteTotalSent(mId, site.id);
+        const mat = materials.find(m => m.id === mId);
+        const issued = Store.Inventory.getSiteTotalSent(mId, site.id);
         const returned = Store.Inventory.getSiteReturns(mId, site.id);
         if (issued === 0 && returned === 0) return;
         rows.push({ name: mat ? mat.name : 'Deleted Material', unit: mat ? mat.unit : '', issued, returned, net: issued - returned });
@@ -595,18 +595,18 @@ var ReportsPage = {
       const tIss = rows.reduce((s, r) => s + r.issued, 0);
       const tRet = rows.reduce((s, r) => s + r.returned, 0);
       const tNet = tIss - tRet;
-      const sc   = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
-      const trs  = rows.length === 0
+      const sc = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
+      const trs = rows.length === 0
         ? `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-tertiary)">No materials recorded at this site.</td></tr>`
         : rows.map((r, i) => `
             <tr>
-              <td style="color:var(--text-tertiary);font-weight:600">${i+1}</td>
+              <td style="color:var(--text-tertiary);font-weight:600">${i + 1}</td>
               <td><strong>${r.name}</strong> <span style="font-size:11px;color:var(--text-tertiary)">(${r.unit})</span></td>
               <td style="text-align:center;font-weight:700">${fmt(r.issued)}</td>
               <td style="text-align:center;color:#10b981;font-weight:700">${fmt(r.returned)}</td>
               <td style="text-align:center;font-weight:800">${fmt(r.net)}</td>
             </tr>`
-          ).join('');
+        ).join('');
       const foot = rows.length === 0 ? '' : `
         <tfoot style="background:var(--surface-raised,#f8fafc)">
           <tr style="font-weight:800;border-top:2px solid var(--border)">
@@ -622,9 +622,9 @@ var ReportsPage = {
             <div>
               <div style="display:flex;align-items:center;gap:10px">
                 <span style="font-size:1.2rem;font-weight:800">${site.name}</span>
-                <span style="background:${sc};color:white;font-size:11px;padding:2px 10px;border-radius:20px;font-weight:600">${site.status||'Active'}</span>
+                <span style="background:${sc};color:white;font-size:11px;padding:2px 10px;border-radius:20px;font-weight:600">${site.status || 'Active'}</span>
               </div>
-              <div style="font-size:0.85rem;color:rgba(255,255,255,.6);margin-top:4px">${site.customerName ? '&#128100; '+site.customerName+'&nbsp;&nbsp;' : ''}${site.address ? '&#128205; '+site.address : ''}</div>
+              <div style="font-size:0.85rem;color:rgba(255,255,255,.6);margin-top:4px">${site.customerName ? '&#128100; ' + site.customerName + '&nbsp;&nbsp;' : ''}${site.address ? '&#128205; ' + site.address : ''}</div>
             </div>
             <div style="display:flex;gap:24px;flex-wrap:wrap">
               <div style="text-align:center"><div style="font-size:.7rem;color:rgba(255,255,255,.55);text-transform:uppercase">Total Issued</div><div style="font-size:1.8rem;font-weight:900;color:#fde68a">${fmt(tIss)}</div></div>
@@ -644,17 +644,17 @@ var ReportsPage = {
 
     const allView = () => {
       const sorted = allSites.slice().sort((a, b) => a.name.localeCompare(b.name));
-      const cards  = sorted.map(site => {
+      const cards = sorted.map(site => {
         const rows = getSiteRows(site);
         const tIss = rows.reduce((s, r) => s + r.issued, 0);
         const tRet = rows.reduce((s, r) => s + r.returned, 0);
         const tNet = tIss - tRet;
-        const sc   = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
+        const sc = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
         return `
           <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;transition:box-shadow .2s;cursor:pointer" onclick="document.getElementById('site-cost-selector').value='${site.id}';ReportsPage.renderSiteCostReport('${site.id}')" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow='none'">
             <div>
               <div style="font-weight:700;font-size:1rem;color:var(--text-primary)">${site.name}</div>
-              <div style="font-size:.8rem;color:var(--text-tertiary);margin-top:2px">${site.customerName||'No customer'} &bull; <span style="color:${sc};font-weight:600">${site.status||'Active'}</span> &bull; ${rows.length} material${rows.length!==1?'s':''}</div>
+              <div style="font-size:.8rem;color:var(--text-tertiary);margin-top:2px">${site.customerName || 'No customer'} &bull; <span style="color:${sc};font-weight:600">${site.status || 'Active'}</span> &bull; ${rows.length} material${rows.length !== 1 ? 's' : ''}</div>
             </div>
             <div style="display:flex;gap:20px;flex-wrap:wrap;text-align:center">
               <div><div style="font-size:.7rem;color:var(--text-tertiary);text-transform:uppercase">Issued</div><div style="font-weight:700;font-size:1.1rem;color:#3b82f6">${fmt(tIss)}</div></div>
@@ -666,7 +666,7 @@ var ReportsPage = {
       return `
         <div style="padding:20px">
           <p style="margin-bottom:14px;color:var(--text-tertiary);font-size:.9rem">Showing all ${sorted.length} site(s). Select a site above to see the full material breakdown.</p>
-          <div style="display:flex;flex-direction:column;gap:10px">${sorted.length===0?'<div style="text-align:center;color:var(--text-tertiary);padding:40px">No sites found.</div>':cards}</div>
+          <div style="display:flex;flex-direction:column;gap:10px">${sorted.length === 0 ? '<div style="text-align:center;color:var(--text-tertiary);padding:40px">No sites found.</div>' : cards}</div>
         </div>`;
     };
 
@@ -691,8 +691,8 @@ var ReportsPage = {
 
     // Find all material IDs that have any history across any site (including deleted ones)
     const activeMatIds = new Set();
-    Store.Outgoing.getAll().forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
-    Store.Incoming.getAll().filter(r => r.destinationType === 'site').forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
+    Store.Outgoing.getAll().forEach(r => (r.items || []).forEach(i => activeMatIds.add(i.materialId)));
+    Store.Incoming.getAll().filter(r => r.destinationType === 'site').forEach(r => (r.items || []).forEach(i => activeMatIds.add(i.materialId)));
     Store.SiteReturns.getAll().forEach(r => activeMatIds.add(r.materialId));
     Store.SiteUsage.getAll().forEach(r => activeMatIds.add(r.materialId));
     Store.SiteDamaged.getAll().forEach(r => activeMatIds.add(r.materialId));
@@ -712,31 +712,31 @@ var ReportsPage = {
           </thead>
           <tbody>
             ${Array.from(activeMatIds).map(mId => {
-              const m = Store.Materials.getById(mId);
-              if (!m) return ''; // Skip deleted materials completely
-              let totalRemaining = 0;
-              const cols = sites.map(s => {
-                const remaining = Store.Inventory.getSiteCurrentBalance(m.id, s.id);
-                const returned = Store.Inventory.getSiteReturns(m.id, s.id);
-                totalRemaining += remaining;
-                return `<td style="text-align: center;">
+      const m = Store.Materials.getById(mId);
+      if (!m) return ''; // Skip deleted materials completely
+      let totalRemaining = 0;
+      const cols = sites.map(s => {
+        const remaining = Store.Inventory.getSiteCurrentBalance(m.id, s.id);
+        const returned = Store.Inventory.getSiteReturns(m.id, s.id);
+        totalRemaining += remaining;
+        return `<td style="text-align: center;">
                   <strong>${formatNum(remaining)}</strong>
                   <span style="font-size:11px; color:var(--danger); margin-left: 4px;">(${formatNum(returned)})</span>
                 </td>`;
-              }).join('');
+      }).join('');
 
-              if (totalRemaining === 0 && !sites.some(s => Store.Inventory.getSiteTotalSent(m.id, s.id) > 0)) {
-                return ''; // skip unused materials
-              }
+      if (totalRemaining === 0 && !sites.some(s => Store.Inventory.getSiteTotalSent(m.id, s.id) > 0)) {
+        return ''; // skip unused materials
+      }
 
-              return `
+      return `
                 <tr>
                   <td><strong>${m.name}</strong> <span style="font-size:11px; color:var(--text-secondary);">(${m.unit})</span></td>
                   ${cols}
                   <td style="text-align: right; font-weight: 700;">${formatNum(totalRemaining)} ${m.unit}</td>
                 </tr>
               `;
-            }).join('')}
+    }).join('')}
           </tbody>
         </table>
       </div>
@@ -751,11 +751,11 @@ var ReportsPage = {
     const formatNum = (v) => Number(v || 0).toLocaleString('en-IN');
 
     let rows = '';
-    
+
     // Find all material IDs that have any history at this site (including deleted ones)
     const activeMatIds = new Set();
-    Store.Outgoing.getAll().filter(r => r.siteId === site.id).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
-    Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
+    Store.Outgoing.getAll().filter(r => r.siteId === site.id).forEach(r => (r.items || []).forEach(i => activeMatIds.add(i.materialId)));
+    Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(r => (r.items || []).forEach(i => activeMatIds.add(i.materialId)));
     Store.SiteReturns.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
     Store.SiteUsage.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
     Store.SiteDamaged.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));

@@ -36,24 +36,13 @@ var AuthPage = {
             </div>
             <div class="form-group">
               <label for="login-password">Password</label>
-              <input type="password" id="login-password" class="form-control" placeholder="Enter your password" value="admin123" required>
-            </div>
-            <div class="form-group" style="margin-bottom: 24px;">
-              <label for="login-role">Login as</label>
-              <select id="login-role" class="form-control" onchange="AuthPage.onRoleChange(this.value)">
-                <option value="Admin">Admin</option>
-                <option value="Manager">Manager</option>
-                <option value="Staff">Staff</option>
-              </select>
+              <input type="password" id="login-password" class="form-control" placeholder="Enter your password" required>
             </div>
             <button type="submit" class="btn btn-primary w-full" style="height: 42px; font-size: 0.9375rem;">
               Sign In
             </button>
           </form>
 
-          <div class="login-footer">
-            <p>Demo: admin@kss.com / admin123</p>
-          </div>
         </div>
       </div>
     `;
@@ -70,23 +59,6 @@ var AuthPage = {
       App.init();
     } else {
       document.getElementById('login-error').classList.add('show');
-    }
-  },
-
-  onRoleChange(role) {
-    const emailInput = document.getElementById('login-email');
-    const pwdInput = document.getElementById('login-password');
-    if (!emailInput || !pwdInput) return;
-
-    if (role === 'Admin') {
-      emailInput.value = 'admin@kss.com';
-      pwdInput.value = 'admin123';
-    } else if (role === 'Manager') {
-      emailInput.value = 'manager@kss.com';
-      pwdInput.value = 'manager123';
-    } else if (role === 'Staff') {
-      emailInput.value = 'staff@kss.com';
-      pwdInput.value = 'staff123';
     }
   }
 };

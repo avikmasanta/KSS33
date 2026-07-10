@@ -53,7 +53,7 @@ async function sendTelegramReport({ date, models }) {
     try {
       const formData = new FormData();
       formData.append('chat_id', chatId);
-      
+
       const blob = new Blob([pdfBuffer], { type: 'application/pdf' });
       formData.append('document', blob, `KSS_Warehouse_Summary_${date}.pdf`);
       formData.append(
