@@ -183,7 +183,7 @@ var App = (() => {
               </svg>
             </div>
             <div class="sidebar-brand-text">
-              <h2>KSS ERP</h2>
+              <h2>KSS 33</h2>
             </div>
           </div>
 
@@ -226,7 +226,7 @@ var App = (() => {
                 <line x1="3" y1="18" x2="21" y2="18"></line>
               </svg>
             </button>
-            <div class="mobile-header-title">KSS ERP</div>
+            <div class="mobile-header-title">KSS 33</div>
           </header>
           
           <main class="content-area" id="app-content"></main>
