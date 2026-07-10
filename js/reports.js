@@ -116,9 +116,9 @@ var ReportsPage = {
 
       case 'telegram-summary': {
         const chats = Store.TelegramChats.getAll();
-        // Get today's date in IST (UTC+5:30) — avoids UTC midnight showing wrong date
+        // Get yesterday's date in IST (UTC+5:30)
         const nowIST = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
-        const today = nowIST.toISOString().split('T')[0];
+        const yesterday = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         content = `
           <div class="card slide-up">
@@ -179,7 +179,7 @@ var ReportsPage = {
                   <div style="background:var(--bg-body); padding:20px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:20px;">
                     <div class="form-group" style="margin-bottom:15px;">
                       <label>Select Report Target Date</label>
-                      <input type="date" id="tg-report-date" class="form-control" value="${today}" style="background: var(--bg-card);">
+                      <input type="date" id="tg-report-date" class="form-control" value="${yesterday}" style="background: var(--bg-card);">
                     </div>
                     <div style="display:flex; gap:10px; flex-wrap:wrap;">
                       <button class="btn btn-outline" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.previewTelegramReport()">
