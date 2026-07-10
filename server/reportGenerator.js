@@ -2,643 +2,366 @@ const PDFDocument = require('pdfkit');
 
 /**
  * Generates a Daily Warehouse Summary PDF buffer.
+ * Mobile-friendly: large fonts, clean layout, easy for elderly readers.
  * @param {Object} params
  * @param {string} params.date - The date of the report (YYYY-MM-DD)
  * @param {Object} params.models - The DB models dictionary
  */
 async function generateDailyWarehouseSummary({ date, models }) {
-  const Material = models.Material;
-  const Incoming = models.Incoming;
-  const Outgoing = models.Outgoing;
+  const Material   = models.Material;
+  const Incoming   = models.Incoming;
+  const Outgoing   = models.Outgoing;
   const SiteReturns = models.SiteReturns;
   const RentalSite = models.RentalSite;
-  const Site = models.Site;
-  const SiteUsage = models.SiteUsage;
+  const Site       = models.Site;
+  const SiteUsage  = models.SiteUsage;
   const SiteDamaged = models.SiteDamaged;
 
   // 1. Fetch data
-  const materials = await Material.find({ status: { $ne: 'Archived' } });
-  const sites = await Site.find({});
+  const materials   = await Material.find({ status: { $ne: 'Archived' } });
+  const sites       = await Site.find({});
   const allIncoming = await Incoming.find({});
   const allOutgoing = await Outgoing.find({});
-  const allReturns = await SiteReturns.find({});
-  const allRentals = await RentalSite.find({});
-  const allUsage = await SiteUsage.find({});
-  const allDamaged = await SiteDamaged.find({});
+  const allReturns  = await SiteReturns.find({});
+  const allRentals  = await RentalSite.find({});
+  const allUsage    = await SiteUsage.find({});
+  const allDamaged  = await SiteDamaged.find({});
 
-  // Map for easy ID lookups
   const materialsMap = {};
-  materials.forEach(m => {
-    materialsMap[String(m._id || m.id)] = m;
-  });
+  materials.forEach(m => { materialsMap[String(m._id || m.id)] = m; });
   const sitesMap = {};
-  sites.forEach(s => {
-    sitesMap[String(s._id || s.id)] = s;
-  });
+  sites.forEach(s => { sitesMap[String(s._id || s.id)] = s; });
 
-  // Calculate current warehouse stock levels (identical to frontend Store.Inventory.getOverview)
+  // ── Calculate current warehouse stock ──────────────────────────────
   const currentStockMap = {};
   materials.forEach(m => {
     const mId = String(m._id || m.id);
-    let totalPurchased = 0;
-    let totalReturned = 0;
+    let purchased = 0, returned = 0, sent = 0, rented = 0;
 
     allIncoming.filter(r => r.destinationType === 'warehouse').forEach(r => {
       (r.items || []).forEach(i => {
         if (String(i.materialId) === mId) {
           const qty = parseFloat(i.quantity) || 0;
-          if (r.supplier && r.supplier.toLowerCase().includes('return')) {
-            totalReturned += qty;
-          } else {
-            totalPurchased += qty;
-          }
+          if (r.supplier && r.supplier.toLowerCase().includes('return')) returned += qty;
+          else purchased += qty;
         }
       });
     });
-
     allReturns.forEach(r => {
-      if (String(r.materialId) === mId) {
-        totalReturned += parseFloat(r.quantity) || 0;
-      }
+      if (String(r.materialId) === mId) returned += parseFloat(r.quantity) || 0;
     });
-
-    let totalSent = 0;
     allOutgoing.forEach(r => {
       (r.items || []).forEach(i => {
-        if (String(i.materialId) === mId) {
-          totalSent += parseFloat(i.quantity) || 0;
-        }
+        if (String(i.materialId) === mId) sent += parseFloat(i.quantity) || 0;
       });
     });
-
-    let totalRented = 0;
     allRentals.filter(r => r.status === 'Active').forEach(r => {
       (r.items || []).forEach(i => {
-        if (String(i.materialId) === mId) {
-          totalRented += parseFloat(i.quantity) || 0;
-        }
+        if (String(i.materialId) === mId) rented += parseFloat(i.quantity) || 0;
       });
     });
-
-    currentStockMap[mId] = (totalPurchased + totalReturned) - totalSent - totalRented;
+    currentStockMap[mId] = (purchased + returned) - sent - rented;
   });
 
-  // 2. Filter movements for the specified date (report Date YYYY-MM-DD)
+  // ── Filter today's movements ────────────────────────────────────────
   const incomingMovements = [];
   const outgoingMovements = [];
 
-  // INCOMING TYPE A: Supplier purchases/receipts
   allIncoming.filter(r => r.destinationType === 'warehouse' && r.date === date).forEach(r => {
     (r.items || []).forEach(i => {
       const mat = materialsMap[String(i.materialId)];
       incomingMovements.push({
         materialName: mat ? mat.name : 'Unknown',
-        sku: mat ? mat.sku || '-' : '-',
         quantity: parseFloat(i.quantity) || 0,
-        source: 'Purchase',
-        siteName: 'N/A',
-        time: r.date
+        unit: mat ? mat.unit || 'Nos' : 'Nos',
+        source: 'Purchase'
       });
     });
   });
-
-  // INCOMING TYPE B: Site Returns
   allReturns.filter(r => r.date === date).forEach(r => {
-    const mat = materialsMap[String(r.materialId)];
+    const mat  = materialsMap[String(r.materialId)];
     const site = sitesMap[String(r.siteId)];
     incomingMovements.push({
       materialName: mat ? mat.name : 'Unknown',
-      sku: mat ? mat.sku || '-' : '-',
       quantity: parseFloat(r.quantity) || 0,
-      source: 'Site Return',
-      siteName: site ? site.name : 'Unknown Site',
-      time: r.date
+      unit: mat ? mat.unit || 'Nos' : 'Nos',
+      source: site ? `Return - ${site.name}` : 'Site Return'
     });
   });
-
-  // INCOMING TYPE C: Rental Returns
   allRentals.filter(r => r.status === 'Returned' && r.comingDate === date).forEach(r => {
     (r.items || []).forEach(i => {
       const mat = materialsMap[String(i.materialId)];
       incomingMovements.push({
         materialName: mat ? mat.name : 'Unknown',
-        sku: mat ? mat.sku || '-' : '-',
         quantity: parseFloat(i.quantity) || 0,
-        source: 'Rental Return',
-        siteName: `${r.customerName} - ${r.siteName || ''}`.trim(),
-        time: r.comingDate
+        unit: mat ? mat.unit || 'Nos' : 'Nos',
+        source: `Rental Return - ${r.customerName}`
       });
     });
   });
 
-  // OUTGOING TYPE A: Standard Dispatches to Sites
   allOutgoing.filter(r => r.date === date).forEach(r => {
     (r.items || []).forEach(i => {
-      const mat = materialsMap[String(i.materialId)];
+      const mat  = materialsMap[String(i.materialId)];
       const site = sitesMap[String(r.siteId)];
       outgoingMovements.push({
         materialName: mat ? mat.name : 'Unknown',
-        sku: mat ? mat.sku || '-' : '-',
         quantity: parseFloat(i.quantity) || 0,
-        destinationSite: site ? site.name : 'Unknown Site',
-        challanNumber: r.ticketNo || r.referenceNo || 'N/A',
-        time: r.date
+        unit: mat ? mat.unit || 'Nos' : 'Nos',
+        destination: site ? site.name : 'Unknown Site',
+        challan: r.ticketNo || r.referenceNo || '-'
       });
     });
   });
-
-  // OUTGOING TYPE B: Rental Dispatches
   allRentals.filter(r => r.goingDate === date).forEach(r => {
     (r.items || []).forEach(i => {
       const mat = materialsMap[String(i.materialId)];
       outgoingMovements.push({
         materialName: mat ? mat.name : 'Unknown',
-        sku: mat ? mat.sku || '-' : '-',
         quantity: parseFloat(i.quantity) || 0,
-        destinationSite: `${r.customerName} - ${r.siteName || ''}`.trim(),
-        challanNumber: r.id || 'N/A',
-        time: r.goingDate
+        unit: mat ? mat.unit || 'Nos' : 'Nos',
+        destination: `${r.customerName} (Rental)`,
+        challan: '-'
       });
     });
   });
 
-  // 3. Compute Summary Statistics
-  const totalIncomingQty = incomingMovements.reduce((sum, m) => sum + m.quantity, 0);
-  const totalOutgoingQty = outgoingMovements.reduce((sum, m) => sum + m.quantity, 0);
-  const netStockChange = totalIncomingQty - totalOutgoingQty;
+  // ── Summary numbers ────────────────────────────────────────────────
+  const totalIn  = incomingMovements.reduce((s, m) => s + m.quantity, 0);
+  const totalOut = outgoingMovements.reduce((s, m) => s + m.quantity, 0);
 
-  const currentWarehouseTotalStock = Object.values(currentStockMap).reduce((sum, val) => sum + val, 0);
+  // ── Warehouse rows (only items with stock > 0, sorted by name) ─────
+  const warehouseRows = materials.map(m => {
+    const mId = String(m._id || m.id);
+    return { name: m.name, unit: m.unit || 'Nos', qty: currentStockMap[mId] || 0 };
+  })
+  .filter(r => r.qty > 0)
+  .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Group to count unique dispatches/returns transactions
-  const uniqueDispatches = new Set([
-    ...allOutgoing.filter(r => r.date === date).map(r => r._id || r.id),
-    ...allRentals.filter(r => r.goingDate === date).map(r => r._id || r.id)
-  ]).size;
+  // ── Format date ────────────────────────────────────────────────────
+  const [yr, mo, dy] = date.split('-').map(Number);
+  const dateFormatted = new Date(yr, mo - 1, dy).toLocaleDateString('en-IN', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+  });
 
-  const uniqueReturns = new Set([
-    ...allReturns.filter(r => r.date === date).map(r => r._id || r.id),
-    ...allRentals.filter(r => r.status === 'Returned' && r.comingDate === date).map(r => r._id || r.id)
-  ]).size;
-
-  // 4. Generate PDF Document
+  // ═══════════════════════════════════════════════════════════════════
+  // PDF Generation — Mobile-first large-font layout
+  // Page size: A4 portrait but big fonts so it fills the screen nicely
+  // ═══════════════════════════════════════════════════════════════════
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
+    const doc = new PDFDocument({ size: 'A4', margin: 30, bufferPages: true });
     const chunks = [];
+    doc.on('data', c => chunks.push(c));
+    doc.on('end',  () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
 
-    doc.on('data', chunk => chunks.push(chunk));
-    doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.on('error', err => reject(err));
+    // ── COLORS ──────────────────────────────────────────────────────
+    const C_DARK    = '#0f172a';
+    const C_BLUE    = '#1e3a8a';
+    const C_ACCENT  = '#2563eb';
+    const C_GREEN   = '#15803d';
+    const C_RED     = '#b91c1c';
+    const C_GRAY    = '#64748b';
+    const C_LIGHT   = '#f1f5f9';
+    const C_WHITE   = '#ffffff';
+    const C_BORDER  = '#cbd5e1';
 
-    // Design Colors
-    const primaryColor = '#1e3a8a';
-    const secondaryColor = '#0f172a';
-    const accentColor = '#3b82f6';
-    const textColor = '#334155';
-    const lightBorder = '#e2e8f0';
+    const PW = 535; // usable page width (595 - 2*30)
 
-    // Header Logo Icon (Vector)
-    doc.save();
-    doc.translate(40, 40);
-    doc.fillColor(accentColor).rect(0, 0, 36, 36).fill();
-    doc.fillColor(primaryColor).rect(6, 6, 24, 24).fill();
-    doc.fillColor('#ffffff').rect(12, 12, 12, 12).fill();
-    doc.restore();
+    // ── HELPERS ─────────────────────────────────────────────────────
+    function sectionTitle(text, y, color = C_BLUE) {
+      doc.fillColor(color).rect(30, y, PW, 32).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(14);
+      doc.text(text, 42, y + 9, { width: PW - 24 });
+      return y + 32;
+    }
 
-    // Company Header
-    doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(16);
-    doc.text('KSS CONSTRUCTION MATERIALS', 90, 40);
-    doc.fillColor(textColor).font('Helvetica').fontSize(9);
-    doc.text('Professional Scaffold & Plate Hire Management System', 90, 58);
+    function bigCard(x, y, w, h, label, value, bg, valColor) {
+      doc.fillColor(bg).rect(x, y, w, h).fill();
+      doc.strokeColor(C_BORDER).lineWidth(1).rect(x, y, w, h).stroke();
+      doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(9);
+      doc.text(label.toUpperCase(), x + 8, y + 8, { width: w - 16 });
+      doc.fillColor(valColor).font('Helvetica-Bold').fontSize(18);
+      doc.text(value, x + 8, y + 22, { width: w - 16 });
+    }
 
-    // Title / Date Header
-    doc.fillColor(secondaryColor).font('Helvetica-Bold').fontSize(13);
-    const dateFormatted = new Date(date).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-    doc.text(`Daily Warehouse Movement Summary - ${dateFormatted}`, 40, 95);
-    doc.strokeColor(lightBorder).lineWidth(1).moveTo(40, 112).lineTo(555, 112).stroke();
+    // ── PAGE 1: HEADER + WAREHOUSE STOCK ────────────────────────────
+    let y = 30;
 
-    // 📊 Daily Summary Panel (3 Column grid)
-    doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(11);
-    doc.text('Daily Summary Statistics', 40, 128);
+    // ── Brand strip
+    doc.fillColor(C_BLUE).rect(30, y, PW, 52).fill();
+    doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(20);
+    doc.text('KSS Construction Materials', 44, y + 8, { width: PW - 20 });
+    doc.fillColor('#93c5fd').font('Helvetica').fontSize(11);
+    doc.text('Daily Warehouse Report', 44, y + 32, { width: PW - 20 });
+    y += 58;
 
-    const startY = 145;
-    // Row 1 Cards
-    drawSummaryCard(doc, 40, startY, 160, 45, 'Total Incoming', `${totalIncomingQty.toLocaleString('en-IN')} units`, '#f0fdf4', '#15803d');
-    drawSummaryCard(doc, 218, startY, 160, 45, 'Total Outgoing', `${totalOutgoingQty.toLocaleString('en-IN')} units`, '#fef2f2', '#b91c1c');
-    drawSummaryCard(doc, 395, startY, 160, 45, 'Net Stock Change', `${netStockChange >= 0 ? '+' : ''}${netStockChange.toLocaleString('en-IN')} units`, netStockChange >= 0 ? '#f0fdf4' : '#fef2f2', netStockChange >= 0 ? '#15803d' : '#b91c1c');
+    // ── Date banner
+    doc.fillColor(C_LIGHT).rect(30, y, PW, 28).fill();
+    doc.strokeColor(C_BORDER).lineWidth(1).rect(30, y, PW, 28).stroke();
+    doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(13);
+    doc.text(dateFormatted, 42, y + 8, { width: PW - 20 });
+    y += 36;
 
-    // Row 2 Cards
-    drawSummaryCard(doc, 40, startY + 55, 160, 45, 'Warehouse Stock', `${currentWarehouseTotalStock.toLocaleString('en-IN')} units`, '#f8fafc', primaryColor);
-    drawSummaryCard(doc, 218, startY + 55, 160, 45, 'Dispatches logged', `${uniqueDispatches} Challans`, '#f0f9ff', '#0369a1');
-    drawSummaryCard(doc, 395, startY + 55, 160, 45, 'Returns logged', `${uniqueReturns} Collections`, '#faf5ff', '#6b21a8');
+    // ── Summary cards (2 rows x 3 cols)
+    const cardW = Math.floor(PW / 3) - 4;
+    const cardH = 50;
+    const cardGap = 6;
 
-    let currentY = startY + 115;
+    bigCard(30,                  y, cardW, cardH, 'Today Received', `+${totalIn}`,  '#f0fdf4', C_GREEN);
+    bigCard(30 + cardW + cardGap, y, cardW, cardH, 'Today Dispatched', `-${totalOut}`, '#fef2f2', C_RED);
+    bigCard(30 + (cardW + cardGap) * 2, y, cardW, cardH, 'Net Change', `${totalIn - totalOut >= 0 ? '+' : ''}${totalIn - totalOut}`, '#f0f9ff', C_ACCENT);
+    y += cardH + 10;
 
-    // 📥 Incoming Table Header
-    doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(11);
-    doc.text('Incoming Materials (Receipts)', 40, currentY);
-    currentY += 15;
+    // ── Warehouse Stock Section ──────────────────────────────────────
+    y = sectionTitle('🏢  Current Warehouse Stock', y);
+    y += 6;
+
+    if (warehouseRows.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
+      doc.text('No stock currently in warehouse.', 42, y + 12);
+      y += 40;
+    } else {
+      // Table header
+      doc.fillColor(C_DARK).rect(30, y, PW, 26).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(12);
+      doc.text('Material Name', 42, y + 7, { width: 280 });
+      doc.text('Unit', 322, y + 7, { width: 70, align: 'center' });
+      doc.text('Qty', 392, y + 7, { width: 140, align: 'right' });
+      y += 26;
+
+      warehouseRows.forEach((row, idx) => {
+        // Page break
+        if (y > 750) {
+          doc.addPage();
+          y = 30;
+          // Repeat header
+          doc.fillColor(C_DARK).rect(30, y, PW, 26).fill();
+          doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(12);
+          doc.text('Material Name', 42, y + 7, { width: 280 });
+          doc.text('Unit', 322, y + 7, { width: 70, align: 'center' });
+          doc.text('Qty', 392, y + 7, { width: 140, align: 'right' });
+          y += 26;
+        }
+
+        const rowH = 32;
+        const bg   = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+        doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+
+        // Material name — large & bold
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(13);
+        doc.text(row.name, 42, y + 9, { width: 278, lineBreak: false });
+
+        // Unit — medium gray
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(12);
+        doc.text(row.unit, 322, y + 10, { width: 68, align: 'center', lineBreak: false });
+
+        // Quantity — large bold coloured number
+        const qtyColor = row.qty <= 0 ? C_RED : (row.qty < 10 ? '#d97706' : C_GREEN);
+        doc.fillColor(qtyColor).font('Helvetica-Bold').fontSize(16);
+        doc.text(row.qty.toLocaleString('en-IN'), 392, y + 7, { width: 138, align: 'right', lineBreak: false });
+
+        // bottom border
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
+        y += rowH;
+      });
+    }
+
+    // ── PAGE 2: TODAY'S MOVEMENTS ────────────────────────────────────
+    doc.addPage();
+    y = 30;
+
+    // ── Incoming movements
+    y = sectionTitle('📥  Today\'s Received Materials', y, C_GREEN);
+    y += 6;
 
     if (incomingMovements.length === 0) {
-      doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(9);
-      doc.text('No warehouse transactions recorded for this period.', 50, currentY + 10);
-      currentY += 35;
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
+      doc.text('Nothing received today.', 42, y + 10);
+      y += 36;
     } else {
-      const incomingHeaders = [
-        { label: 'Material Name', x: 45, width: 140 },
-        { label: 'SKU', x: 195, width: 70 },
-        { label: 'Qty', x: 275, width: 50, align: 'right' },
-        { label: 'Source', x: 340, width: 90 },
-        { label: 'Site Name', x: 440, width: 110 }
-      ];
-      const incomingColumns = [
-        { key: 'materialName', x: 45, width: 140 },
-        { key: 'sku', x: 195, width: 70 },
-        { key: 'quantity', x: 275, width: 50, align: 'right' },
-        { key: 'source', x: 340, width: 90 },
-        { key: 'siteName', x: 440, width: 110 }
-      ];
-      currentY = drawTable(doc, currentY, incomingHeaders, incomingColumns, incomingMovements);
-      currentY += 20;
+      // header row
+      doc.fillColor(C_GREEN).rect(30, y, PW, 24).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(11);
+      doc.text('Material', 42, y + 6, { width: 240 });
+      doc.text('Qty', 282, y + 6, { width: 80, align: 'right' });
+      doc.text('Source', 372, y + 6, { width: 163 });
+      y += 24;
+
+      incomingMovements.forEach((row, idx) => {
+        if (y > 750) { doc.addPage(); y = 30; }
+        const rowH = 30;
+        const bg = idx % 2 === 0 ? C_WHITE : '#f0fdf4';
+        doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
+        doc.text(row.materialName, 42, y + 9, { width: 238, lineBreak: false });
+
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(14);
+        doc.text(`+${row.quantity}`, 282, y + 7, { width: 80, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(11);
+        doc.text(row.source, 372, y + 9, { width: 163, lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
+        y += rowH;
+      });
     }
 
-    // 📤 Outgoing Table Header
-    doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(11);
-    doc.text('Outgoing Materials (Dispatches)', 40, currentY);
-    currentY += 15;
+    y += 14;
+
+    // ── Outgoing movements
+    if (y > 680) { doc.addPage(); y = 30; }
+    y = sectionTitle('📤  Today\'s Dispatched Materials', y, C_RED);
+    y += 6;
 
     if (outgoingMovements.length === 0) {
-      doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(9);
-      doc.text('No warehouse transactions recorded for this period.', 50, currentY + 10);
-      currentY += 35;
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
+      doc.text('Nothing dispatched today.', 42, y + 10);
+      y += 36;
     } else {
-      const outgoingHeaders = [
-        { label: 'Material Name', x: 45, width: 140 },
-        { label: 'SKU', x: 195, width: 70 },
-        { label: 'Qty', x: 275, width: 50, align: 'right' },
-        { label: 'Destination Site', x: 340, width: 115 },
-        { label: 'Challan No', x: 465, width: 85 }
-      ];
-      const outgoingColumns = [
-        { key: 'materialName', x: 45, width: 140 },
-        { key: 'sku', x: 195, width: 70 },
-        { key: 'quantity', x: 275, width: 50, align: 'right' },
-        { key: 'destinationSite', x: 340, width: 115 },
-        { key: 'challanNumber', x: 465, width: 85 }
-      ];
-      currentY = drawTable(doc, currentY, outgoingHeaders, outgoingColumns, outgoingMovements);
+      // header
+      doc.fillColor(C_RED).rect(30, y, PW, 24).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(11);
+      doc.text('Material', 42, y + 6, { width: 200 });
+      doc.text('Qty', 242, y + 6, { width: 70, align: 'right' });
+      doc.text('Site', 322, y + 6, { width: 163 });
+      doc.text('Challan', 485, y + 6, { width: 80, align: 'right' });
+      y += 24;
+
+      outgoingMovements.forEach((row, idx) => {
+        if (y > 750) { doc.addPage(); y = 30; }
+        const rowH = 30;
+        const bg = idx % 2 === 0 ? C_WHITE : '#fef2f2';
+        doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
+        doc.text(row.materialName, 42, y + 9, { width: 198, lineBreak: false });
+
+        doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(14);
+        doc.text(`-${row.quantity}`, 242, y + 7, { width: 70, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(11);
+        doc.text(row.destination, 322, y + 9, { width: 161, lineBreak: false });
+        doc.text(row.challan, 485, y + 9, { width: 80, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
+        y += rowH;
+      });
     }
 
-    // 🏢 SECTION 1: Current Warehouse Stock
-    doc.addPage();
-    currentY = 40;
-
-    doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(13);
-    doc.text('🏢 Current Warehouse Stock', 40, currentY);
-    doc.strokeColor(lightBorder).lineWidth(1).moveTo(40, currentY + 16).lineTo(555, currentY + 16).stroke();
-    currentY += 28;
-
-    const warehouseHeaders = [
-      { label: 'Material Name', x: 45, width: 220 },
-      { label: 'SKU', x: 275, width: 90 },
-      { label: 'Unit', x: 375, width: 60, align: 'center' },
-      { label: 'Warehouse Qty', x: 445, width: 105, align: 'right' }
-    ];
-    const warehouseColumns = [
-      { key: 'materialName', x: 45, width: 220 },
-      { key: 'sku', x: 275, width: 90 },
-      { key: 'unit', x: 375, width: 60, align: 'center' },
-      { key: 'quantity', x: 445, width: 105, align: 'right' }
-    ];
-
-    const warehouseRows = materials.map(m => {
-      const mId = String(m._id || m.id);
-      return {
-        materialName: m.name,
-        sku: m.sku || '-',
-        unit: m.unit || 'Nos',
-        quantity: currentStockMap[mId] || 0
-      };
-    }).sort((a, b) => a.materialName.localeCompare(b.materialName));
-
-    currentY = drawTable(doc, currentY, warehouseHeaders, warehouseColumns, warehouseRows);
-    currentY += 30;
-
-    // 📍 SECTION 2: Stock Deployed at Customer Sites
-    const activeSites = sites.filter(s => s.status !== 'Archived');
-    
-    if (activeSites.length > 0) {
-      // Start Customer Sites on a new page
-      doc.addPage();
-      currentY = 40;
-
-      doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(13);
-      doc.text('📍 Current Stock at Customer Sites', 40, currentY);
-      doc.strokeColor(lightBorder).lineWidth(1).moveTo(40, currentY + 16).lineTo(555, currentY + 16).stroke();
-      currentY += 28;
-
-      let renderedAnySite = false;
-
-      for (const site of activeSites) {
-        const siteBalances = [];
-
-        materials.forEach(m => {
-          const mId = String(m._id || m.id);
-          let totalSent = 0;
-
-          // 1. Outgoing dispatches to this site
-          allOutgoing.forEach(r => {
-            if (String(r.siteId) === String(site._id || site.id)) {
-              (r.items || []).forEach(i => {
-                const matIdStr = String(i.materialId || '');
-                if (matIdStr === mId) {
-                  totalSent += parseFloat(i.quantity) || 0;
-                }
-              });
-            }
-          });
-
-          // 2. Incoming dispatches direct to this site
-          allIncoming.forEach(r => {
-            if (r.destinationType === 'site' && String(r.destinationSiteId) === String(site._id || site.id)) {
-              (r.items || []).forEach(i => {
-                const matIdStr = String(i.materialId || '');
-                if (matIdStr === mId) {
-                  totalSent += parseFloat(i.quantity) || 0;
-                }
-              });
-            }
-          });
-
-          // 3. Site returns
-          let totalReturned = 0;
-          allReturns.forEach(r => {
-            if (String(r.siteId) === String(site._id || site.id)) {
-              const matIdStr = String(r.materialId || '');
-              if (matIdStr === mId) {
-                totalReturned += parseFloat(r.quantity) || 0;
-              }
-            }
-          });
-
-          // 4. Site usage
-          let totalUsed = 0;
-          allUsage.forEach(r => {
-            if (String(r.siteId) === String(site._id || site.id)) {
-              const matIdStr = String(r.materialId || '');
-              if (matIdStr === mId) {
-                totalUsed += parseFloat(r.quantity) || 0;
-              }
-            }
-          });
-
-          // 5. Site damaged
-          let totalDamaged = 0;
-          allDamaged.forEach(r => {
-            if (String(r.siteId) === String(site._id || site.id)) {
-              const matIdStr = String(r.materialId || '');
-              if (matIdStr === mId) {
-                totalDamaged += parseFloat(r.quantity) || 0;
-              }
-            }
-          });
-
-          const netRemaining = totalSent - totalReturned - totalUsed - totalDamaged;
-
-          if (netRemaining > 0 || totalSent > 0 || totalReturned > 0) {
-            siteBalances.push({
-              materialName: m.name,
-              sku: m.sku || '-',
-              unit: m.unit || '',
-              sent: totalSent,
-              returned: totalReturned,
-              used: totalUsed,
-              damaged: totalDamaged,
-              remaining: netRemaining
-            });
-          }
-        });
-
-        // Only display site block if it has records with remaining balance > 0
-        const itemsToRender = siteBalances.filter(b => b.remaining > 0);
-        if (itemsToRender.length > 0) {
-          renderedAnySite = true;
-
-          // Check page break before rendering site header + first few rows
-          if (currentY > 680) {
-            doc.addPage();
-            currentY = 40;
-          }
-
-          // Site Header Box
-          doc.save();
-          doc.fillColor('#f8fafc').rect(40, currentY, 515, 36).fill();
-          doc.strokeColor(lightBorder).lineWidth(0.5).rect(40, currentY, 515, 36).stroke();
-          
-          doc.fillColor(secondaryColor).font('Helvetica-Bold').fontSize(10);
-          doc.text(`Site: ${site.name}`, 50, currentY + 6);
-          doc.fillColor(textColor).font('Helvetica').fontSize(8.5);
-          
-          const detailsString = [
-            site.customerName ? `Customer: ${site.customerName}` : null,
-            site.contactNumber ? `Ph: ${site.contactNumber}` : null,
-            site.address ? `Address: ${site.address}` : null
-          ].filter(Boolean).join('  |  ');
-          
-          doc.text(detailsString || 'No customer or address details provided.', 50, currentY + 20);
-          doc.restore();
-          currentY += 42;
-
-          // Draw Table
-          const siteHeaders = [
-            { label: 'Material Name', x: 45, width: 180 },
-            { label: 'SKU', x: 235, width: 70 },
-            { label: 'Sent', x: 315, width: 50, align: 'right' },
-            { label: 'Returned', x: 375, width: 60, align: 'right' },
-            { label: 'Net at Site', x: 445, width: 105, align: 'right' }
-          ];
-          const siteColumns = [
-            { key: 'materialName', x: 45, width: 180 },
-            { key: 'sku', x: 235, width: 70 },
-            { key: 'sent', x: 315, width: 50, align: 'right' },
-            { key: 'returned', x: 375, width: 60, align: 'right' },
-            { key: 'remaining', x: 445, width: 105, align: 'right' }
-          ];
-
-          currentY = drawTable(doc, currentY, siteHeaders, siteColumns, itemsToRender);
-          currentY += 20;
-        }
-      }
-
-      if (!renderedAnySite) {
-        doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(9);
-        doc.text('No active materials or inventory deployed at customer sites currently.', 50, currentY + 10);
-      }
-    }
-
-    // 🚛 SECTION 3: Stock Leased to Rental Sites
-    const activeRentals = allRentals.filter(r => r.status === 'Active');
-    
-    if (activeRentals.length > 0) {
-      // Start Rental Sites on a new page
-      doc.addPage();
-      currentY = 40;
-
-      doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(13);
-      doc.text('🚛 Current Stock on Rent (Rental Sites)', 40, currentY);
-      doc.strokeColor(lightBorder).lineWidth(1).moveTo(40, currentY + 16).lineTo(555, currentY + 16).stroke();
-      currentY += 28;
-
-      let renderedAnyRental = false;
-
-      for (const rental of activeRentals) {
-        const itemsToRender = (rental.items || []).map(i => {
-          const mat = materialsMap[String(i.materialId)];
-          return {
-            materialName: mat ? mat.name : 'Unknown Material',
-            sku: mat ? mat.sku || '-' : '-',
-            unit: mat ? mat.unit : 'Nos',
-            quantity: parseFloat(i.quantity) || 0,
-            rate: `Rs ${parseFloat(i.rate) || 0}/day`
-          };
-        }).filter(item => item.quantity > 0);
-
-        if (itemsToRender.length > 0) {
-          renderedAnyRental = true;
-
-          // Check page break before rendering rental header + first few rows
-          if (currentY > 680) {
-            doc.addPage();
-            currentY = 40;
-          }
-
-          // Rental Header Box
-          doc.save();
-          doc.fillColor('#f0fdf4').rect(40, currentY, 515, 36).fill();
-          doc.strokeColor(lightBorder).lineWidth(0.5).rect(40, currentY, 515, 36).stroke();
-          
-          doc.fillColor('#166534').font('Helvetica-Bold').fontSize(10);
-          doc.text(`Customer: ${rental.customerName}`, 50, currentY + 6);
-          doc.fillColor(textColor).font('Helvetica').fontSize(8.5);
-          
-          const detailsString = [
-            rental.siteName ? `Site: ${rental.siteName}` : null,
-            rental.goingDate ? `Leased Since: ${new Date(rental.goingDate).toLocaleDateString('en-IN')}` : null
-          ].filter(Boolean).join('  |  ');
-          
-          doc.text(detailsString || '', 50, currentY + 20);
-          doc.restore();
-          currentY += 42;
-
-          // Draw Table
-          const rentalHeaders = [
-            { label: 'Material Name', x: 45, width: 180 },
-            { label: 'SKU', x: 235, width: 70 },
-            { label: 'Unit', x: 315, width: 50, align: 'center' },
-            { label: 'Qty Leased', x: 375, width: 75, align: 'right' },
-            { label: 'Day Rate', x: 460, width: 90, align: 'right' }
-          ];
-          const rentalColumns = [
-            { key: 'materialName', x: 45, width: 180 },
-            { key: 'sku', x: 235, width: 70 },
-            { key: 'unit', x: 315, width: 50, align: 'center' },
-            { key: 'quantity', x: 375, width: 75, align: 'right' },
-            { key: 'rate', x: 460, width: 90, align: 'right' }
-          ];
-
-          currentY = drawTable(doc, currentY, rentalHeaders, rentalColumns, itemsToRender);
-          currentY += 20;
-        }
-      }
-
-      if (!renderedAnyRental) {
-        doc.fillColor('#64748b').font('Helvetica-Oblique').fontSize(9);
-        doc.text('No active materials out on rent currently.', 50, currentY + 10);
-      }
-    }
-
-    // Page Numbering Footer (Second Pass)
+    // ── PAGE FOOTER ──────────────────────────────────────────────────
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(i);
-      doc.strokeColor(lightBorder).lineWidth(0.5).moveTo(40, 785).lineTo(555, 785).stroke();
-      doc.fillColor('#64748b').font('Helvetica').fontSize(8);
-      doc.text('Confidential - KSS Inventory Management System', 40, 792);
-      
-      const pageText = `Page ${i + 1} of ${range.count}`;
-      doc.text(pageText, 450, 792, { width: 105, align: 'right' });
+      doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, 815).lineTo(565, 815).stroke();
+      doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
+      doc.text('KSS Inventory Management System — Confidential', 30, 820, { width: 350 });
+      doc.text(`Page ${i + 1} of ${range.count}`, 380, 820, { width: 185, align: 'right' });
     }
 
     doc.end();
   });
-}
-
-function drawSummaryCard(doc, x, y, width, height, title, value, bgColor, valueColor) {
-  doc.save();
-  // Draw rounded card background
-  doc.fillColor(bgColor).rect(x, y, width, height).fill();
-  doc.strokeColor('#e2e8f0').lineWidth(0.5).rect(x, y, width, height).stroke();
-
-  // Label text
-  doc.fillColor('#64748b').font('Helvetica-Bold').fontSize(7.5);
-  doc.text(title.toUpperCase(), x + 10, y + 8, { width: width - 20 });
-
-  // Value text
-  doc.fillColor(valueColor).font('Helvetica-Bold').fontSize(12);
-  doc.text(value, x + 10, y + 22, { width: width - 20 });
-  doc.restore();
-}
-
-function drawTable(doc, startY, headers, columns, data) {
-  let y = startY;
-
-  // Header backgrounds
-  doc.fillColor('#1e3a8a').rect(40, y, 515, 18).fill();
-  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8.5);
-  headers.forEach(h => {
-    doc.text(h.label, h.x, y + 4, { width: h.width, align: h.align || 'left' });
-  });
-  y += 18;
-
-  doc.font('Helvetica').fontSize(8);
-  data.forEach((row, rowIdx) => {
-    if (y > 730) {
-      doc.addPage();
-      y = 40;
-
-      // Draw header again on new page
-      doc.fillColor('#1e3a8a').rect(40, y, 515, 18).fill();
-      doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(8.5);
-      headers.forEach(h => {
-        doc.text(h.label, h.x, y + 4, { width: h.width, align: h.align || 'left' });
-      });
-      y += 18;
-      doc.font('Helvetica').fontSize(8);
-    }
-
-    // Zebra striping
-    if (rowIdx % 2 === 0) {
-      doc.fillColor('#f8fafc').rect(40, y, 515, 16).fill();
-    }
-    doc.fillColor('#334155');
-
-    columns.forEach(col => {
-      let val = row[col.key];
-      if (col.key === 'quantity' && typeof val === 'number') {
-        val = val.toLocaleString('en-IN');
-      }
-      doc.text(String(val !== undefined ? val : '-'), col.x, y + 4, { width: col.width, align: col.align || 'left' });
-    });
-
-    // Border line under row
-    doc.strokeColor('#f1f5f9').lineWidth(0.5).moveTo(40, y + 16).lineTo(555, y + 16).stroke();
-    y += 16;
-  });
-
-  return y;
 }
 
 module.exports = { generateDailyWarehouseSummary };
