@@ -42,7 +42,10 @@ async function sendTelegramReport({ date, models }) {
   }
 
   const results = [];
-  const dateFormatted = new Date(date).toLocaleDateString('en-IN', {
+  // Parse date parts manually to avoid UTC→local shift
+  // (new Date('YYYY-MM-DD') is UTC midnight → shows previous day in IST)
+  const [yr, mo, dy] = date.split('-').map(Number);
+  const dateFormatted = new Date(yr, mo - 1, dy).toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'long',
     year: 'numeric'
