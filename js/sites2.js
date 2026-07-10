@@ -82,7 +82,7 @@ var SitesPage = {
                 </div>
                 <div class="form-group">
                   <label>Contact Number</label>
-                  <input type="text" class="form-control" id="site-contact" placeholder="Contact Number">
+                  <input type="tel" class="form-control" id="site-contact" placeholder="10-digit Contact Number" maxlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0,10)">
                 </div>
               </div>
               <div class="form-row">
@@ -461,6 +461,13 @@ var SitesPage = {
       };
 
       if (!data.name || !data.customerName) { alert('Site name and Customer name are required'); return; }
+
+      // Phone validation — must be exactly 10 digits if provided
+      if (data.contactNumber && !/^[0-9]{10}$/.test(data.contactNumber)) {
+        alert('Contact Number must be exactly 10 digits (numbers only, no spaces or special characters)');
+        document.getElementById('site-contact').focus();
+        return;
+      }
 
       if (id) {
         Store.Sites.update(id, data);
