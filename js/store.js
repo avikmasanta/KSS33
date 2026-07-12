@@ -36,7 +36,8 @@ const Store = (() => {
     transactions: [],
     rentalSites: [],
     categories: [],
-    telegramChats: []
+    telegramChats: [],
+    smsContacts: []
   };
 
   // Maps collection store key to cache object key and API endpoint
@@ -54,7 +55,8 @@ const Store = (() => {
     bm_transactions: { cacheKey: 'transactions', url: 'transactions' },
     bm_rentalSites: { cacheKey: 'rentalSites', url: 'rentalSites' },
     bm_categories: { cacheKey: 'categories', url: 'categories' },
-    bm_telegramChats: { cacheKey: 'telegramChats', url: 'telegramChats' }
+    bm_telegramChats: { cacheKey: 'telegramChats', url: 'telegramChats' },
+    bm_smsContacts: { cacheKey: 'smsContacts', url: 'smsContacts' }
   };
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
@@ -322,6 +324,7 @@ const Store = (() => {
   const RentalSitesStore = makeStore('bm_rentalSites');
   const CategoriesStore  = makeStore('bm_categories');
   const TelegramChatsStore = makeStore('bm_telegramChats');
+  const SmsContactsStore = makeStore('bm_smsContacts');
  
   const Customers    = CustomersStore;
   const Categories   = CategoriesStore;
@@ -335,6 +338,7 @@ const Store = (() => {
   const Transactions = TransactionsStore;
   const RentalSites   = RentalSitesStore;
   const TelegramChats = TelegramChatsStore;
+  const SmsContacts   = SmsContactsStore;
 
 
   function logTransaction(materialId, quantity, action, siteId = '') {
@@ -1008,6 +1012,6 @@ const Store = (() => {
     return { totalIssued, totalReturned, daily };
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
 
 })();

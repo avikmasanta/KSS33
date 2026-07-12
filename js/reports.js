@@ -18,7 +18,8 @@ var ReportsPage = {
       { id: 'stock-summary', title: 'Stock Summary Report', desc: 'Current stock levels across all products', icon: 'box', color: '#3b82f6', colorBg: '#dbeafe' },
       { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' },
       { id: 'site-cost', title: 'Site Cost & Material Report', desc: 'Total project cost, materials issued & returned per site', icon: 'mapPin', color: '#8b5cf6', colorBg: '#ede9fe' },
-      { id: 'telegram-summary', title: 'Telegram Reports', desc: 'Configure Telegram Bot chat alerts and send daily summaries', icon: 'settings', color: '#f59e0b', colorBg: '#fef3c7' }
+      { id: 'telegram-summary', title: 'Telegram Reports', desc: 'Configure Telegram Bot chat alerts and send daily summaries', icon: 'settings', color: '#f59e0b', colorBg: '#fef3c7' },
+      { id: 'sms-summary', title: 'SMS Reports', desc: 'Configure SMS contact alerts and send daily summaries', icon: 'messageSquare', color: '#ec4899', colorBg: '#fce7f3' }
     ];
 
     return `
@@ -210,6 +211,100 @@ var ReportsPage = {
                       3. Send a message like <strong>/start</strong> to wake up the bot.<br>
                       4. To find the chat ID, search for <strong>@userinfobot</strong> in Telegram and start it to see your user ID, or use <strong>@MissRose_bot</strong> in your group (command <code>/id</code>).<br>
                       5. Register that ID here to receive automatic morning reports!
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'sms-summary': {
+        const contacts = Store.SmsContacts.getAll();
+        const nowIST = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
+        const yesterday = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        content = `
+          <div class="card slide-up">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>SMS Contacts & Daily Reports</h3>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
+            </div>
+            <div class="card-body">
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:24px;">
+                
+                <!-- Left: Configured Contacts -->
+                <div>
+                  <h4 style="margin-bottom:12px;color:var(--text-primary);">Configured SMS Contacts</h4>
+                  <div class="table-container" style="border: 1px solid var(--border-color); border-radius:8px;">
+                    <table class="data-table" style="width:100%;">
+                      <thead>
+                        <tr>
+                          <th>Phone Number</th>
+                          <th>Name / Label</th>
+                          <th style="text-align:right;">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${contacts.map(c => `
+                          <tr>
+                            <td><code style="font-family:monospace;background:var(--bg-body);padding:2px 6px;border-radius:4px;">${c.id}</code></td>
+                            <td><strong>${escapeHtml(c.name || 'Contact')}</strong></td>
+                            <td style="text-align:right;">
+                              <button class="btn btn-icon btn-ghost" onclick="ReportsPage.deleteSmsContact('${c.id}')" title="Delete Contact" style="color:var(--danger); border:none; background:none; cursor:pointer;">
+                                ${Icons.trash}
+                              </button>
+                            </td>
+                          </tr>
+                        `).join('')}
+                        ${contacts.length === 0 ? `
+                          <tr>
+                            <td colspan="3" style="text-align:center;padding:24px;color:var(--text-tertiary);">No contacts registered yet. Add one below!</td>
+                          </tr>
+                        ` : ''}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Form to add contact -->
+                  <div style="margin-top:20px; background:var(--bg-body); padding:16px; border-radius:8px; border:1px solid var(--border-color);">
+                    <h5 style="margin:0 0 12px 0; color:var(--text-primary);">Add SMS Recipient</h5>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <input type="text" id="sms-contact-id" class="form-control" placeholder="e.g. +919876543210" style="flex:1; min-width:140px; background: var(--bg-card);">
+                      <input type="text" id="sms-contact-name" class="form-control" placeholder="Contact Name" style="flex:1; min-width:140px; background: var(--bg-card);">
+                      <button class="btn btn-primary" onclick="ReportsPage.addSmsContact()">Add</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right: Test / Preview Actions -->
+                <div>
+                  <h4 style="margin-bottom:12px;color:var(--text-primary);">Send / Preview Report</h4>
+                  <div style="background:var(--bg-body); padding:20px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:20px;">
+                    <div class="form-group" style="margin-bottom:15px;">
+                      <label>Select Report Target Date</label>
+                      <input type="date" id="sms-report-date" class="form-control" value="${yesterday}" style="background: var(--bg-card);">
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <button class="btn btn-outline" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.previewSmsReport()">
+                        ${Icons.fileText} Preview Text
+                      </button>
+                      <button class="btn btn-success" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.sendSmsReportNow()">
+                        ${Icons.check} Send SMS
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Guide/Help Card -->
+                  <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius:12px; padding:16px; color:#9d174d;">
+                    <h5 style="margin:0 0 8px 0; font-weight:700; color:#831843;">💬 SMS Notification Setup Instructions</h5>
+                    <p style="font-size:0.8rem; margin:0; line-height:1.5;">
+                      1. SMS reports are sent using Twilio or Fast2SMS based on credentials set in the backend <code>.env</code> file.<br>
+                      2. Add the recipient's mobile number here with the country code (e.g. <code>+919876543210</code>) or as a 10-digit number.<br>
+                      3. If no API keys are configured, SMS sending defaults to **Mock Mode** and prints directly to backend server console logs.
                     </p>
                   </div>
                 </div>
@@ -881,6 +976,80 @@ var ReportsPage = {
 
     try {
       const res = await fetch(`${API_URL}/telegram-report/send?date=${date}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Report sent successfully! Details: ' + data.message);
+      } else {
+        alert('Failed to send report: ' + (data.error || data.message || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error sending report: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  },
+
+  async addSmsContact() {
+    const idInput = document.getElementById('sms-contact-id');
+    const nameInput = document.getElementById('sms-contact-name');
+    if (!idInput || !nameInput) return;
+
+    const id = idInput.value.trim();
+    const name = nameInput.value.trim();
+
+    if (!id || !name) {
+      alert('Please fill out both Phone Number and Name/Label.');
+      return;
+    }
+
+    try {
+      await Store.SmsContacts.addAsync({ id, name });
+      alert('SMS Contact added successfully!');
+      this.generate('sms-summary');
+    } catch (err) {
+      alert('Failed to add SMS Contact: ' + err.message);
+    }
+  },
+
+  async deleteSmsContact(id) {
+    if (confirm('Are you sure you want to remove this SMS Contact?\nIt will no longer receive daily reports.')) {
+      try {
+        await Store.SmsContacts.remove(id);
+        alert('SMS Contact removed successfully!');
+        this.generate('sms-summary');
+      } catch (err) {
+        alert('Failed to remove: ' + err.message);
+      }
+    }
+  },
+
+  previewSmsReport() {
+    const dateInput = document.getElementById('sms-report-date');
+    if (!dateInput) return;
+    const date = dateInput.value;
+    const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : '/api';
+    window.open(`${API_URL}/sms-report/preview?date=${date}`, '_blank');
+  },
+
+  async sendSmsReportNow() {
+    const dateInput = document.getElementById('sms-report-date');
+    if (!dateInput) return;
+    const date = dateInput.value;
+
+    const btn = document.querySelector('button[onclick="ReportsPage.sendSmsReportNow()"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+
+    const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : '/api';
+
+    try {
+      const res = await fetch(`${API_URL}/sms-report/send?date=${date}`, { method: 'POST' });
       const data = await res.json();
       if (res.ok && data.success) {
         alert('Report sent successfully! Details: ' + data.message);
