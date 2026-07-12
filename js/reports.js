@@ -19,7 +19,6 @@ var ReportsPage = {
       { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' },
       { id: 'site-cost', title: 'Site Cost & Material Report', desc: 'Total project cost, materials issued & returned per site', icon: 'mapPin', color: '#8b5cf6', colorBg: '#ede9fe' },
       { id: 'telegram-summary', title: 'Telegram Reports', desc: 'Configure Telegram Bot chat alerts and send daily summaries', icon: 'settings', color: '#f59e0b', colorBg: '#fef3c7' },
-      { id: 'sms-summary', title: 'SMS Reports', desc: 'Configure SMS contact alerts and send daily summaries', icon: 'messageSquare', color: '#ec4899', colorBg: '#fce7f3' },
       { id: 'whatsapp-summary', title: 'WhatsApp Reports', desc: 'Configure WhatsApp contact alerts and send daily summaries', icon: 'messageSquare', color: '#10b981', colorBg: '#e6fcf5' }
     ];
 
