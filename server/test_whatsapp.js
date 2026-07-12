@@ -1,4 +1,4 @@
-require('dotenv').config({ path: './.env' });
+require('dotenv').config({ path: './.env' }); // load local settings
 const mongoose = require('mongoose');
 const models = require('./models');
 const { sendWhatsappReport } = require('./whatsappService');
