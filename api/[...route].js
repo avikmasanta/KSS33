@@ -153,6 +153,21 @@ module.exports = async function handler(req, res) {
       SiteDamaged: getModel('siteDamaged')
     };
 
+    if (id === 'debug-keys') {
+      const mask = (val) => {
+        if (!val) return 'undefined/empty';
+        const str = String(val).trim();
+        if (str.length <= 8) return `defined (len: ${str.length}, value: ${str})`;
+        return `defined (len: ${str.length}, first4: "${str.substring(0, 4)}", last4: "${str.substring(str.length - 4)}")`;
+      };
+      return json(res, 200, {
+        FAST2SMS_API_KEY: mask(process.env.FAST2SMS_API_KEY),
+        TWILIO_ACCOUNT_SID: mask(process.env.TWILIO_ACCOUNT_SID),
+        TWILIO_AUTH_TOKEN: mask(process.env.TWILIO_AUTH_TOKEN),
+        TWILIO_FROM_NUMBER: mask(process.env.TWILIO_FROM_NUMBER)
+      });
+    }
+
     if (id === 'preview') {
       try {
         const { generateDailyWarehouseSummaryText } = require('../server/smsService');
