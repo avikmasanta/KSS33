@@ -1054,7 +1054,15 @@ var ReportsPage = {
       if (res.ok && data.success) {
         alert('Report sent successfully! Details: ' + data.message);
       } else {
-        alert('Failed to send report: ' + (data.error || data.message || 'Unknown error'));
+        let errDetails = data.error || data.message || 'Unknown error';
+        if (data.results && Array.isArray(data.results)) {
+          errDetails += '\n\nDetails:\n' + data.results.map(r => {
+            const status = r.success ? 'Success' : 'Failed';
+            const errorsStr = r.errors ? ` (Errors: ${r.errors.join(', ')})` : '';
+            return `- ${r.number}: ${status}${errorsStr}`;
+          }).join('\n');
+        }
+        alert('Failed to send report: ' + errDetails);
       }
     } catch (err) {
       alert('Error sending report: ' + err.message);
