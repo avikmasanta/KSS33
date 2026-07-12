@@ -1,7 +1,16 @@
 const FAST2SMS_API_KEY = (process.env.FAST2SMS_API_KEY || '').trim().replace(/['"]+/g, '');
-const TWILIO_ACCOUNT_SID = (process.env.TWILIO_ACCOUNT_SID || '').trim().replace(/['"]+/g, '');
-const TWILIO_AUTH_TOKEN = (process.env.TWILIO_AUTH_TOKEN || '').trim().replace(/['"]+/g, '');
-const TWILIO_FROM_NUMBER = (process.env.TWILIO_FROM_NUMBER || '').trim().replace(/['"]+/g, '');
+
+const sidRaw = (process.env.TWILIO_ACCOUNT_SID || '').trim().replace(/['"]+/g, '');
+const sidMatch = sidRaw.match(/AC[a-f0-9]{32}/i);
+const TWILIO_ACCOUNT_SID = sidMatch ? sidMatch[0] : '';
+
+const tokenRaw = (process.env.TWILIO_AUTH_TOKEN || '').trim().replace(/['"]+/g, '');
+const tokenMatch = tokenRaw.match(/[a-f0-9]{32}/i);
+const TWILIO_AUTH_TOKEN = tokenMatch ? tokenMatch[0] : '';
+
+const fromRaw = (process.env.TWILIO_FROM_NUMBER || '').trim().replace(/['"]+/g, '');
+const fromMatch = fromRaw.match(/\+?[0-9]{10,15}/);
+const TWILIO_FROM_NUMBER = fromMatch ? fromMatch[0] : '';
 
 /**
  * Generates the text report containing:

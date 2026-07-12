@@ -160,11 +160,23 @@ module.exports = async function handler(req, res) {
         if (str.length <= 8) return `defined (len: ${str.length}, value: ${str})`;
         return `defined (len: ${str.length}, first4: "${str.substring(0, 4)}", last4: "${str.substring(str.length - 4)}")`;
       };
+      
+      const cleanSid = ((process.env.TWILIO_ACCOUNT_SID || '').trim().replace(/['"]+/g, '').match(/AC[a-f0-9]{32}/i) || [])[0] || '';
+      const cleanToken = ((process.env.TWILIO_AUTH_TOKEN || '').trim().replace(/['"]+/g, '').match(/[a-f0-9]{32}/i) || [])[0] || '';
+      const cleanFrom = ((process.env.TWILIO_FROM_NUMBER || '').trim().replace(/['"]+/g, '').match(/\+?[0-9]{10,15}/) || [])[0] || '';
+
       return json(res, 200, {
-        FAST2SMS_API_KEY: mask(process.env.FAST2SMS_API_KEY),
-        TWILIO_ACCOUNT_SID: mask(process.env.TWILIO_ACCOUNT_SID),
-        TWILIO_AUTH_TOKEN: mask(process.env.TWILIO_AUTH_TOKEN),
-        TWILIO_FROM_NUMBER: mask(process.env.TWILIO_FROM_NUMBER)
+        raw: {
+          FAST2SMS_API_KEY: mask(process.env.FAST2SMS_API_KEY),
+          TWILIO_ACCOUNT_SID: mask(process.env.TWILIO_ACCOUNT_SID),
+          TWILIO_AUTH_TOKEN: mask(process.env.TWILIO_AUTH_TOKEN),
+          TWILIO_FROM_NUMBER: mask(process.env.TWILIO_FROM_NUMBER)
+        },
+        extracted: {
+          TWILIO_ACCOUNT_SID: mask(cleanSid),
+          TWILIO_AUTH_TOKEN: mask(cleanToken),
+          TWILIO_FROM_NUMBER: mask(cleanFrom)
+        }
       });
     }
 
