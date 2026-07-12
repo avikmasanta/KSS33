@@ -50,8 +50,8 @@ cron.schedule('0 8 * * *', async () => {
       SiteDamaged: models.SiteDamaged
     };
 
-    const result = await sendTelegramReport({ date: yesterdayStr, models: reportModels });
-    console.log('[Cron] Job completed:', result.message);
+    const tgResult = await sendTelegramReport({ date: yesterdayStr, models: reportModels });
+    console.log('[Cron] Telegram job completed:', tgResult.message);
   } catch (err) {
     console.error('[Cron] Job failed:', err);
   }

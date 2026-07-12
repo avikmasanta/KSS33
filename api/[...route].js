@@ -29,6 +29,7 @@ const schemas = {
   rentalSites: new mongoose.Schema({ _id: String, customerName: String, siteName: String, goingDate: String, comingDate: String, status: { type: String, default: 'Active' }, items: [{ materialId: String, quantity: Number, rate: Number }], createdAt: String }, schemaOptions),
   categories: new mongoose.Schema({ _id: String, sortOrder: { type: Number, default: 999 }, createdAt: String }, schemaOptions),
   telegramChats: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
+  smsContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
 };
 
 
@@ -126,6 +127,54 @@ module.exports = async function handler(req, res) {
     }
 
     return json(res, 400, { error: 'Invalid telegram-report action. Use /preview or /send' });
+  }
+
+  if (collection === 'sms-report') {
+    function getYesterdayIST() {
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+      const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+      const yesterday = new Date(istTime.getTime() - 24 * 60 * 60 * 1000);
+      return yesterday.toISOString().split('T')[0];
+    }
+
+    const dateParam = req.query?.date || new URL(`http://localhost${req.url}`).searchParams.get('date');
+    const reportDate = dateParam || getYesterdayIST();
+
+    const reportModels = {
+      Material: getModel('materials'),
+      Incoming: getModel('incoming'),
+      Outgoing: getModel('outgoing'),
+      SiteReturns: getModel('siteReturns'),
+      RentalSite: getModel('rentalSites'),
+      Site: getModel('sites'),
+      SmsContact: getModel('smsContacts'),
+      SiteUsage: getModel('siteUsage'),
+      SiteDamaged: getModel('siteDamaged')
+    };
+
+    if (id === 'preview') {
+      try {
+        const { generateDailyWarehouseSummaryText } = require('../server/smsService');
+        const text = await generateDailyWarehouseSummaryText({ date: reportDate, models: reportModels });
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        return res.status(200).send(text);
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to generate SMS preview: ' + err.message });
+      }
+    }
+
+    if (id === 'send') {
+      try {
+        const { sendSmsReport } = require('../server/smsService');
+        const result = await sendSmsReport({ date: reportDate, models: reportModels });
+        return json(res, 200, result);
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to send SMS report: ' + err.message });
+      }
+    }
+
+    return json(res, 400, { error: 'Invalid sms-report action. Use /preview or /send' });
   }
 
   if (collection === 'reset-stock') {

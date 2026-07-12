@@ -185,6 +185,12 @@ const TelegramChatSchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+const SmsContactSchema = new mongoose.Schema({
+  _id: String, // Phone Number
+  name: String, // Contact name/label
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema, 'customers'),
   Site: mongoose.model('Site', SiteSchema, 'sites'),
@@ -199,7 +205,8 @@ module.exports = {
   Transaction: mongoose.model('Transaction', TransactionSchema, 'transactions'),
   RentalSite: mongoose.model('RentalSite', RentalSiteSchema, 'rentalSites'),
   Category: mongoose.model('Category', CategorySchema, 'categories'),
-  TelegramChat: mongoose.model('TelegramChat', TelegramChatSchema, 'telegramChats')
+  TelegramChat: mongoose.model('TelegramChat', TelegramChatSchema, 'telegramChats'),
+  SmsContact: mongoose.model('SmsContact', SmsContactSchema, 'smsContacts')
 };
 
 

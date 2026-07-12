@@ -2,6 +2,16 @@
    BuildMate Reports Page
    ============================================ */
 
+function escapeHtml(str) {
+  if (!str) return '';
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 var ReportsPage = {
   render() {
     const reports = [
@@ -145,7 +155,7 @@ var ReportsPage = {
                         ${chats.map(c => `
                           <tr>
                             <td><code style="font-family:monospace;background:var(--bg-body);padding:2px 6px;border-radius:4px;">${c.id}</code></td>
-                            <td><strong>${c.name || 'Group Chat'}</strong></td>
+                            <td><strong>${escapeHtml(c.name || 'Group Chat')}</strong></td>
                             <td style="text-align:right;">
                               <button class="btn btn-icon btn-ghost" onclick="ReportsPage.deleteTelegramChat('${c.id}')" title="Delete Chat" style="color:var(--danger); border:none; background:none; cursor:pointer;">
                                 ${Icons.trash}
@@ -883,5 +893,7 @@ var ReportsPage = {
       btn.disabled = false;
       btn.innerHTML = originalText;
     }
-  }
+  },
+
+
 };

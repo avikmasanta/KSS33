@@ -85,7 +85,9 @@ router.use('/siteExpenses', createCrudRoutes('SiteExpenses', models.SiteExpenses
 router.use('/sitePayments', createCrudRoutes('SitePayments', models.SitePayments));
 router.use('/transactions', createCrudRoutes('Transaction', models.Transaction));
 router.use('/rentalSites', createCrudRoutes('RentalSite', models.RentalSite));
+router.use('/categories', createCrudRoutes('Category', models.Category));
 router.use('/telegramChats', createCrudRoutes('TelegramChat', models.TelegramChat));
+router.use('/smsContacts', createCrudRoutes('SmsContact', models.SmsContact));
 
 
 // Special Cascade Delete for Sites
@@ -187,6 +189,70 @@ router.all('/telegram-report/send', async (req, res) => {
     res.status(200).json(result);
   } catch (err) {
     res.status(500).json({ error: 'Failed to send Telegram report: ' + err.message });
+  }
+});
+
+// Daily Warehouse Summary SMS endpoints
+router.get('/sms-report/preview', async (req, res) => {
+  function getYesterdayIST() {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+    const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+    const yesterday = new Date(istTime.getTime() - 24 * 60 * 60 * 1000);
+    return yesterday.toISOString().split('T')[0];
+  }
+
+  const reportDate = req.query.date || getYesterdayIST();
+  const reportModels = {
+    Material: models.Material,
+    Incoming: models.Incoming,
+    Outgoing: models.Outgoing,
+    SiteReturns: models.SiteReturns,
+    RentalSite: models.RentalSite,
+    Site: models.Site,
+    SmsContact: models.SmsContact,
+    SiteUsage: models.SiteUsage,
+    SiteDamaged: models.SiteDamaged
+  };
+
+  try {
+    const { generateDailyWarehouseSummaryText } = require('./smsService');
+    const text = await generateDailyWarehouseSummaryText({ date: reportDate, models: reportModels });
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.status(200).send(text);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate SMS preview: ' + err.message });
+  }
+});
+
+router.all('/sms-report/send', async (req, res) => {
+  function getYesterdayIST() {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+    const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+    const yesterday = new Date(istTime.getTime() - 24 * 60 * 60 * 1000);
+    return yesterday.toISOString().split('T')[0];
+  }
+
+  const reportDate = req.query.date || getYesterdayIST();
+  const reportModels = {
+    Material: models.Material,
+    Incoming: models.Incoming,
+    Outgoing: models.Outgoing,
+    SiteReturns: models.SiteReturns,
+    RentalSite: models.RentalSite,
+    Site: models.Site,
+    SmsContact: models.SmsContact,
+    SiteUsage: models.SiteUsage,
+    SiteDamaged: models.SiteDamaged
+  };
+
+  try {
+    const { sendSmsReport } = require('./smsService');
+    const result = await sendSmsReport({ date: reportDate, models: reportModels });
+    res.status(200).json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to send SMS report: ' + err.message });
   }
 });
 
