@@ -1,7 +1,7 @@
-const FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER;
+const FAST2SMS_API_KEY = (process.env.FAST2SMS_API_KEY || '').trim().replace(/['"]+/g, '');
+const TWILIO_ACCOUNT_SID = (process.env.TWILIO_ACCOUNT_SID || '').trim().replace(/['"]+/g, '');
+const TWILIO_AUTH_TOKEN = (process.env.TWILIO_AUTH_TOKEN || '').trim().replace(/['"]+/g, '');
+const TWILIO_FROM_NUMBER = (process.env.TWILIO_FROM_NUMBER || '').trim().replace(/['"]+/g, '');
 
 /**
  * Generates the text report containing:
