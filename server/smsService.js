@@ -139,46 +139,6 @@ async function generateDailyWarehouseSummaryText({ date, models }) {
 /**
  * Sends the SMS report to configured recipients
  */
-/**
- * Splits a text into chunks of at most maxLen characters, trying to split at newlines.
- */
-function splitMessageIntoChunks(text, maxLen = 110) {
-  const lines = text.split('\n');
-  const chunks = [];
-  let currentChunk = '';
-
-  for (const line of lines) {
-    if (line.length > maxLen) {
-      if (currentChunk) {
-        chunks.push(currentChunk);
-        currentChunk = '';
-      }
-      let remaining = line;
-      while (remaining.length > maxLen) {
-        chunks.push(remaining.substring(0, maxLen));
-        remaining = remaining.substring(maxLen);
-      }
-      currentChunk = remaining;
-    } else if (currentChunk.length + line.length + 1 > maxLen) {
-      if (currentChunk) chunks.push(currentChunk);
-      currentChunk = line;
-    } else {
-      currentChunk = currentChunk ? (currentChunk + '\n' + line) : line;
-    }
-  }
-  if (currentChunk) {
-    chunks.push(currentChunk);
-  }
-  
-  if (chunks.length > 1) {
-    return chunks.map((chunk, idx) => `${chunk}\n[Part ${idx + 1}/${chunks.length}]`);
-  }
-  return chunks;
-}
-
-/**
- * Sends the SMS report to configured recipients
- */
 async function sendSmsReport({ date, models }) {
   // 1. Fetch configured SMS contact numbers
   let contacts = [];
@@ -211,110 +171,98 @@ async function sendSmsReport({ date, models }) {
     throw new Error('Report text generation failed: ' + err.message);
   }
 
-  // Split report text into chunks of <= 110 characters
-  const chunks = splitMessageIntoChunks(reportText, 110);
   const results = [];
 
   for (const number of contacts) {
-    let allChunksSent = true;
+    let sent = false;
     let errors = [];
     let senderUsed = 'Mock Mode';
 
-    for (let cIdx = 0; cIdx < chunks.length; cIdx++) {
-      const chunkText = chunks[cIdx];
-      let chunkSent = false;
+    // 1. Try Fast2SMS if key is present
+    if (FAST2SMS_API_KEY) {
+      try {
+        const cleanNumber = number.replace(/^\+91/, '').replace(/\s+/g, '');
+        const payload = {
+          route: 'q',
+          message: reportText,
+          numbers: cleanNumber
+        };
 
-      // 1. Try Fast2SMS if key is present
-      if (FAST2SMS_API_KEY) {
-        try {
-          const cleanNumber = number.replace(/^\+91/, '').replace(/\s+/g, '');
-          const payload = {
-            route: 'q',
-            message: chunkText,
-            numbers: cleanNumber
-          };
+        const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+          method: 'POST',
+          headers: {
+            'authorization': FAST2SMS_API_KEY,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
 
-          const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
-            method: 'POST',
-            headers: {
-              'authorization': FAST2SMS_API_KEY,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(payload)
-          });
-
-          const resData = await response.json();
-          if (response.ok && resData.return) {
-            chunkSent = true;
-            senderUsed = 'Fast2SMS';
-          } else {
-            const errMsg = resData.message || 'API error';
-            errors.push(`Fast2SMS [Chunk ${cIdx+1}/${chunks.length}]: ${errMsg}`);
-          }
-        } catch (err) {
-          errors.push(`Fast2SMS [Chunk ${cIdx+1}/${chunks.length}]: ${err.message}`);
+        const resData = await response.json();
+        if (response.ok && resData.return) {
+          sent = true;
+          senderUsed = 'Fast2SMS';
+        } else {
+          const errMsg = resData.message || 'API error';
+          errors.push(`Fast2SMS: ${errMsg}`);
         }
-      }
-
-      // 2. Try Twilio if not sent and credentials are set
-      if (!chunkSent && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER) {
-        try {
-          const accountSid = TWILIO_ACCOUNT_SID;
-          const authToken = TWILIO_AUTH_TOKEN;
-          const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-
-          let formattedNumber = number.trim();
-          if (/^\d{10}$/.test(formattedNumber)) {
-            formattedNumber = '+91' + formattedNumber;
-          } else if (!formattedNumber.startsWith('+')) {
-            formattedNumber = '+' + formattedNumber;
-          }
-
-          const bodyParams = new URLSearchParams({
-            From: TWILIO_FROM_NUMBER,
-            To: formattedNumber,
-            Body: chunkText
-          });
-
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-              'Authorization': 'Basic ' + Buffer.from(accountSid + ':' + authToken).toString('base64'),
-              'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: bodyParams
-          });
-
-          const resData = await response.json();
-          if (response.ok && !resData.error_code) {
-            chunkSent = true;
-            senderUsed = 'Twilio';
-          } else {
-            const errMsg = resData.message || 'API error';
-            errors.push(`Twilio [Chunk ${cIdx+1}/${chunks.length}]: ${errMsg}`);
-          }
-        } catch (err) {
-          errors.push(`Twilio [Chunk ${cIdx+1}/${chunks.length}]: ${err.message}`);
-        }
-      }
-
-      // 3. Mock if still not sent and no API keys configured
-      if (!chunkSent) {
-        if (!FAST2SMS_API_KEY && (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER)) {
-          console.log(`[SMS Mock Mode] Sending SMS to ${number} [Chunk ${cIdx+1}/${chunks.length}]:\n--------------------\n${chunkText}\n--------------------`);
-          chunkSent = true;
-          senderUsed = 'Mock Mode';
-        }
-      }
-
-      if (!chunkSent) {
-        allChunksSent = false;
-        break; // Stop sending subsequent chunks if one fails
+      } catch (err) {
+        errors.push(`Fast2SMS: ${err.message}`);
       }
     }
 
-    if (allChunksSent) {
-      results.push({ number, success: true, api: senderUsed, chunks: chunks.length });
+    // 2. Try Twilio if not sent and credentials are set
+    if (!sent && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER) {
+      try {
+        const accountSid = TWILIO_ACCOUNT_SID;
+        const authToken = TWILIO_AUTH_TOKEN;
+        const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+
+        let formattedNumber = number.trim();
+        if (/^\d{10}$/.test(formattedNumber)) {
+          formattedNumber = '+91' + formattedNumber;
+        } else if (!formattedNumber.startsWith('+')) {
+          formattedNumber = '+' + formattedNumber;
+        }
+
+        const bodyParams = new URLSearchParams({
+          From: TWILIO_FROM_NUMBER,
+          To: formattedNumber,
+          Body: reportText
+        });
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': 'Basic ' + Buffer.from(accountSid + ':' + authToken).toString('base64'),
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: bodyParams
+        });
+
+        const resData = await response.json();
+        if (response.ok && !resData.error_code) {
+          sent = true;
+          senderUsed = 'Twilio';
+        } else {
+          const errMsg = resData.message || 'API error';
+          errors.push(`Twilio: ${errMsg}`);
+        }
+      } catch (err) {
+        errors.push(`Twilio: ${err.message}`);
+      }
+    }
+
+    // 3. Mock if still not sent and no API keys configured
+    if (!sent) {
+      if (!FAST2SMS_API_KEY && (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER)) {
+        console.log(`[SMS Mock Mode] Sending SMS to ${number}:\n--------------------\n${reportText}\n--------------------`);
+        sent = true;
+        senderUsed = 'Mock Mode';
+      }
+    }
+
+    if (sent) {
+      results.push({ number, success: true, api: senderUsed });
     } else {
       results.push({ number, success: false, errors });
     }
