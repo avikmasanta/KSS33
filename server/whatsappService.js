@@ -7,7 +7,7 @@ const META_PHONE_NUMBER_ID = (process.env.META_PHONE_NUMBER_ID || '').trim().rep
 /**
  * Generates the text report containing:
  * 1. Warehouse items with stock quantity > 0
- * 2. Active sites that have crossed 13 days since lintelDate (inclusive of lintel day itself, i.e., daysPassed > 13)
+ * 2. Active sites that have crossed 15 days since lintelDate (inclusive of lintel day itself, i.e., daysPassed > 15)
  * WITH emojis included for premium presentation on WhatsApp.
  */
 async function generateDailyWarehouseSummaryWhatsApp({ date, models }) {
@@ -77,7 +77,7 @@ async function generateDailyWarehouseSummaryWhatsApp({ date, models }) {
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
       const daysCount = diffDays + 1;
 
-      if (daysCount > 13) {
+      if (daysCount > 15) {
         lintelAlertSites.push({
           name: s.name,
           customerName: s.customerName,
@@ -108,7 +108,7 @@ async function generateDailyWarehouseSummaryWhatsApp({ date, models }) {
     });
   }
 
-  text += `\n📍 *Sites Crossed 13 Days (Lintel):*\n`;
+  text += `\n📍 *Sites Crossed 15 Days (Lintel):*\n`;
   if (lintelAlertSites.length === 0) {
     text += `_- None_\n`;
   } else {
