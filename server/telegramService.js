@@ -107,7 +107,7 @@ async function generateTelegramReportText({ date, models }) {
     }
   });
 
-  // 4. Calculate Sites Crossed 15 Days (Lintel)
+  // 4. Calculate Sites Crossed 13 Days (Lintel)
   const lintelAlertSites = [];
   sites.forEach(s => {
     if (s.lintelDate) {
@@ -123,7 +123,7 @@ async function generateTelegramReportText({ date, models }) {
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
       const daysCount = diffDays + 1;
 
-      if (daysCount > 15) {
+      if (daysCount > 13) {
         lintelAlertSites.push({
           name: s.name,
           customerName: s.customerName,
@@ -144,7 +144,7 @@ async function generateTelegramReportText({ date, models }) {
   });
 
   // 6. Build Text Message
-  let text = `📋 *KSS Daily Operations Report*\n📅 *Date:* ${dateFormatted}\n\n`;
+  let text = `📋 *KSS Daily Warehouse & Site Lintel Report*\n📅 *Date:* ${dateFormatted}\n\n`;
 
   // Warehouse Stock
   text += `🏢 *Warehouse Stock:*\n`;
@@ -157,9 +157,9 @@ async function generateTelegramReportText({ date, models }) {
   }
 
   // Active Sites
-  text += `\n📍 *Active Site Materials:*\n`;
+  text += `\n📍 *Active Sites (Net Balance):*\n`;
   if (activeSitesData.length === 0) {
-    text += `_- No active site inventories_\n`;
+    text += `_- No active sites_\n`;
   } else {
     activeSitesData.forEach(site => {
       const custStr = site.customer ? ` (${site.customer})` : '';
@@ -171,9 +171,9 @@ async function generateTelegramReportText({ date, models }) {
   }
 
   // Active Rentals
-  text += `\n🔑 *Active Rental Materials:*\n`;
+  text += `\n🏠 *Active Rentals:*\n`;
   if (activeRentalsData.length === 0) {
-    text += `_- No active rental inventories_\n`;
+    text += `_- No active rentals_\n`;
   } else {
     activeRentalsData.forEach(rental => {
       const custStr = rental.customer ? ` (${rental.customer})` : '';
@@ -185,7 +185,7 @@ async function generateTelegramReportText({ date, models }) {
   }
 
   // Lintel Warnings
-  text += `\n⏳ *Sites Crossed 15 Days (Lintel):*\n`;
+  text += `\n⏳ *Sites Crossed 13 Days (Lintel):*\n`;
   if (lintelAlertSites.length === 0) {
     text += `_- None_\n`;
   } else {

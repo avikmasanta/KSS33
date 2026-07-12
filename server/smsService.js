@@ -15,7 +15,7 @@ const TWILIO_FROM_NUMBER = fromMatch ? fromMatch[0] : '';
 /**
  * Generates the text report containing:
  * 1. Warehouse items with stock quantity > 0
- * 2. Active sites that have crossed 15 days since lintelDate (inclusive of lintel day itself, i.e., daysPassed > 15)
+ * 2. Active sites that have crossed 13 days since lintelDate (inclusive of lintel day itself, i.e., daysPassed > 13)
  */
 async function generateDailyWarehouseSummaryText({ date, models }) {
   const Material   = models.Material;
@@ -72,7 +72,7 @@ async function generateDailyWarehouseSummaryText({ date, models }) {
   .filter(r => r.qty > 0)
   .sort((a, b) => a.name.localeCompare(b.name));
 
-  // 3. Filter sites that have crossed 15 days since lintelDate
+  // 3. Filter sites that have crossed 13 days since lintelDate
   const lintelAlertSites = [];
   sites.forEach(s => {
     if (s.lintelDate) {
@@ -90,7 +90,7 @@ async function generateDailyWarehouseSummaryText({ date, models }) {
       const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
       const daysCount = diffDays + 1; // counting lintel day as day 1
 
-      if (daysCount > 15) {
+      if (daysCount > 13) {
         lintelAlertSites.push({
           name: s.name,
           customerName: s.customerName,
@@ -123,7 +123,7 @@ async function generateDailyWarehouseSummaryText({ date, models }) {
     });
   }
 
-  text += `\nSites Crossed 15 Days (Lintel):\n`;
+  text += `\nSites Crossed 13 Days (Lintel):\n`;
   if (lintelAlertSites.length === 0) {
     text += `- None\n`;
   } else {
