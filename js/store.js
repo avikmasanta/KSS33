@@ -193,8 +193,7 @@ const Store = (() => {
           }
         });
       }
-      // Auto-patch plate materials with sqFtPerUnit (runs after cloud sync)
-      patchMaterialSqFt();
+      // Database is patched. No need to run auto-patch on startup anymore to prevent resetting custom orders
     }); // Fire and forget
   }
 
