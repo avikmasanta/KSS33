@@ -163,16 +163,17 @@ async function sendSmsReport({ date, models }) {
   }
 
   // 3. Send SMS
-  // Choose client: Fast2SMS, Twilio, or Mock mode
+  // Choose client: Fast2SMS, Twilio, or Mock mode with fallback
   const results = [];
 
   for (const number of contacts) {
-    try {
-      if (FAST2SMS_API_KEY) {
-        // Fast2SMS bulkV2 API
-        // Fast2SMS expects numbers to be 10 digits or comma-separated. Clean standard +91 or prefix.
+    let sent = false;
+    let errors = [];
+
+    // 1. Try Fast2SMS if key is present
+    if (FAST2SMS_API_KEY) {
+      try {
         const cleanNumber = number.replace(/^\+91/, '').replace(/\s+/g, '');
-        
         const payload = {
           route: 'q',
           message: reportText,
@@ -191,20 +192,28 @@ async function sendSmsReport({ date, models }) {
         const resData = await response.json();
         if (response.ok && resData.return) {
           results.push({ number, success: true, api: 'Fast2SMS' });
+          sent = true;
         } else {
+          const errMsg = resData.message || 'API error';
           console.error(`Fast2SMS API error for ${number}:`, resData);
-          results.push({ number, success: false, api: 'Fast2SMS', error: resData.message || 'API error' });
+          errors.push(`Fast2SMS: ${errMsg}`);
         }
-      } else if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER) {
-        // Twilio API
+      } catch (err) {
+        console.error(`Fast2SMS failed for ${number}:`, err);
+        errors.push(`Fast2SMS: ${err.message}`);
+      }
+    }
+
+    // 2. Try Twilio if not sent and credentials are set
+    if (!sent && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER) {
+      try {
         const accountSid = TWILIO_ACCOUNT_SID;
         const authToken = TWILIO_AUTH_TOKEN;
         const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-        
-        // E.164 formatting: ensure starts with +
+
         let formattedNumber = number.trim();
         if (/^\d{10}$/.test(formattedNumber)) {
-          formattedNumber = '+91' + formattedNumber; // Default to India country code if 10-digit
+          formattedNumber = '+91' + formattedNumber;
         } else if (!formattedNumber.startsWith('+')) {
           formattedNumber = '+' + formattedNumber;
         }
@@ -227,18 +236,27 @@ async function sendSmsReport({ date, models }) {
         const resData = await response.json();
         if (response.ok && !resData.error_code) {
           results.push({ number, success: true, api: 'Twilio' });
+          sent = true;
         } else {
+          const errMsg = resData.message || 'API error';
           console.error(`Twilio API error for ${number}:`, resData);
-          results.push({ number, success: false, api: 'Twilio', error: resData.message || 'API error' });
+          errors.push(`Twilio: ${errMsg}`);
         }
-      } else {
-        // Mock Terminal Mode
+      } catch (err) {
+        console.error(`Twilio failed for ${number}:`, err);
+        errors.push(`Twilio: ${err.message}`);
+      }
+    }
+
+    // 3. Fallback to Mock if still not sent and no API keys were configured,
+    // or fail the attempt with errors if keys were configured but failed.
+    if (!sent) {
+      if (!FAST2SMS_API_KEY && (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER)) {
         console.log(`[SMS Mock Mode] Sending SMS to ${number}:\n--------------------\n${reportText}\n--------------------`);
         results.push({ number, success: true, api: 'Mock Mode' });
+      } else {
+        results.push({ number, success: false, errors });
       }
-    } catch (err) {
-      console.error(`Failed to send SMS to ${number}:`, err);
-      results.push({ number, success: false, error: err.message });
     }
   }
 
