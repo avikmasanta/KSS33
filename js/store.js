@@ -893,8 +893,20 @@ const Store = (() => {
     // Check 6"x3'
     if (combined.includes("6") && combined.includes("3")) return 12;
 
+    // Check Props
+    if (combined.includes("prop") || (sku || '').toLowerCase() === 'prop') return 13;
+
+    // Check Channels
+    if (combined.includes("channel") || combined.includes("chan") || (sku || '').toLowerCase() === 'chan') return 14;
+
     // Check Balli
-    if (combined.includes("balli") || (sku || '').toLowerCase() === 'bal') return 13;
+    if (combined.includes("balli") || (sku || '').toLowerCase() === 'bal') return 15;
+
+    // Check Pipe
+    if (combined.includes("pipe")) return 16;
+
+    // Check Ledger
+    if (combined.includes("ledger")) return 17;
 
     return 999;
   }
@@ -922,7 +934,7 @@ const Store = (() => {
       const expectedOrder = getDefaultSortOrder(m.name, m.sku);
       
       const needsSqFt = expectedSqFt > 0 && (!m.sqFtPerUnit || parseFloat(m.sqFtPerUnit) !== expectedSqFt);
-      const needsOrder = !m.hasOwnProperty('sortOrder') || m.sortOrder === undefined || m.sortOrder === 999;
+      const needsOrder = !m.hasOwnProperty('sortOrder') || m.sortOrder === undefined || m.sortOrder !== expectedOrder;
       
       return needsSqFt || (needsOrder && expectedOrder !== 999);
     });
@@ -932,7 +944,7 @@ const Store = (() => {
       const order = getDefaultSortOrder(m.name, m.sku);
       
       if (sqFt > 0) m.sqFtPerUnit = sqFt;
-      if (order !== 999 && (!m.hasOwnProperty('sortOrder') || m.sortOrder === undefined || m.sortOrder === 999)) {
+      if (order !== 999) {
         m.sortOrder = order;
       }
       
@@ -962,15 +974,15 @@ const Store = (() => {
       };
 
       return [...all].sort((a, b) => {
-        // 1. Sort by Category sortOrder first
-        const aCatOrder = getCatOrder(a.category);
-        const bCatOrder = getCatOrder(b.category);
-        if (aCatOrder !== bCatOrder) return aCatOrder - bCatOrder;
-
-        // 2. Sort by Material sortOrder second
+        // 1. Sort by Material sortOrder first
         const aOrder = typeof a.sortOrder === 'number' ? a.sortOrder : 999;
         const bOrder = typeof b.sortOrder === 'number' ? b.sortOrder : 999;
         if (aOrder !== bOrder) return aOrder - bOrder;
+
+        // 2. Sort by Category sortOrder second
+        const aCatOrder = getCatOrder(a.category);
+        const bCatOrder = getCatOrder(b.category);
+        if (aCatOrder !== bCatOrder) return aCatOrder - bCatOrder;
 
         // 3. Fallback to alphabetical sorting by name
         return (a.name || '').localeCompare(b.name || '');
