@@ -171,7 +171,9 @@ module.exports = async function handler(req, res) {
           FAST2SMS_API_KEY: mask(process.env.FAST2SMS_API_KEY),
           TWILIO_ACCOUNT_SID: mask(process.env.TWILIO_ACCOUNT_SID),
           TWILIO_AUTH_TOKEN: mask(process.env.TWILIO_AUTH_TOKEN),
-          TWILIO_FROM_NUMBER: mask(process.env.TWILIO_FROM_NUMBER)
+          TWILIO_FROM_NUMBER: mask(process.env.TWILIO_FROM_NUMBER),
+          META_ACCESS_TOKEN: mask(process.env.META_ACCESS_TOKEN),
+          META_PHONE_NUMBER_ID: mask(process.env.META_PHONE_NUMBER_ID)
         },
         extracted: {
           TWILIO_ACCOUNT_SID: mask(cleanSid),
