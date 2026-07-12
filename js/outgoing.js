@@ -32,7 +32,7 @@ var OutgoingPage = {
       });
     }
 
-    const materials = Store.Materials.getAll();
+    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
 
     return `
       <div class="page-header">

@@ -840,6 +840,7 @@ const Store = (() => {
       // Look for exact dimension combinations
       if (s.includes("2'x4'") || s.includes("2'x4") || s.includes("2x4'") || s.includes("2 x 4") || /\b2\s*x\s*4\b/.test(s)) return 8.0;
       if (s.includes("2'x3'") || s.includes("2'x3") || s.includes("2x3'") || s.includes("2 x 3") || /\b2\s*x\s*3\b/.test(s)) return 6.0;
+      if (s.includes("2x2") || s.includes("2'x2'") || /\b2\s*x\s*2\b/.test(s)) return 4.0;
 
       if (/18\D*4/.test(s)) return 6.0;
       if (/15\D*4/.test(s)) return 5.0;
@@ -907,6 +908,18 @@ const Store = (() => {
 
     // Check Ledger
     if (combined.includes("ledger")) return 17;
+
+    // Check Dabbu
+    if (combined.includes("dabbu")) {
+      if (combined.includes("2x2")) return 19;
+      return 18;
+    }
+
+    // Check Fatte
+    if (combined.includes("fatte")) return 20;
+
+    // Check Miscellaneous
+    if (combined.includes("misc") || combined.includes("miscellaneous")) return 21;
 
     return 999;
   }

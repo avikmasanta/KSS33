@@ -8,7 +8,7 @@ var IncomingPage = {
   formItems: [{ materialId: '', quantity: '', rate: '', amount: 0 }],
 
   render() {
-    const materials = Store.Materials.getAll();
+    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     const sites = Store.Sites.getAll();
 
     let incomingRecords = Store.Incoming.getAll();
