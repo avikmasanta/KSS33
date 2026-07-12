@@ -9,7 +9,7 @@ var RentalsPage = {
   isEditing: false,
 
   render() {
-    const materials = Store.Materials.getAll();
+    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     let records = Store.RentalSites.getAll().sort((a, b) => new Date(b.createdAt || b.goingDate) - new Date(a.createdAt || a.goingDate));
 
     if (this.searchTerm) {
@@ -146,7 +146,7 @@ var RentalsPage = {
     const r = Store.RentalSites.getById(this.selectedId);
     if (!r) return '<div class="empty-state">Contract not found</div>';
 
-    const materials = Store.Materials.getAll();
+    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     const days = this.getInclusiveDays(r.goingDate, r.comingDate);
     const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
 
@@ -252,7 +252,7 @@ var RentalsPage = {
   },
 
   renderForm() {
-    const materials = Store.Materials.getAll();
+    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     const record = this.selectedId ? Store.RentalSites.getById(this.selectedId) : null;
 
     return `
