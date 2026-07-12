@@ -74,7 +74,7 @@ module.exports = async function handler(req, res) {
   }
 
   // Parse URL path directly: /api/sites, /api/sites/123, /api/sites/123/cascade
-  const rawPath = req.url.split('?')[0]; // strip query string
+  const rawPath = decodeURIComponent(req.url.split('?')[0]); // strip query string and decode URI components
   const segments = rawPath.replace(/^\/api\/?/, '').split('/').filter(Boolean);
   const collection = segments[0];
   const id = segments[1];
