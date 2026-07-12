@@ -392,7 +392,7 @@ var MaterialsPage = {
   },
 
 
-  save() {
+  async save() {
     const id = document.getElementById('prod-id').value;
     const rawOrder = document.getElementById('prod-sortorder').value;
     const rawSqFt = document.getElementById('prod-sqft').value;
@@ -408,28 +408,43 @@ var MaterialsPage = {
 
     if (!data.name || !data.sku) { alert('Material name and SKU are required'); return; }
 
-    if (data.sortOrder !== 999) {
-      const allMaterials = Store.Materials.getAll();
-      const duplicate = allMaterials.find(m => m.id !== id && m.sortOrder === data.sortOrder);
-      if (duplicate) {
-        let oldOrder = 999;
-        if (id) {
-          const currentMat = Store.Materials.getById(id);
-          if (currentMat && currentMat.sortOrder !== undefined) {
-            oldOrder = currentMat.sortOrder;
+    // Disable the Save button during sync to prevent double submission
+    const saveBtn = document.querySelector('#material-modal .btn-primary');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerText = 'Saving...';
+    }
+
+    try {
+      if (data.sortOrder !== 999) {
+        const allMaterials = Store.Materials.getAll();
+        const duplicate = allMaterials.find(m => m.id !== id && m.sortOrder === data.sortOrder);
+        if (duplicate) {
+          let oldOrder = 999;
+          if (id) {
+            const currentMat = Store.Materials.getById(id);
+            if (currentMat && currentMat.sortOrder !== undefined) {
+              oldOrder = currentMat.sortOrder;
+            }
           }
+          // Swap their positions - await the backend save
+          await Store.Materials.update(duplicate.id, { ...duplicate, sortOrder: oldOrder });
         }
-        // Swap their positions
-        Store.Materials.update(duplicate.id, { ...duplicate, sortOrder: oldOrder });
+      }
+
+      if (id) {
+        await Store.Materials.update(id, data);
+      } else {
+        await Store.Materials.addAsync(data);
+      }
+    } catch (err) {
+      console.error('Error saving material:', err);
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerText = 'Save Material';
       }
     }
-
-    if (id) {
-      Store.Materials.update(id, data);
-    } else {
-      Store.Materials.add(data);
-    }
-
 
     this.closeModal();
     this.refresh();

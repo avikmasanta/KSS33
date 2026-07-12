@@ -284,16 +284,19 @@ const Store = (() => {
           cache[cacheKey][idx] = { ...cache[cacheKey][idx], ...data };
           persistLocal(lsKey, cache[cacheKey]);
 
-          // 2. Async background HTTP PUT call
-          fetch(`${API_URL}/${path}/${id}`, {
+          // 2. HTTP PUT call - return the promise so callers can await it
+          return fetch(`${API_URL}/${path}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data)
-          }).catch(err => console.error(`Error syncing UPDATE ${path}:`, err));
-
-          return cache[cacheKey][idx];
+          })
+          .then(res => res.ok ? res.json() : null)
+          .catch(err => {
+            console.error(`Error syncing UPDATE ${path}:`, err);
+            return null;
+          });
         }
-        return null;
+        return Promise.resolve(null);
       },
 
       remove: (id) => {
