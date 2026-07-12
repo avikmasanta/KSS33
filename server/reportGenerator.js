@@ -19,13 +19,11 @@ async function generateDailyWarehouseSummary({ date, models }) {
 
   // 1. Fetch data
   const materials   = await Material.find({ status: { $ne: 'Archived' } });
-  const sites       = await Site.find({});
+  const sites       = await Site.find({ status: 'Active' });
   const allIncoming = await Incoming.find({});
   const allOutgoing = await Outgoing.find({});
   const allReturns  = await SiteReturns.find({});
   const allRentals  = await RentalSite.find({});
-  const allUsage    = await SiteUsage.find({});
-  const allDamaged  = await SiteDamaged.find({});
 
   const materialsMap = {};
   materials.forEach(m => { materialsMap[String(m._id || m.id)] = m; });
@@ -126,6 +124,55 @@ async function generateDailyWarehouseSummary({ date, models }) {
     });
   });
 
+  // ── Calculate Active Site Materials ────────────────────────────────
+  const activeSitesData = [];
+  for (const s of sites) {
+    const siteItems = [];
+    materials.forEach(m => {
+      const mId = String(m._id || m.id);
+      let sent = 0;
+      let returned = 0;
+
+      allOutgoing.filter(r => String(r.siteId) === String(s._id || s.id)).forEach(r => {
+        (r.items || []).forEach(i => {
+          if (String(i.materialId) === mId) sent += parseFloat(i.quantity) || 0;
+        });
+      });
+
+      allReturns.filter(r => String(r.siteId) === String(s._id || s.id)).forEach(r => {
+        if (String(r.materialId) === mId) returned += parseFloat(r.quantity) || 0;
+      });
+
+      const balance = sent - returned;
+      if (balance > 0) {
+        siteItems.push({ name: m.name, qty: balance, unit: m.unit || 'Nos' });
+      }
+    });
+
+    if (siteItems.length > 0) {
+      activeSitesData.push({ name: s.name, customer: s.customerName, items: siteItems });
+    }
+  }
+
+  // ── Calculate Active Rentals ───────────────────────────────────────
+  const activeRentalsData = [];
+  allRentals.filter(r => r.status === 'Active').forEach(r => {
+    const rentalItems = [];
+    (r.items || []).forEach(i => {
+      const qty = parseFloat(i.quantity) || 0;
+      if (qty > 0) {
+        const mat = materials.find(m => String(m._id || m.id) === String(i.materialId));
+        if (mat) {
+          rentalItems.push({ name: mat.name, qty, unit: mat.unit || 'Nos' });
+        }
+      }
+    });
+
+    if (rentalItems.length > 0) {
+      activeRentalsData.push({ name: r.siteName, customer: r.customerName, items: rentalItems });
+    }
+  });
+
   // ── Summary numbers ────────────────────────────────────────────────
   const totalIn  = incomingMovements.reduce((s, m) => s + m.quantity, 0);
   const totalOut = outgoingMovements.reduce((s, m) => s + m.quantity, 0);
@@ -146,7 +193,7 @@ async function generateDailyWarehouseSummary({ date, models }) {
 
   // ═══════════════════════════════════════════════════════════════════
   // PDF Generation — Mobile-first large-font layout
-  // Page size: A4 portrait but big fonts so it fills the screen nicely
+  // Page size: A4 portrait
   // ═══════════════════════════════════════════════════════════════════
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 30, bufferPages: true });
@@ -193,7 +240,7 @@ async function generateDailyWarehouseSummary({ date, models }) {
     doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(20);
     doc.text('KSS Construction Materials', 44, y + 8, { width: PW - 20 });
     doc.fillColor('#93c5fd').font('Helvetica').fontSize(11);
-    doc.text('Daily Warehouse Report', 44, y + 32, { width: PW - 20 });
+    doc.text('Daily Warehouse & Operations Summary', 44, y + 32, { width: PW - 20 });
     y += 58;
 
     // ── Date banner
@@ -232,7 +279,7 @@ async function generateDailyWarehouseSummary({ date, models }) {
 
       warehouseRows.forEach((row, idx) => {
         // Page break
-        if (y > 750) {
+        if (y > 740) {
           doc.addPage();
           y = 30;
           // Repeat header
@@ -244,30 +291,135 @@ async function generateDailyWarehouseSummary({ date, models }) {
           y += 26;
         }
 
-        const rowH = 32;
+        const rowH = 30;
         const bg   = idx % 2 === 0 ? C_WHITE : C_LIGHT;
         doc.fillColor(bg).rect(30, y, PW, rowH).fill();
 
         // Material name — large & bold
-        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(13);
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
         doc.text(row.name, 42, y + 9, { width: 278, lineBreak: false });
 
         // Unit — medium gray
-        doc.fillColor(C_GRAY).font('Helvetica').fontSize(12);
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(11);
         doc.text(row.unit, 322, y + 10, { width: 68, align: 'center', lineBreak: false });
 
         // Quantity — large bold coloured number
         const qtyColor = row.qty <= 0 ? C_RED : (row.qty < 10 ? '#d97706' : C_GREEN);
-        doc.fillColor(qtyColor).font('Helvetica-Bold').fontSize(16);
-        doc.text(row.qty.toLocaleString('en-IN'), 392, y + 7, { width: 138, align: 'right', lineBreak: false });
+        doc.fillColor(qtyColor).font('Helvetica-Bold').fontSize(14);
+        doc.text(row.qty.toLocaleString('en-IN'), 392, y + 8, { width: 138, align: 'right', lineBreak: false });
 
-        // bottom border
         doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
         y += rowH;
       });
     }
 
-    // ── PAGE 2: TODAY'S MOVEMENTS ────────────────────────────────────
+    // ── PAGE 2: ACTIVE SITES STOCK ───────────────────────────────────
+    doc.addPage();
+    y = 30;
+    y = sectionTitle('📍  Active Sites Inventory', y, C_ACCENT);
+    y += 6;
+
+    if (activeSitesData.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
+      doc.text('No materials currently deployed at active sites.', 42, y + 12);
+      y += 40;
+    } else {
+      activeSitesData.forEach(site => {
+        if (y > 700) {
+          doc.addPage();
+          y = 30;
+        }
+
+        const custStr = site.customer ? ` (${site.customer})` : '';
+        doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
+        doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+        doc.text(`${site.name}${custStr}`, 38, y + 6, { width: PW - 16 });
+        y += 24;
+
+        site.items.forEach((item, idx) => {
+          if (y > 750) {
+            doc.addPage();
+            y = 30;
+            // Redraw site header on new page
+            doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
+            doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
+            doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+            doc.text(`${site.name}${custStr} (Cont.)`, 38, y + 6, { width: PW - 16 });
+            y += 24;
+          }
+
+          const rowH = 26;
+          const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+          doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+
+          doc.fillColor(C_DARK).font('Helvetica').fontSize(11);
+          doc.text(item.name, 42, y + 7, { width: 300 });
+
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
+          doc.text(`${item.qty.toLocaleString('en-IN')} ${item.unit}`, 392, y + 7, { width: 138, align: 'right' });
+
+          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
+          y += rowH;
+        });
+        y += 10; // spacing between sites
+      });
+    }
+
+    // ── PAGE 3: ACTIVE RENTALS ───────────────────────────────────────
+    doc.addPage();
+    y = 30;
+    y = sectionTitle('🔑  Active Rental Materials', y, C_BLUE);
+    y += 6;
+
+    if (activeRentalsData.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
+      doc.text('No active rentals currently deployed.', 42, y + 12);
+      y += 40;
+    } else {
+      activeRentalsData.forEach(rental => {
+        if (y > 700) {
+          doc.addPage();
+          y = 30;
+        }
+
+        const custStr = rental.customer ? ` (${rental.customer})` : '';
+        doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
+        doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+        doc.text(`${rental.name}${custStr}`, 38, y + 6, { width: PW - 16 });
+        y += 24;
+
+        rental.items.forEach((item, idx) => {
+          if (y > 750) {
+            doc.addPage();
+            y = 30;
+            // Redraw header
+            doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
+            doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
+            doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+            doc.text(`${rental.name}${custStr} (Cont.)`, 38, y + 6, { width: PW - 16 });
+            y += 24;
+          }
+
+          const rowH = 26;
+          const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+          doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+
+          doc.fillColor(C_DARK).font('Helvetica').fontSize(11);
+          doc.text(item.name, 42, y + 7, { width: 300 });
+
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
+          doc.text(`${item.qty.toLocaleString('en-IN')} ${item.unit}`, 392, y + 7, { width: 138, align: 'right' });
+
+          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
+          y += rowH;
+        });
+        y += 10;
+      });
+    }
+
+    // ── PAGE 4: TODAY'S MOVEMENTS ────────────────────────────────────
     doc.addPage();
     y = 30;
 
@@ -356,7 +508,7 @@ async function generateDailyWarehouseSummary({ date, models }) {
       doc.switchToPage(i);
       doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, 815).lineTo(565, 815).stroke();
       doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
-      doc.text('KSS Inventory Management System — Confidential', 30, 820, { width: 350 });
+      doc.text('KSS Inventory Management System — Operations Report', 30, 820, { width: 350 });
       doc.text(`Page ${i + 1} of ${range.count}`, 380, 820, { width: 185, align: 'right' });
     }
 
