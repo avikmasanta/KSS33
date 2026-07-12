@@ -30,6 +30,7 @@ const schemas = {
   categories: new mongoose.Schema({ _id: String, sortOrder: { type: Number, default: 999 }, createdAt: String }, schemaOptions),
   telegramChats: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
   smsContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
+  whatsappContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
 };
 
 
@@ -202,6 +203,54 @@ module.exports = async function handler(req, res) {
     }
 
     return json(res, 400, { error: 'Invalid sms-report action. Use /preview or /send' });
+  }
+
+  if (collection === 'whatsapp-report') {
+    function getYesterdayIST() {
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+      const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+      const yesterday = new Date(istTime.getTime() - 24 * 60 * 60 * 1000);
+      return yesterday.toISOString().split('T')[0];
+    }
+
+    const dateParam = req.query?.date || new URL(`http://localhost${req.url}`).searchParams.get('date');
+    const reportDate = dateParam || getYesterdayIST();
+
+    const reportModels = {
+      Material: getModel('materials'),
+      Incoming: getModel('incoming'),
+      Outgoing: getModel('outgoing'),
+      SiteReturns: getModel('siteReturns'),
+      RentalSite: getModel('rentalSites'),
+      Site: getModel('sites'),
+      WhatsappContact: getModel('whatsappContacts'),
+      SiteUsage: getModel('siteUsage'),
+      SiteDamaged: getModel('siteDamaged')
+    };
+
+    if (id === 'preview') {
+      try {
+        const { generateDailyWarehouseSummaryWhatsApp } = require('../server/whatsappService');
+        const text = await generateDailyWarehouseSummaryWhatsApp({ date: reportDate, models: reportModels });
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        return res.status(200).send(text);
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to generate WhatsApp preview: ' + err.message });
+      }
+    }
+
+    if (id === 'send') {
+      try {
+        const { sendWhatsappReport } = require('../server/whatsappService');
+        const result = await sendWhatsappReport({ date: reportDate, models: reportModels });
+        return json(res, 200, result);
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to send WhatsApp report: ' + err.message });
+      }
+    }
+
+    return json(res, 400, { error: 'Invalid whatsapp-report action. Use /preview or /send' });
   }
 
   if (collection === 'reset-stock') {

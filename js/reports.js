@@ -19,7 +19,8 @@ var ReportsPage = {
       { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' },
       { id: 'site-cost', title: 'Site Cost & Material Report', desc: 'Total project cost, materials issued & returned per site', icon: 'mapPin', color: '#8b5cf6', colorBg: '#ede9fe' },
       { id: 'telegram-summary', title: 'Telegram Reports', desc: 'Configure Telegram Bot chat alerts and send daily summaries', icon: 'settings', color: '#f59e0b', colorBg: '#fef3c7' },
-      { id: 'sms-summary', title: 'SMS Reports', desc: 'Configure SMS contact alerts and send daily summaries', icon: 'messageSquare', color: '#ec4899', colorBg: '#fce7f3' }
+      { id: 'sms-summary', title: 'SMS Reports', desc: 'Configure SMS contact alerts and send daily summaries', icon: 'messageSquare', color: '#ec4899', colorBg: '#fce7f3' },
+      { id: 'whatsapp-summary', title: 'WhatsApp Reports', desc: 'Configure WhatsApp contact alerts and send daily summaries', icon: 'messageSquare', color: '#10b981', colorBg: '#e6fcf5' }
     ];
 
     return `
@@ -305,6 +306,100 @@ var ReportsPage = {
                       1. SMS reports are sent using Twilio or Fast2SMS based on credentials set in the backend <code>.env</code> file.<br>
                       2. Add the recipient's mobile number here with the country code (e.g. <code>+919876543210</code>) or as a 10-digit number.<br>
                       3. If no API keys are configured, SMS sending defaults to **Mock Mode** and prints directly to backend server console logs.
+                    </p>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        `;
+        break;
+      }
+
+      case 'whatsapp-summary': {
+        const contacts = Store.WhatsappContacts.getAll();
+        const nowIST = new Date(new Date().getTime() + 5.5 * 60 * 60 * 1000);
+        const yesterday = new Date(nowIST.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        content = `
+          <div class="card slide-up">
+            <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+              <h3>WhatsApp Contacts & Daily Reports</h3>
+              <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
+            </div>
+            <div class="card-body">
+              <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:24px;">
+                
+                <!-- Left: Configured Contacts -->
+                <div>
+                  <h4 style="margin-bottom:12px;color:var(--text-primary);">Configured WhatsApp Contacts</h4>
+                  <div class="table-container" style="border: 1px solid var(--border-color); border-radius:8px;">
+                    <table class="data-table" style="width:100%;">
+                      <thead>
+                        <tr>
+                          <th>Phone Number</th>
+                          <th>Name / Label</th>
+                          <th style="text-align:right;">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${contacts.map(c => `
+                          <tr>
+                            <td><code style="font-family:monospace;background:var(--bg-body);padding:2px 6px;border-radius:4px;">${c.id}</code></td>
+                            <td><strong>${escapeHtml(c.name || 'Contact')}</strong></td>
+                            <td style="text-align:right;">
+                              <button class="btn btn-icon btn-ghost" onclick="ReportsPage.deleteWhatsappContact('${c.id}')" title="Delete Contact" style="color:var(--danger); border:none; background:none; cursor:pointer;">
+                                ${Icons.trash}
+                              </button>
+                            </td>
+                          </tr>
+                        `).join('')}
+                        ${contacts.length === 0 ? `
+                          <tr>
+                            <td colspan="3" style="text-align:center;padding:24px;color:var(--text-tertiary);">No contacts registered yet. Add one below!</td>
+                          </tr>
+                        ` : ''}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <!-- Form to add contact -->
+                  <div style="margin-top:20px; background:var(--bg-body); padding:16px; border-radius:8px; border:1px solid var(--border-color);">
+                    <h5 style="margin:0 0 12px 0; color:var(--text-primary);">Add WhatsApp Recipient</h5>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <input type="text" id="whatsapp-contact-id" class="form-control" placeholder="e.g. +919876543210" style="flex:1; min-width:140px; background: var(--bg-card);">
+                      <input type="text" id="whatsapp-contact-name" class="form-control" placeholder="Contact Name" style="flex:1; min-width:140px; background: var(--bg-card);">
+                      <button class="btn btn-primary" onclick="ReportsPage.addWhatsappContact()">Add</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Right: Test / Preview Actions -->
+                <div>
+                  <h4 style="margin-bottom:12px;color:var(--text-primary);">Send / Preview Report</h4>
+                  <div style="background:var(--bg-body); padding:20px; border-radius:12px; border:1px solid var(--border-color); margin-bottom:20px;">
+                    <div class="form-group" style="margin-bottom:15px;">
+                      <label>Select Report Target Date</label>
+                      <input type="date" id="whatsapp-report-date" class="form-control" value="${yesterday}" style="background: var(--bg-card);">
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                      <button class="btn btn-outline" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.previewWhatsappReport()">
+                        ${Icons.fileText} Preview Text
+                      </button>
+                      <button class="btn btn-success" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.sendWhatsappReportNow()">
+                        ${Icons.check} Send WhatsApp
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Guide/Help Card -->
+                  <div style="background: #e6fcf5; border: 1px solid #c3fae8; border-radius:12px; padding:16px; color:#0ca678;">
+                    <h5 style="margin:0 0 8px 0; font-weight:700; color:#099268;">💬 WhatsApp Notification Setup</h5>
+                    <p style="font-size:0.8rem; margin:0; line-height:1.5; color:#099268;">
+                      1. Reports are sent using Twilio WhatsApp API credentials set in the backend <code>.env</code> file.<br>
+                      2. For Twilio sandbox, recipients must first send a WhatsApp message to the Sandbox number (e.g. <code>join [sandbox-keyword]</code>) to opt-in.<br>
+                      3. Emojis and formatting are fully supported in WhatsApp daily reports!
                     </p>
                   </div>
                 </div>
@@ -1072,5 +1167,86 @@ var ReportsPage = {
     }
   },
 
+  async addWhatsappContact() {
+    const idInput = document.getElementById('whatsapp-contact-id');
+    const nameInput = document.getElementById('whatsapp-contact-name');
+    if (!idInput || !nameInput) return;
+
+    const id = idInput.value.trim();
+    const name = nameInput.value.trim();
+
+    if (!id || !name) {
+      alert('Please fill out both Phone Number and Name/Label.');
+      return;
+    }
+
+    try {
+      await Store.WhatsappContacts.addAsync({ id, name });
+      alert('WhatsApp Contact added successfully!');
+      this.generate('whatsapp-summary');
+    } catch (err) {
+      alert('Failed to add WhatsApp Contact: ' + err.message);
+    }
+  },
+
+  async deleteWhatsappContact(id) {
+    if (confirm('Are you sure you want to remove this WhatsApp Contact?\nIt will no longer receive daily reports.')) {
+      try {
+        await Store.WhatsappContacts.remove(id);
+        alert('WhatsApp Contact removed successfully!');
+        this.generate('whatsapp-summary');
+      } catch (err) {
+        alert('Failed to remove: ' + err.message);
+      }
+    }
+  },
+
+  previewWhatsappReport() {
+    const dateInput = document.getElementById('whatsapp-report-date');
+    if (!dateInput) return;
+    const date = dateInput.value;
+    const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : '/api';
+    window.open(`${API_URL}/whatsapp-report/preview?date=${date}`, '_blank');
+  },
+
+  async sendWhatsappReportNow() {
+    const dateInput = document.getElementById('whatsapp-report-date');
+    if (!dateInput) return;
+    const date = dateInput.value;
+
+    const btn = document.querySelector('button[onclick="ReportsPage.sendWhatsappReportNow()"]');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+
+    const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+      ? 'http://localhost:5000/api'
+      : '/api';
+
+    try {
+      const res = await fetch(`${API_URL}/whatsapp-report/send?date=${date}`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert('Report sent successfully! Details: ' + data.message);
+      } else {
+        let errDetails = data.error || data.message || 'Unknown error';
+        if (data.results && Array.isArray(data.results)) {
+          errDetails += '\n\nDetails:\n' + data.results.map(r => {
+            const status = r.success ? 'Success' : 'Failed';
+            const errorsStr = r.errors ? ` (Errors: ${r.errors.join(', ')})` : '';
+            return `- ${r.number}: ${status}${errorsStr}`;
+          }).join('\n');
+        }
+        alert('Failed to send WhatsApp report: ' + errDetails);
+      }
+    } catch (err) {
+      alert('Error sending WhatsApp report: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = originalText;
+    }
+  },
 
 };
