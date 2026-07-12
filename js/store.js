@@ -947,7 +947,7 @@ const Store = (() => {
       const expectedOrder = getDefaultSortOrder(m.name, m.sku);
       
       const needsSqFt = expectedSqFt > 0 && (!m.sqFtPerUnit || parseFloat(m.sqFtPerUnit) !== expectedSqFt);
-      const needsOrder = !m.hasOwnProperty('sortOrder') || m.sortOrder === undefined || m.sortOrder !== expectedOrder;
+      const needsOrder = !m.hasOwnProperty('sortOrder') || m.sortOrder === undefined || m.sortOrder === 999;
       
       return needsSqFt || (needsOrder && expectedOrder !== 999);
     });
@@ -957,7 +957,7 @@ const Store = (() => {
       const order = getDefaultSortOrder(m.name, m.sku);
       
       if (sqFt > 0) m.sqFtPerUnit = sqFt;
-      if (order !== 999) {
+      if (order !== 999 && (!m.hasOwnProperty('sortOrder') || m.sortOrder === undefined || m.sortOrder === 999)) {
         m.sortOrder = order;
       }
       
