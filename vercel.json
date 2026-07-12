@@ -7,7 +7,15 @@
   "crons": [
     {
       "path": "/api/telegram-report/send",
-      "schedule": "30 2 * * *"
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/sms-report/send",
+      "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/whatsapp-report/send",
+      "schedule": "0 3 * * *"
     }
   ],
   "rewrites": [
