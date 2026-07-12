@@ -1,6 +1,8 @@
 const TWILIO_ACCOUNT_SID = ((process.env.TWILIO_ACCOUNT_SID || '').trim().replace(/['"]+/g, '').match(/AC[a-f0-9]{32}/i) || [])[0] || '';
 const TWILIO_AUTH_TOKEN = ((process.env.TWILIO_AUTH_TOKEN || '').trim().replace(/['"]+/g, '').match(/[a-f0-9]{32}/i) || [])[0] || '';
 const TWILIO_WHATSAPP_FROM = (process.env.TWILIO_WHATSAPP_FROM || 'whatsapp:+14155238886').trim().replace(/['"]+/g, '');
+const META_ACCESS_TOKEN = (process.env.META_ACCESS_TOKEN || '').trim().replace(/['"]+/g, '');
+const META_PHONE_NUMBER_ID = (process.env.META_PHONE_NUMBER_ID || '').trim().replace(/['"]+/g, '');
 
 /**
  * Generates the text report containing:
@@ -159,14 +161,52 @@ async function sendWhatsappReport({ date, models }) {
     let errors = [];
     let senderUsed = 'Mock Mode';
 
-    if (TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
+    // 1. Try Meta WhatsApp Cloud API if credentials are set
+    if (META_ACCESS_TOKEN && META_PHONE_NUMBER_ID) {
+      try {
+        let cleanNumber = number.trim();
+        cleanNumber = cleanNumber.replace(/^whatsapp:/i, '').replace(/^\+/, '').replace(/\s+/g, '');
+        
+        const url = `https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${META_ACCESS_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messaging_product: 'whatsapp',
+            recipient_type: 'individual',
+            to: cleanNumber,
+            type: 'text',
+            text: {
+              preview_url: false,
+              body: reportText
+            }
+          })
+        });
+
+        const resData = await response.json();
+        if (response.ok && !resData.error) {
+          sent = true;
+          senderUsed = 'Meta Cloud API';
+        } else {
+          const errMsg = (resData.error && resData.error.message) || 'API error';
+          errors.push(`Meta Cloud: ${errMsg}`);
+        }
+      } catch (err) {
+        errors.push(`Meta Cloud: ${err.message}`);
+      }
+    }
+
+    // 2. Try Twilio WhatsApp API if not sent and credentials are set
+    if (!sent && TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN) {
       try {
         const accountSid = TWILIO_ACCOUNT_SID;
         const authToken = TWILIO_AUTH_TOKEN;
         const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
         let formattedNumber = number.trim();
-        // Twilio WhatsApp expects the format: whatsapp:+919876543210
         if (!formattedNumber.startsWith('whatsapp:')) {
           if (/^\d{10}$/.test(formattedNumber)) {
             formattedNumber = 'whatsapp:+91' + formattedNumber;
@@ -205,8 +245,9 @@ async function sendWhatsappReport({ date, models }) {
       }
     }
 
+    // 3. Mock Mode fallback
     if (!sent) {
-      if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+      if (!META_ACCESS_TOKEN && !TWILIO_ACCOUNT_SID) {
         console.log(`[WhatsApp Mock Mode] Sending WhatsApp to ${number}:\n--------------------\n${reportText}\n--------------------`);
         sent = true;
         senderUsed = 'Mock Mode';
