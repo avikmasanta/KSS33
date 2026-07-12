@@ -408,6 +408,22 @@ var MaterialsPage = {
 
     if (!data.name || !data.sku) { alert('Material name and SKU are required'); return; }
 
+    if (data.sortOrder !== 999) {
+      const allMaterials = Store.Materials.getAll();
+      const duplicate = allMaterials.find(m => m.id !== id && m.sortOrder === data.sortOrder);
+      if (duplicate) {
+        let oldOrder = 999;
+        if (id) {
+          const currentMat = Store.Materials.getById(id);
+          if (currentMat && currentMat.sortOrder !== undefined) {
+            oldOrder = currentMat.sortOrder;
+          }
+        }
+        // Swap their positions
+        Store.Materials.update(duplicate.id, { ...duplicate, sortOrder: oldOrder });
+      }
+    }
+
     if (id) {
       Store.Materials.update(id, data);
     } else {
