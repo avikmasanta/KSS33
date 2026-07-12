@@ -112,9 +112,9 @@ async function generateDailyWarehouseSummaryText({ date, models }) {
     year: 'numeric'
   });
 
-  let text = `📋 KSS Daily Warehouse & Site Lintel Report\n📅 Date: ${dateFormatted}\n\n`;
+  let text = `KSS Daily Warehouse & Site Lintel Report\nDate: ${dateFormatted}\n\n`;
   
-  text += `🏢 Warehouse Stock:\n`;
+  text += `Warehouse Stock:\n`;
   if (warehouseRows.length === 0) {
     text += `- No stock in warehouse\n`;
   } else {
@@ -123,7 +123,7 @@ async function generateDailyWarehouseSummaryText({ date, models }) {
     });
   }
 
-  text += `\n📍 Sites Crossed 15 Days (Lintel):\n`;
+  text += `\nSites Crossed 15 Days (Lintel):\n`;
   if (lintelAlertSites.length === 0) {
     text += `- None\n`;
   } else {
