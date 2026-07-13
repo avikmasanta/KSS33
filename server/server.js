@@ -81,6 +81,9 @@ cron.schedule('0 8 * * *', async () => {
   } catch (err) {
     console.error('[Cron] Job failed:', err);
   }
+}, {
+  scheduled: true,
+  timezone: "Asia/Kolkata"
 });
 
 const PORT = process.env.PORT || 5000;
