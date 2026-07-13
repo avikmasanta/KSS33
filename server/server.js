@@ -21,6 +21,8 @@ app.use('/api', require('./routes'));
 // Daily Cron Job at 8:00 AM local time
 const cron = require('node-cron');
 const { sendTelegramReport } = require('./telegramService');
+const { sendWhatsappReport } = require('./whatsappService');
+const { sendSmsReport } = require('./smsService');
 const models = require('./models');
 
 // '0 8 * * *' = at 08:00 AM every day
@@ -47,11 +49,35 @@ cron.schedule('0 8 * * *', async () => {
       Site: models.Site,
       TelegramChat: models.TelegramChat,
       SiteUsage: models.SiteUsage,
-      SiteDamaged: models.SiteDamaged
+      SiteDamaged: models.SiteDamaged,
+      WhatsappContact: models.WhatsappContact,
+      SmsContact: models.SmsContact
     };
 
-    const tgResult = await sendTelegramReport({ date: yesterdayStr, models: reportModels });
-    console.log('[Cron] Telegram job completed:', tgResult.message);
+    // Send Telegram
+    try {
+      const tgResult = await sendTelegramReport({ date: yesterdayStr, models: reportModels });
+      console.log('[Cron] Telegram job completed:', tgResult.message);
+    } catch (tgErr) {
+      console.error('[Cron] Telegram job failed:', tgErr);
+    }
+
+    // Send WhatsApp
+    try {
+      const waResult = await sendWhatsappReport({ date: yesterdayStr, models: reportModels });
+      console.log('[Cron] WhatsApp job completed:', waResult);
+    } catch (waErr) {
+      console.error('[Cron] WhatsApp job failed:', waErr);
+    }
+
+    // Send SMS
+    try {
+      const smsResult = await sendSmsReport({ date: yesterdayStr, models: reportModels });
+      console.log('[Cron] SMS job completed:', smsResult);
+    } catch (smsErr) {
+      console.error('[Cron] SMS job failed:', smsErr);
+    }
+
   } catch (err) {
     console.error('[Cron] Job failed:', err);
   }
