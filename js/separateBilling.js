@@ -806,7 +806,7 @@ var SeparateBillingPage = (function() {
     html += '<div class="business-details">';
     html += '<div class="business-name">KSS</div>';
     html += '<div>Construction Material & Lintel Solutions</div>';
-    html += '<div>📍 Durgapur, West Bengal</div>';
+    html += '<div>📍 ' + (bill.location || 'Durgapur, West Bengal') + '</div>';
     html += '<div>📞 +91 1234567890</div>';
     html += '<div>✉️ info@kssdoublefin.com</div>';
     html += '<div>GSTIN : 19ABCDE1234F1Z5</div>';
