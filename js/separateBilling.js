@@ -2,9 +2,10 @@
    KSS Double Fin - Separate Billing Module
    Fully independent of Customer/Site/Inventory
    ============================================
-   Allows user-customizable formulas per row:
-     Variables: L (Length), B (Breadth), Q (Quantity)
-     Operators: +, -, *, /, %, (, ), x (multiply)
+   Material Types:
+     Slab  -> Area = L x B
+     Beam  -> Area = Qty x 2 x B
+     Open  -> Area = L x B (Deducted)
    ============================================ */
 
 var SeparateBillingPage = (function() {
@@ -15,49 +16,28 @@ var SeparateBillingPage = (function() {
     editId: null,
     searchTerm: '',
     searchField: 'all',
-    formItems: [{ type: 'Slab', formula: 'L * B * Q', materialName: '', length: '', breadth: '', quantity: '', area: 0 }],
+    formItems: [{ type: 'Slab', length: '', breadth: '', quantity: '', area: 0 }],
     formData: { siteName: '', contractorName: '', ownerName: '', location: '', lintelDate: '', ratePerSqFt: '' }
   };
 
-  // Type config (sets default formula on switch)
+  // Type config
   var TYPES = {
-    Slab: { label: 'Slab', color: '#1d4ed8', bg: 'rgba(37,99,235,0.06)', badge: '#eff6ff', badgeText: '#1d4ed8', formula: 'L * B * Q' },
-    Beam: { label: 'Beam', color: '#d97706', bg: 'rgba(217,119,6,0.06)', badge: '#fef3c7', badgeText: '#92400e', formula: 'Q * 2 * B' },
-    Open: { label: 'Open', color: '#dc2626', bg: 'rgba(220,38,38,0.06)', badge: '#fee2e2', badgeText: '#991b1b', formula: 'L * B * Q' }
+    Slab: { label: 'Slab', color: '#1d4ed8', bg: 'rgba(37,99,235,0.06)', badge: '#eff6ff', badgeText: '#1d4ed8' },
+    Beam: { label: 'Beam', color: '#d97706', bg: 'rgba(217,119,6,0.06)', badge: '#fef3c7', badgeText: '#92400e' },
+    Open: { label: 'Open', color: '#dc2626', bg: 'rgba(220,38,38,0.06)', badge: '#fee2e2', badgeText: '#991b1b' }
   };
 
-  // Safe math evaluator for user-defined formulas
-  function evaluateFormula(expr, length, breadth, qty) {
-    if (!expr) return 0;
-    // Replace x, X with multiplication, % with division by 100
-    var clean = expr.replace(/x/gi, '*')
-                    .replace(/%/g, '/100')
-                    .toUpperCase();
-    var lVal = parseFloat(length)  || 0;
-    var bVal = parseFloat(breadth) || 0;
-    var qVal = parseFloat(qty)     || 0;
-    
-    // Replace L, B, Q tokens safely
-    clean = clean.replace(/\bL\b/g, '(' + lVal + ')')
-                 .replace(/\bB\b/g, '(' + bVal + ')')
-                 .replace(/\bQ\b/g, '(' + qVal + ')');
-                 
-    // Limit characters strictly to prevent security/eval code execution
-    var allowed = /^[0-9+\-*/().\s]+$/;
-    if (!allowed.test(clean)) return 0;
-    try {
-      var fn = new Function('return (' + clean + ');');
-      var result = fn();
-      return isFinite(result) ? parseFloat(result.toFixed(3)) : 0;
-    } catch(e) {
-      return 0;
-    }
-  }
-
-  // Calc area per row
+  // Calc area per row based on simplified formula rules
   function calcArea(item) {
-    var formula = item.formula || 'L * B * Q';
-    return evaluateFormula(formula, item.length, item.breadth, item.quantity);
+    var l = parseFloat(item.length)   || 0;
+    var b = parseFloat(item.breadth)  || 0;
+    var q = parseFloat(item.quantity) || 0;
+    
+    if (item.type === 'Beam') {
+      return parseFloat((q * 2 * b).toFixed(3));
+    }
+    // Slab and Open are L x B
+    return parseFloat((l * b).toFixed(3));
   }
 
   // Calc totals
@@ -153,18 +133,22 @@ var SeparateBillingPage = (function() {
   function materialRowHTML(item, idx) {
     var cfg     = TYPES[item.type] || TYPES.Slab;
     var isOpen  = item.type === 'Open';
+    var isBeam  = item.type === 'Beam';
     var l       = item.length   || '';
     var b       = item.breadth  || '';
     var q       = item.quantity || '';
-    var formula = item.formula  || (item.type === 'Beam' ? 'Q * 2 * B' : 'L * B * Q');
     var areaVal = item.area > 0 ? (isOpen ? '- ' : '') + fNum(item.area) + ' Sq Ft' : '-';
     var areaClass = isOpen ? 'sb-area-cell sb-area-deduct' : 'sb-area-cell';
 
-    // Only render Length if formula uses "L" (case insensitive)
-    var hasL = /L/i.test(formula);
-    var lengthTd = hasL
-      ? '<td><input type="number" class="sb-cell-input sb-cell-num" placeholder="0" min="0" step="0.01" value="' + l + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'length\',this.value)"></td>'
-      : '<td><span class="sb-na-cell">-</span></td>';
+    // Length input: only editable for Slab and Open
+    var lengthTd = isBeam
+      ? '<td><span class="sb-na-cell">—</span></td>'
+      : '<td><input type="number" class="sb-cell-input" id="sb-length-' + idx + '" placeholder="0" min="0" step="0.01" value="' + l + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'length\',this.value)"></td>';
+
+    // Quantity input: only editable for Beam
+    var qtyTd = isBeam
+      ? '<td><input type="number" class="sb-cell-input" id="sb-quantity-' + idx + '" placeholder="0" min="0" step="1" value="' + q + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'quantity\',this.value)"></td>'
+      : '<td><span class="sb-na-cell">—</span></td>';
 
     var delTd = state.formItems.length > 1
       ? '<td><button class="sb-icon-btn sb-icon-delete" onclick="SeparateBillingPage.removeRow(' + idx + ')" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>'
@@ -181,14 +165,9 @@ var SeparateBillingPage = (function() {
     row += '<option value="Beam"' + beamSel + '>Beam</option>';
     row += '<option value="Open"' + openSel + '>Open</option>';
     row += '</select></td>';
-    row += '<td><input type="text" class="sb-cell-input" list="sb-materials-list" placeholder="Material name" value="' + (item.materialName || '') + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'materialName\',this.value)"></td>';
     row += lengthTd;
-    row += '<td><input type="number" class="sb-cell-input sb-cell-num" placeholder="0" min="0" step="0.01" value="' + b + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'breadth\',this.value)"></td>';
-    row += '<td><input type="number" class="sb-cell-input sb-cell-num" placeholder="0" min="0" step="1" value="' + q + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'quantity\',this.value)"></td>';
-    
-    // Formula text input
-    row += '<td><input type="text" class="sb-cell-input sb-formula-input" id="sb-formula-input-' + idx + '" style="font-family:monospace;font-size:0.85rem;color:' + cfg.color + ';border-color:' + cfg.color + ';text-align:center" value="' + formula + '" placeholder="L * B * Q" oninput="SeparateBillingPage.updateRowFormula(' + idx + ',this.value)"></td>';
-    
+    row += '<td><input type="number" class="sb-cell-input" id="sb-breadth-' + idx + '" placeholder="0" min="0" step="0.01" value="' + b + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'breadth\',this.value)"></td>';
+    row += qtyTd;
     row += '<td><span class="' + areaClass + '" id="sb-area-' + idx + '">' + areaVal + '</span></td>';
     row += delTd;
     row += '</tr>';
@@ -295,18 +274,7 @@ var SeparateBillingPage = (function() {
     html += '<button class="sb-back-btn" onclick="SeparateBillingPage.goList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px"><polyline points="15 18 9 12 15 6"/></svg></button>';
     html += '<div class="sb-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
     html += '<div><h2 class="sb-header-title">' + (isEdit ? 'Edit Billing' : 'New Separate Bill') + '</h2>';
-    html += '<p class="sb-header-subtitle">Customizable formulas - Slab (LxBxQty) + Beam (Qtyx2xB) - Open deductions</p></div></div></div>';
-
-    // Materials datalist
-    var activeMaterials = (Store.Materials ? Store.Materials.getAll() : []).filter(function(m) {
-      return m.status !== 'Archived';
-    });
-    var materialsDatalist = '<datalist id="sb-materials-list">';
-    activeMaterials.forEach(function(m) {
-      materialsDatalist += '<option value="' + m.name + '">';
-    });
-    materialsDatalist += '</datalist>';
-    html += materialsDatalist;
+    html += '<p class="sb-header-subtitle">Slab (LxB) &bull; Beam (Qtyx2xB) &bull; Open (LxB deduct)</p></div></div></div>';
 
     html += '<div class="sb-form-layout">';
 
@@ -341,15 +309,15 @@ var SeparateBillingPage = (function() {
 
     // Materials card
     html += '<div class="sb-card">';
-    html += '<div class="sb-card-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--primary-500)"><rect x="2" y="3" width="20" height="14" rx="2"/></svg><h3>Material Details</h3>';
+    html += '<div class="sb-card-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--primary-500)"><rect x="2" y="3" width="20" height="14" rx="2"/></svg><h3>Calculation Details</h3>';
     html += '<div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">';
     html += '<button type="button" class="sb-btn sb-btn-type-slab sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Slab\')">+ Slab</button>';
     html += '<button type="button" class="sb-btn sb-btn-type-beam sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Beam\')">+ Beam</button>';
-    html += '<button type="button" class="sb-btn sb-btn-type-open sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Open\')">+ Open</button>';
+    html += '<button type="button" class="sb-btn sb-btn-type-open sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Open\')">+ Open (Deduct)</button>';
     html += '</div></div>';
     html += '<div class="sb-card-body" style="padding:0"><div class="sb-material-table-wrap">';
     html += '<table class="sb-material-table"><thead><tr>';
-    html += '<th style="width:38px">#</th><th style="width:80px">Type</th><th>Material Name</th><th style="width:90px">Length (ft)</th><th style="width:90px">Breadth (ft)</th><th style="width:80px">Qty</th><th style="width:150px">Formula (L, B, Q)</th><th style="width:120px">Area (Sq Ft)</th><th style="width:36px"></th>';
+    html += '<th style="width:38px">#</th><th style="width:110px">Type</th><th style="width:140px">Length (ft)</th><th style="width:140px">Breadth (ft)</th><th style="width:110px">Qty</th><th style="width:160px">Area (Sq Ft)</th><th style="width:36px"></th>';
     html += '</tr></thead><tbody id="sb-material-rows">' + rows + '</tbody></table>';
     html += '</div></div></div>';
 
@@ -392,16 +360,13 @@ var SeparateBillingPage = (function() {
     function sectionRows(items, type) {
       if (!items.length) return '';
       var cfg = TYPES[type] || TYPES.Slab;
-      var s = '<tr><td colspan="7" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:0.78rem;text-transform:uppercase;padding:8px 14px">' + cfg.label + '</td></tr>';
+      var s = '<tr><td colspan="5" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:0.78rem;text-transform:uppercase;padding:8px 14px">' + cfg.label + '</td></tr>';
       items.forEach(function(item, i) {
-        var fml = item.formula || (type === 'Beam' ? 'Q * 2 * B' : 'L * B * Q');
         s += '<tr style="background:' + cfg.bg + '">';
         s += '<td><span class="sb-row-num" style="background:' + cfg.badge + ';color:' + cfg.color + '">' + (i+1) + '</span></td>';
-        s += '<td><strong>' + (item.materialName || '-') + '</strong></td>';
-        s += '<td>' + (type === 'Beam' || !/L/i.test(fml) ? '-' : fNum(item.length)) + '</td>';
+        s += '<td>' + (type === 'Beam' ? '—' : fNum(item.length)) + '</td>';
         s += '<td>' + fNum(item.breadth) + '</td>';
-        s += '<td>' + fNum(item.quantity) + '</td>';
-        s += '<td><span style="font-family:monospace;font-size:0.8rem;color:' + cfg.color + '">' + fml + '</span></td>';
+        s += '<td>' + (type !== 'Beam' ? '—' : fNum(item.quantity)) + '</td>';
         s += '<td><span class="' + (type === 'Open' ? 'sb-deduct-badge' : 'sb-area-badge') + '">' + (type === 'Open' ? '- ' : '') + fNum(item.area) + ' Sq Ft</span></td>';
         s += '</tr>';
       });
@@ -443,9 +408,9 @@ var SeparateBillingPage = (function() {
     html += '</div></div></div>';
 
     // Materials
-    html += '<div class="sb-card"><div class="sb-card-header"><h3>Material Details</h3></div>';
+    html += '<div class="sb-card"><div class="sb-card-header"><h3>Measurement Details</h3></div>';
     html += '<div class="sb-card-body" style="padding:0"><div class="sb-table-scroll">';
-    html += '<table class="sb-table"><thead><tr><th>#</th><th>Material</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Formula</th><th>Area</th></tr></thead>';
+    html += '<table class="sb-table"><thead><tr><th>#</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Area</th></tr></thead>';
     html += '<tbody>' + sectionRows(slabItems, 'Slab') + sectionRows(beamItems, 'Beam') + sectionRows(openItems, 'Open') + '</tbody></table>';
     html += '</div></div></div>';
 
@@ -476,7 +441,6 @@ var SeparateBillingPage = (function() {
   function onSelectExistingSite(siteId) {
     if (!siteId) return;
     
-    // Attempt load from Store first, fallback to localStorage
     var site = null;
     if (Store.Sites && Store.Sites.getById) {
       site = Store.Sites.getById(siteId);
@@ -484,7 +448,7 @@ var SeparateBillingPage = (function() {
     if (!site) {
       try {
         var list = JSON.parse(localStorage.getItem('bm_sites')) || [];
-        site = list.find(function(s) { return s.id === siteId; }) || null;
+        site = list.find(function(s) { return (s.id || s._id) === siteId; }) || null;
       } catch(e) {}
     }
     
@@ -528,7 +492,7 @@ var SeparateBillingPage = (function() {
     state.view      = 'form';
     state.editId    = null;
     state.formData  = { siteName:'', contractorName:'', ownerName:'', location:'', lintelDate:'', ratePerSqFt:'' };
-    state.formItems = [{ type:'Slab', formula:'L * B * Q', materialName:'', length:'', breadth:'', quantity:'', area:0 }];
+    state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
     rerender();
   }
 
@@ -546,9 +510,9 @@ var SeparateBillingPage = (function() {
       ratePerSqFt:    bill.ratePerSqFt    || ''
     };
     state.formItems = (bill.items || []).map(function(i) {
-      return Object.assign({ type: 'Slab', formula: 'L * B * Q' }, i);
+      return Object.assign({ type: 'Slab' }, i);
     });
-    if (!state.formItems.length) state.formItems = [{ type:'Slab', formula:'L * B * Q', materialName:'', length:'', breadth:'', quantity:'', area:0 }];
+    if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
     rerender();
   }
 
@@ -572,16 +536,16 @@ var SeparateBillingPage = (function() {
       ratePerSqFt:    bill.ratePerSqFt    || ''
     };
     state.formItems = (bill.items || []).map(function(i) {
-      return Object.assign({ type: 'Slab', formula: 'L * B * Q' }, i);
+      return Object.assign({ type: 'Slab' }, i);
     });
-    if (!state.formItems.length) state.formItems = [{ type:'Slab', formula:'L * B * Q', materialName:'', length:'', breadth:'', quantity:'', area:0 }];
+    if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
     rerender();
   }
 
   function addRow(type) {
     syncFormInputs();
-    var defaultFormula = type === 'Beam' ? 'Q * 2 * B' : 'L * B * Q';
-    state.formItems.push({ type: type || 'Slab', formula: defaultFormula, materialName:'', length:'', breadth:'', quantity:'', area:0 });
+    var defaultQty = type === 'Beam' ? '' : '1';
+    state.formItems.push({ type: type || 'Slab', length: '', breadth: '', quantity: defaultQty, area: 0 });
     rerender();
   }
 
@@ -596,26 +560,10 @@ var SeparateBillingPage = (function() {
     if (!state.formItems[idx]) return;
     syncFormInputs();
     state.formItems[idx].type = type;
-    state.formItems[idx].formula = type === 'Beam' ? 'Q * 2 * B' : 'L * B * Q';
+    state.formItems[idx].quantity = type === 'Beam' ? '' : '1';
+    state.formItems[idx].length = type === 'Beam' ? '1' : '';
     state.formItems[idx].area = calcArea(state.formItems[idx]);
     rerender();
-  }
-
-  function updateRowFormula(idx, value) {
-    if (!state.formItems[idx]) return;
-    state.formItems[idx].formula = value;
-    state.formItems[idx].area = calcArea(state.formItems[idx]);
-
-    // Fast-path DOM updates
-    var areaEl = document.getElementById('sb-area-' + idx);
-    if (areaEl) {
-      var isOpen = state.formItems[idx].type === 'Open';
-      var a      = state.formItems[idx].area;
-      areaEl.textContent = a > 0 ? (isOpen ? '- ' : '') + fNum(a) + ' Sq Ft' : '-';
-    }
-    
-    // Dynamically show/hide Length column if formula variable changes (rebuild row next render, but update totals now)
-    refreshTotals();
   }
 
   function updateRowField(idx, field, value) {
@@ -640,27 +588,19 @@ var SeparateBillingPage = (function() {
       if (el) state.formData[f] = el.value;
     });
     state.formItems.forEach(function(item, idx) {
-      var nameEl = document.querySelector('#sb-row-' + idx + ' input[type=text]');
-      if (nameEl) item.materialName = nameEl.value;
+      var lengthEl   = document.getElementById('sb-length-' + idx);
+      var breadthEl  = document.getElementById('sb-breadth-' + idx);
+      var quantityEl = document.getElementById('sb-quantity-' + idx);
       
-      var formulaEl = document.getElementById('sb-formula-input-' + idx);
-      if (formulaEl) item.formula = formulaEl.value;
-
-      var numEls = document.querySelectorAll('#sb-row-' + idx + ' input.sb-cell-num');
-      var nums   = Array.prototype.slice.call(numEls);
+      if (lengthEl)   item.length   = lengthEl.value;
+      else            item.length   = '';
       
-      // If formula uses "L", check L value position
-      var hasL = /L/i.test(item.formula || 'L * B * Q');
-      if (!hasL) {
-        // No L -> breadh is first input, quantity is second
-        if (nums[0]) item.breadth   = nums[0].value;
-        if (nums[1]) item.quantity  = nums[1].value;
-      } else {
-        // L exists -> length is first, breadth is second, qty is third
-        if (nums[0]) item.length   = nums[0].value;
-        if (nums[1]) item.breadth  = nums[1].value;
-        if (nums[2]) item.quantity = nums[2].value;
-      }
+      if (breadthEl)  item.breadth  = breadthEl.value;
+      else            item.breadth  = '';
+      
+      if (quantityEl) item.quantity = quantityEl.value;
+      else            item.quantity = '';
+      
       item.area = calcArea(item);
     });
   }
@@ -671,12 +611,12 @@ var SeparateBillingPage = (function() {
     if (!state.formData.contractorName.trim()) { alert('Please enter a Contractor Name.'); return; }
 
     var items = state.formItems
-      .filter(function(i) { return i.materialName || i.length || i.breadth || i.quantity; })
-      .map(function(i) {
+      .filter(function(i) { return i.length || i.breadth || i.quantity; })
+      .map(function(i, idx) {
         return {
           type:         i.type         || 'Slab',
-          formula:      i.formula      || 'L * B * Q',
-          materialName: i.materialName || '',
+          formula:      i.type === 'Beam' ? 'Q * 2 * B' : 'L * B',
+          materialName: 'Item ' + (idx + 1),
           length:       parseFloat(i.length)   || 0,
           breadth:      parseFloat(i.breadth)  || 0,
           quantity:     parseFloat(i.quantity) || 0,
@@ -742,36 +682,33 @@ var SeparateBillingPage = (function() {
     function secRows(arr, type) {
       if (!arr.length) return '';
       var cfg = TYPES[type] || TYPES.Slab;
-      var s = '<tr><td colspan="7" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:12px;text-transform:uppercase;padding:8px 12px">' + cfg.label + '</td></tr>';
+      var s = '<tr><td colspan="5" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:12px;text-transform:uppercase;padding:8px 12px">' + cfg.label + '</td></tr>';
       arr.forEach(function(item, i) {
-        var fml = item.formula || (type === 'Beam' ? 'Q * 2 * B' : 'L * B * Q');
         s += '<tr>';
         s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (i+1) + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;background:' + cfg.bg + '">' + (item.materialName || '-') + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (type === 'Beam' || !/L/i.test(fml) ? '-' : item.length) + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (type === 'Beam' ? '—' : item.length) + '</td>';
         s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.breadth + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.quantity + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:monospace;font-size:11px;background:' + cfg.bg + ';color:' + cfg.color + '">' + fml + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (type !== 'Beam' ? '—' : item.quantity) + '</td>';
         s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;background:' + cfg.bg + ';color:' + cfg.color + '">' + (type === 'Open' ? '- ' : '') + fNum(item.area) + ' Sq Ft</td>';
         s += '</tr>';
       });
       return s;
     }
 
-    var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KSS Double Fin Invoice</title>';
-    html += '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Segoe UI",Arial,sans-serif;background:#f8fafc;color:#1e293b}.wrap{max-width:820px;margin:0 auto;background:#fff;padding:48px;box-shadow:0 4px 24px rgba(0,0,0,0.08)}.hd{text-align:center;margin-bottom:32px;border-bottom:3px solid #2563eb;padding-bottom:24px}.hd-co{font-size:28px;font-weight:800;color:#0f172a}.hd-sub{font-size:14px;color:#64748b;margin-top:4px;text-transform:uppercase;letter-spacing:1px}.hd-badge{display:inline-block;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-size:12px;font-weight:700;padding:3px 12px;border-radius:20px;margin-top:8px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px;background:#f8fafc;padding:18px;border-radius:10px}.meta-full{grid-column:1/-1}.meta label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:3px}.meta span{font-size:14px;color:#0f172a;font-weight:600}table{width:100%;border-collapse:collapse;margin-bottom:20px}thead th{background:#1e40af;color:white;padding:10px 12px;font-size:12px;font-weight:700;text-transform:uppercase;text-align:left}.calc-strip{display:flex;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:20px}.calc-cell{flex:1;padding:14px 16px;text-align:center;border-right:1px solid #e2e8f0}.calc-cell:last-child{border-right:none}.calc-op{flex:0 0 32px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#94a3b8;background:#f8fafc;border-right:1px solid #e2e8f0}.calc-lbl{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:4px}.calc-val{font-size:16px;font-weight:800}.calc-fm{font-size:11px;color:#94a3b8;margin-top:3px}.footer{background:#0f172a;color:white;border-radius:10px;padding:18px 24px}.frow{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.08)}.frow:last-child{border-bottom:none}.flbl{font-size:13px;color:#94a3b8}.fval{font-size:15px;font-weight:700}.fgrand{font-size:22px!important;color:#60a5fa!important}@media print{body{background:white}.wrap{box-shadow:none;padding:20px}}</style>';
+    var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KSS Invoice</title>';
+    html += '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Segoe UI",Arial,sans-serif;background:#f8fafc;color:#1e293b;padding:20px}.wrap{max-width:800px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.05)}.hd{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.hd-co{font-size:38px;font-weight:900;letter-spacing:5px;color:#1e3a8a;text-transform:uppercase}.hd-sub{font-size:11px;color:#64748b;margin-top:5px;text-transform:uppercase;letter-spacing:2px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:30px;background:#f8fafc;padding:20px;border-radius:8px;border:1px solid #e2e8f0}.meta-full{grid-column:1/-1}.meta label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px}.meta span{font-size:14px;color:#0f172a;font-weight:600}table{width:100%;border-collapse:collapse;margin-bottom:25px}thead th{background:#1e3a8a;color:white;padding:12px;font-size:11px;font-weight:700;text-transform:uppercase;text-align:left;letter-spacing:0.5px}tbody td{padding:12px;border-bottom:1px solid #e2e8f0;font-size:13px}.calc-strip{display:flex;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:25px}.calc-cell{flex:1;padding:16px;text-align:center;border-right:1px solid #e2e8f0}.calc-cell:last-child{border-right:none}.calc-op{flex:0 0 35px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#94a3b8;background:#f8fafc;border-right:1px solid #e2e8f0}.calc-lbl{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px}.calc-val{font-size:16px;font-weight:800}.footer{background:#1e3a8a;color:white;border-radius:8px;padding:20px 24px}.frow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1)}.frow:last-child{border-bottom:none}.flbl{font-size:13px;color:#93c5fd}.fval{font-size:15px;font-weight:700}.fgrand{font-size:22px!important;color:#facc15!important}@media print{body{background:white;padding:0}.wrap{box-shadow:none;padding:0;border-radius:0}}</style>';
     html += '</head><body><div class="wrap">';
-    html += '<div class="hd"><div class="hd-co">KSS Double Fin</div><div class="hd-sub">Separate Billing Invoice</div><div class="hd-badge">BILL #' + (bill.id ? bill.id.substring(0,8).toUpperCase() : 'DRAFT') + '</div></div>';
+    html += '<div class="hd"><div class="hd-co">KSS</div><div class="hd-sub">Estimation & Measurement Bill</div></div>';
     html += '<div class="meta"><div><label>Site Name</label><span>' + (bill.siteName || '-') + '</span></div><div><label>Lintel Date</label><span>' + (bill.lintelDate || '-') + '</span></div><div><label>Contractor</label><span>' + (bill.contractorName || '-') + '</span></div><div><label>Owner</label><span>' + (bill.ownerName || '-') + '</span></div><div class="meta-full"><label>Location</label><span>' + (bill.location || '-') + '</span></div></div>';
-    html += '<table><thead><tr><th>#</th><th>Material</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Formula</th><th style="text-align:right">Area (Sq Ft)</th></tr></thead><tbody>' + secRows(slabItems,'Slab') + secRows(beamItems,'Beam') + secRows(openItems,'Open') + '</tbody></table>';
+    html += '<table><thead><tr><th>#</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th style="text-align:right">Area (Sq Ft)</th></tr></thead><tbody>' + secRows(slabItems,'Slab') + secRows(beamItems,'Beam') + secRows(openItems,'Open') + '</tbody></table>';
     html += '<div class="calc-strip">';
-    html += '<div class="calc-cell" style="background:#eff6ff"><div class="calc-lbl" style="color:#1d4ed8">Slab</div><div class="calc-val" style="color:#1d4ed8">' + fNum(parseFloat(bill.slabArea)||0) + ' Sq Ft</div><div class="calc-fm">Slabs Total</div></div>';
+    html += '<div class="calc-cell" style="background:#eff6ff"><div class="calc-lbl" style="color:#1d4ed8">Slab</div><div class="calc-val" style="color:#1d4ed8">' + fNum(parseFloat(bill.slabArea)||0) + ' Sq Ft</div></div>';
     html += '<div class="calc-op">+</div>';
-    html += '<div class="calc-cell" style="background:#fef3c7"><div class="calc-lbl" style="color:#92400e">Beam</div><div class="calc-val" style="color:#d97706">' + fNum(parseFloat(bill.beamArea)||0) + ' Sq Ft</div><div class="calc-fm">Beams Total</div></div>';
+    html += '<div class="calc-cell" style="background:#fef3c7"><div class="calc-lbl" style="color:#92400e">Beam</div><div class="calc-val" style="color:#d97706">' + fNum(parseFloat(bill.beamArea)||0) + ' Sq Ft</div></div>';
     html += '<div class="calc-op">-</div>';
-    html += '<div class="calc-cell" style="background:#fee2e2"><div class="calc-lbl" style="color:#991b1b">Open</div><div class="calc-val" style="color:#dc2626">' + fNum(openA) + ' Sq Ft</div><div class="calc-fm">Deductions</div></div>';
+    html += '<div class="calc-cell" style="background:#fee2e2"><div class="calc-lbl" style="color:#991b1b">Open</div><div class="calc-val" style="color:#dc2626">' + fNum(openA) + ' Sq Ft</div></div>';
     html += '<div class="calc-op">=</div>';
-    html += '<div class="calc-cell" style="background:#f0fdf4"><div class="calc-lbl" style="color:#065f46">Net Area</div><div class="calc-val" style="color:#059669">' + fNum(net) + ' Sq Ft</div><div class="calc-fm">' + fNum(gross) + ' - ' + fNum(openA) + '</div></div>';
+    html += '<div class="calc-cell" style="background:#f0fdf4"><div class="calc-lbl" style="color:#065f46">Net Area</div><div class="calc-val" style="color:#059669">' + fNum(net) + ' Sq Ft</div></div>';
     html += '</div>';
     html += '<div class="footer">';
     html += '<div class="frow"><span class="flbl">Gross Area (Slab + Beam)</span><span class="fval">' + fNum(gross) + ' Sq Ft</span></div>';
@@ -782,8 +719,6 @@ var SeparateBillingPage = (function() {
       html += '<div class="frow"><span class="flbl">Grand Total</span><span class="fval fgrand">Rs.' + fNum(bill.totalAmount) + '</span></div>';
     }
     html += '</div></div>';
-    if (forPrint) html += '<script>window.print();window.onafterprint=function(){window.close()};<\/script>';
-    html += '</body></html>';
     return html;
   }
 
@@ -813,10 +748,10 @@ var SeparateBillingPage = (function() {
         r.slabArea||0, r.beamArea||0, r.openArea||0, r.grossArea||r.totalArea||0, r.netArea||r.totalArea||0,
         r.ratePerSqFt||'', r.totalAmount||'', r.createdAt||'']);
     });
-    rows.push([], ['--- MATERIAL DETAILS ---'], ['Bill #','Site','Type','Material','Length','Breadth','Qty','Formula','Area']);
+    rows.push([], ['--- MATERIAL DETAILS ---'], ['Bill #','Site','Type','Length','Breadth','Qty','Area']);
     records.forEach(function(r, ri) {
       (r.items || []).forEach(function(item) {
-        rows.push([ri+1, r.siteName||'', item.type||'Slab', item.materialName||'', item.length||0, item.breadth||0, item.quantity||0, item.formula||'L * B * Q', item.area||0]);
+        rows.push([ri+1, r.siteName||'', item.type||'Slab', item.length||0, item.breadth||0, item.quantity||0, item.area||0]);
       });
     });
     var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
@@ -858,12 +793,11 @@ var SeparateBillingPage = (function() {
     addRow:        addRow,
     removeRow:     removeRow,
     updateRowType: updateRowType,
-    updateRowFormula: updateRowFormula,
     updateRowField:updateRowField,
     saveBill:      saveBill,
     deleteBill:    deleteBill,
     printBill:     printBill,
-    exportPDF:     printBill, // map PDF download to standard print invoice
+    exportPDF:     printBill,
     exportExcel:   exportExcel
   };
 })();
