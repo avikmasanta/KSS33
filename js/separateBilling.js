@@ -670,53 +670,268 @@ var SeparateBillingPage = (function() {
   // ---- PRINT / PDF ----
   function buildInvoiceHTML(bill, forPrint) {
     var items     = bill.items || [];
-    var slabItems = items.filter(function(i) { return i.type === 'Slab'; });
-    var beamItems = items.filter(function(i) { return i.type === 'Beam'; });
-    var openItems = items.filter(function(i) { return i.type === 'Open'; });
-    var gross = parseFloat(bill.grossArea || bill.totalArea) || 0;
-    var openA = parseFloat(bill.openArea) || 0;
-    var net   = parseFloat(bill.netArea  || bill.totalArea) || 0;
+    var gross     = parseFloat(bill.grossArea || bill.totalArea) || 0;
+    var openA     = parseFloat(bill.openArea) || 0;
+    var net       = parseFloat(bill.netArea  || bill.totalArea) || 0;
+    var rateVal   = parseFloat(bill.ratePerSqFt) || 0;
+    var amtVal    = parseFloat(bill.totalAmount) || 0;
 
-    function secRows(arr, type) {
-      if (!arr.length) return '';
-      var cfg = TYPES[type] || TYPES.Slab;
-      var s = '<tr><td colspan="5" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:12px;text-transform:uppercase;padding:8px 12px">' + cfg.label + '</td></tr>';
-      arr.forEach(function(item, i) {
-        s += '<tr>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (i+1) + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.length + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.breadth + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (type !== 'Beam' ? '—' : item.quantity) + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;background:' + cfg.bg + ';color:' + cfg.color + '">' + (type === 'Open' ? '- ' : '') + fNum(item.area) + ' Sq Ft</td>';
-        s += '</tr>';
-      });
-      return s;
+    function formatDate(dStr) {
+      if (!dStr) return '-';
+      try {
+        var d = new Date(dStr);
+        if (isNaN(d.getTime())) return dStr;
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return d.getDate().toString().padStart(2, '0') + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+      } catch(e) {
+        return dStr;
+      }
     }
 
-    var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KSS Invoice</title>';
-    html += '<style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:"Segoe UI",Arial,sans-serif;background:#f8fafc;color:#1e293b;padding:20px}.wrap{max-width:800px;margin:0 auto;background:#fff;padding:40px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.05)}.hd{text-align:center;margin-bottom:30px;border-bottom:2px solid #e2e8f0;padding-bottom:20px}.hd-co{font-size:38px;font-weight:900;letter-spacing:5px;color:#1e3a8a;text-transform:uppercase}.hd-sub{font-size:11px;color:#64748b;margin-top:5px;text-transform:uppercase;letter-spacing:2px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:30px;background:#f8fafc;padding:20px;border-radius:8px;border:1px solid #e2e8f0}.meta-full{grid-column:1/-1}.meta label{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;display:block;margin-bottom:4px}.meta span{font-size:14px;color:#0f172a;font-weight:600}table{width:100%;border-collapse:collapse;margin-bottom:25px}thead th{background:#1e3a8a;color:white;padding:12px;font-size:11px;font-weight:700;text-transform:uppercase;text-align:left;letter-spacing:0.5px}tbody td{padding:12px;border-bottom:1px solid #e2e8f0;font-size:13px}.calc-strip{display:flex;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin-bottom:25px}.calc-cell{flex:1;padding:16px;text-align:center;border-right:1px solid #e2e8f0}.calc-cell:last-child{border-right:none}.calc-op{flex:0 0 35px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#94a3b8;background:#f8fafc;border-right:1px solid #e2e8f0}.calc-lbl{font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;margin-bottom:6px;letter-spacing:0.5px}.calc-val{font-size:16px;font-weight:800}.footer{background:#1e3a8a;color:white;border-radius:8px;padding:20px 24px}.frow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.1)}.frow:last-child{border-bottom:none}.flbl{font-size:13px;color:#93c5fd}.fval{font-size:15px;font-weight:700}.fgrand{font-size:22px!important;color:#facc15!important}@media print{body{background:white;padding:0}.wrap{box-shadow:none;padding:0;border-radius:0}}</style>';
-    html += '</head><body><div class="wrap">';
-    html += '<div class="hd"><div class="hd-co">KSS</div><div class="hd-sub">Estimation & Measurement Bill</div></div>';
-    html += '<div class="meta"><div><label>Site Name</label><span>' + (bill.siteName || '-') + '</span></div><div><label>Lintel Date</label><span>' + (bill.lintelDate || '-') + '</span></div><div><label>Contractor</label><span>' + (bill.contractorName || '-') + '</span></div><div><label>Owner</label><span>' + (bill.ownerName || '-') + '</span></div><div class="meta-full"><label>Location</label><span>' + (bill.location || '-') + '</span></div></div>';
-    html += '<table><thead><tr><th>#</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th style="text-align:right">Area (Sq Ft)</th></tr></thead><tbody>' + secRows(slabItems,'Slab') + secRows(beamItems,'Beam') + secRows(openItems,'Open') + '</tbody></table>';
-    html += '<div class="calc-strip">';
-    html += '<div class="calc-cell" style="background:#eff6ff"><div class="calc-lbl" style="color:#1d4ed8">Slab</div><div class="calc-val" style="color:#1d4ed8">' + fNum(parseFloat(bill.slabArea)||0) + ' Sq Ft</div></div>';
-    html += '<div class="calc-op">+</div>';
-    html += '<div class="calc-cell" style="background:#fef3c7"><div class="calc-lbl" style="color:#92400e">Beam</div><div class="calc-val" style="color:#d97706">' + fNum(parseFloat(bill.beamArea)||0) + ' Sq Ft</div></div>';
-    html += '<div class="calc-op">-</div>';
-    html += '<div class="calc-cell" style="background:#fee2e2"><div class="calc-lbl" style="color:#991b1b">Open</div><div class="calc-val" style="color:#dc2626">' + fNum(openA) + ' Sq Ft</div></div>';
-    html += '<div class="calc-op">=</div>';
-    html += '<div class="calc-cell" style="background:#f0fdf4"><div class="calc-lbl" style="color:#065f46">Net Area</div><div class="calc-val" style="color:#059669">' + fNum(net) + ' Sq Ft</div></div>';
+    var invNum = "INV-" + (bill.id || bill._id || "NEW").slice(-6).toUpperCase();
+    var invDate = formatDate(bill.createdAt || new Date());
+    var lintelDateFormatted = formatDate(bill.lintelDate);
+
+    var rows = '';
+    items.forEach(function(item, idx) {
+      var lVal = parseFloat(item.length) || 0;
+      var bVal = parseFloat(item.breadth) || 0;
+      var qVal = parseFloat(item.quantity) || 0;
+      var areaVal = parseFloat(item.area) || 0;
+      var isBeam = item.type === 'Beam';
+      var isOpen = item.type === 'Open';
+
+      var lText = (isBeam && lVal === 0) ? '—' : lVal.toFixed(2);
+      var bText = (isBeam && bVal === 0) ? '—' : bVal.toFixed(2);
+      var qText = isBeam ? qVal.toString() : '—';
+      
+      var fmlText = '—';
+      if (lVal > 0 || bVal > 0 || qVal > 0) {
+        if (isBeam) {
+          fmlText = lVal + ' × ' + bVal + ' × ' + qVal + ' × 2';
+        } else {
+          fmlText = lVal + ' × ' + bVal;
+        }
+      }
+
+      rows += '<tr>';
+      rows += '<td style="text-align:center">' + (idx + 1) + '</td>';
+      rows += '<td class="type-badge" style="color:' + (TYPES[item.type] ? TYPES[item.type].color : '#0f172a') + '">' + (item.type || 'Slab') + '</td>';
+      rows += '<td style="text-align:center">' + lText + '</td>';
+      rows += '<td style="text-align:center">' + bText + '</td>';
+      rows += '<td style="text-align:center">' + qText + '</td>';
+      rows += '<td style="font-family: monospace; font-weight: 600; text-align:center">' + fmlText + '</td>';
+      rows += '<td style="font-weight: 700; text-align: right; color:' + (isOpen ? '#dc2626' : '#0f172a') + '">' + (isOpen ? '- ' : '') + areaVal.toFixed(2) + '</td>';
+      rows += '</tr>';
+    });
+
+    var html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>KSS Measurement & Estimation Bill</title>';
+    html += '<style>';
+    html += '@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");';
+    html += '*{box-sizing:border-box;margin:0;padding:0}';
+    html += 'body{font-family:"Inter",sans-serif;background:#f1f5f9;color:#0f172a;padding:30px 20px;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact}';
+    html += '.invoice-container{max-width:850px;margin:0 auto;background:#ffffff;padding:40px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,0.04);border:1px solid #e2e8f0}';
+    html += '.invoice-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:25px}';
+    html += '.logo-container{display:flex;align-items:center;gap:15px}';
+    html += '.logo-text-title{font-size:32px;font-weight:900;color:#0f3c7a;line-height:0.95;letter-spacing:2px}';
+    html += '.logo-text-sub{font-size:11px;font-weight:700;color:#1e40af;letter-spacing:3.5px;text-transform:uppercase;margin-top:5px}';
+    html += '.bill-title-container{text-align:center}';
+    html += '.bill-title-main{font-size:26px;font-weight:900;color:#0f3c7a;letter-spacing:1px;text-transform:uppercase}';
+    html += '.bill-title-sub{font-size:10px;font-weight:600;color:#64748b;letter-spacing:2px;text-transform:uppercase;margin-top:3px;position:relative}';
+    html += '.bill-title-sub::after{content:"";display:block;width:120px;height:2px;background:#cbd5e1;margin:8px auto 0}';
+    html += '.business-details{text-align:right;font-size:11px;color:#475569;line-height:1.5}';
+    html += '.business-name{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:2px}';
+    html += '.banner-strip{background:#0f3c7a;color:#ffffff;padding:10px 20px;border-radius:8px;display:flex;justify-content:space-between;font-weight:600;font-size:13px;margin-bottom:25px}';
+    html += '.info-card{border:1px solid #cbd5e1;border-radius:10px;padding:20px;margin-bottom:25px;background:#f8fafc}';
+    html += '.info-card-title{font-size:12px;font-weight:800;color:#0f3c7a;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;border-bottom:1px solid #e2e8f0;padding-bottom:6px}';
+    html += '.info-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:10px 20px}';
+    html += '.info-row{display:flex;font-size:12px;line-height:1.4}';
+    html += '.info-label{width:115px;font-weight:700;color:#475569}';
+    html += '.info-value{flex:1;color:#0f172a;font-weight:600}';
+    html += '.section-title{font-size:13px;font-weight:800;color:#0f3c7a;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px}';
+    html += '.measurement-table{width:100%;border-collapse:collapse;margin-bottom:25px;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden}';
+    html += '.measurement-table th{background:#0f3c7a;color:#ffffff;font-size:11px;font-weight:700;text-transform:uppercase;padding:10px;text-align:center;border:1px solid #0f3c7a}';
+    html += '.measurement-table td{padding:10px;font-size:12px;text-align:center;border:1px solid #cbd5e1;font-weight:500;color:#334155}';
+    html += '.measurement-table tr:nth-child(even){background:#f8fafc}';
+    html += '.measurement-table td.type-badge{font-weight:700;text-transform:uppercase;font-size:11px;text-align:center}';
+    html += '.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:25px;margin-bottom:25px}';
+    html += '.summary-box{border:1px solid #cbd5e1;border-radius:10px;overflow:hidden;display:flex;flex-direction:column}';
+    html += '.summary-box-header{background:#f8fafc;border-bottom:1px solid #cbd5e1;padding:12px 18px;font-size:12px;font-weight:800;color:#0f3c7a;letter-spacing:0.5px;text-transform:uppercase}';
+    html += '.summary-box-body{padding:16px 18px;flex:1;display:flex;flex-direction:column;gap:10px}';
+    html += '.summary-row{display:flex;justify-content:space-between;font-size:12px;font-weight:500;color:#475569}';
+    html += '.summary-row.bold-total{font-weight:700;color:#0f172a;border-top:1px solid #cbd5e1;padding-top:8px}';
+    html += '.summary-row.bold-net{font-weight:800;font-size:14px;color:#16a34a;border-top:1px solid #cbd5e1;padding-top:8px}';
+    html += '.grand-total-banner{background:#0f3c7a;color:#ffffff;padding:12px 18px;display:flex;justify-content:space-between;font-size:14px;font-weight:800}';
+    html += '.notes-scan-container{display:flex;justify-content:space-between;align-items:center;border:1px solid #cbd5e1;border-radius:10px;padding:16px 20px;background:#f8fafc;margin-bottom:40px}';
+    html += '.notes-box{flex:1}';
+    html += '.notes-title{font-size:11px;font-weight:800;color:#0f3c7a;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px}';
+    html += '.notes-list{list-style-type:none;padding-left:0}';
+    html += '.notes-list li{font-size:11px;color:#475569;margin-bottom:4px;position:relative;padding-left:12px}';
+    html += '.notes-list li::before{content:"•";position:absolute;left:0;color:#0f3c7a}';
+    html += '.scan-verify-box{text-align:center;border-left:1px solid #cbd5e1;padding-left:20px;margin-left:20px}';
+    html += '.scan-verify-text{font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}';
+    html += '.signatures-row{display:flex;justify-content:space-between;margin-bottom:30px;padding:0 10px}';
+    html += '.signature-item{text-align:center;width:180px}';
+    html += '.signature-label{font-size:11px;font-weight:700;color:#475569;margin-bottom:40px}';
+    html += '.signature-line{border-bottom:1px solid #cbd5e1;width:100%;margin-bottom:6px}';
+    html += '.signature-name{font-size:10px;font-weight:600;color:#64748b}';
+    html += '.invoice-footer{display:flex;align-items:center;justify-content:center;gap:15px;font-size:11px;font-weight:700;color:#0f3c7a;letter-spacing:1px;text-transform:uppercase;margin-top:20px}';
+    html += '.invoice-footer-line{flex:1;height:1px;background:#e2e8f0}';
+    html += '@media print{';
+    html += 'body{background:#ffffff;padding:0;margin:0}';
+    html += '.invoice-container{border:none;box-shadow:none;padding:0}';
+    html += '}';
+    html += '</style>';
+    html += '</head><body>';
+    html += '<div class="invoice-container">';
+
+    // Top Header
+    html += '<div class="invoice-header">';
+    html += '<div class="logo-container">';
+    html += '<svg viewBox="0 0 100 80" class="logo-graphic">';
+    html += '<polygon points="10,60 50,20 60,60" fill="#0f3c7a" />';
+    html += '<polygon points="40,60 75,10 90,60" fill="#1e40af" />';
+    html += '<rect x="5" y="65" width="90" height="4" fill="#0f3c7a" rx="2" />';
+    html += '</svg>';
+    html += '<div>';
+    html += '<div class="logo-text-title">KSS</div>';
+    html += '<div class="logo-text-sub">Double Fin</div>';
     html += '</div>';
-    html += '<div class="footer">';
-    html += '<div class="frow"><span class="flbl">Gross Area (Slab + Beam)</span><span class="fval">' + fNum(gross) + ' Sq Ft</span></div>';
-    html += '<div class="frow"><span class="flbl">Deductions (Open)</span><span class="fval">- ' + fNum(openA) + ' Sq Ft</span></div>';
-    html += '<div class="frow"><span class="flbl">Net Area</span><span class="fval">' + fNum(net) + ' Sq Ft</span></div>';
-    if (bill.ratePerSqFt) {
-      html += '<div class="frow"><span class="flbl">Rate per Sq Ft</span><span class="fval">Rs.' + fNum(bill.ratePerSqFt) + '</span></div>';
-      html += '<div class="frow"><span class="flbl">Grand Total</span><span class="fval fgrand">Rs.' + fNum(bill.totalAmount) + '</span></div>';
-    }
-    html += '</div></div>';
+    html += '</div>';
+
+    html += '<div class="bill-title-container">';
+    html += '<div class="bill-title-main">KSS DOUBLE FIN</div>';
+    html += '<div class="bill-title-sub">Estimation & Measurement Bill</div>';
+    html += '</div>';
+
+    html += '<div class="business-details">';
+    html += '<div class="business-name">KSS Double Fin Pvt. Ltd.</div>';
+    html += '<div>Construction Material & Lintel Solutions</div>';
+    html += '<div>📍 Durgapur, West Bengal</div>';
+    html += '<div>📞 +91 1234567890</div>';
+    html += '<div>✉️ info@kssdoublefin.com</div>';
+    html += '<div>GSTIN : 19ABCDE1234F1Z5</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Banner strip
+    html += '<div class="banner-strip">';
+    html += '<span>Invoice No. : ' + invNum + '</span>';
+    html += '<span>Invoice Date : ' + invDate + '</span>';
+    html += '</div>';
+
+    // Project Info card
+    html += '<div class="info-card">';
+    html += '<div class="info-card-title">Project Information</div>';
+    html += '<div class="info-grid">';
+    
+    html += '<div class="info-grid-col">';
+    html += '<div class="info-row"><span class="info-label">Site Name</span><span class="info-value">: ' + (bill.siteName || '-') + '</span></div>';
+    html += '<div class="info-row"><span class="info-label">Contractor</span><span class="info-value">: ' + (bill.contractorName || '-') + '</span></div>';
+    html += '<div class="info-row"><span class="info-label">Owner</span><span class="info-value">: ' + (bill.ownerName || '-') + '</span></div>';
+    html += '<div class="info-row"><span class="info-label">Location</span><span class="info-value">: ' + (bill.location || '-') + '</span></div>';
+    html += '</div>';
+
+    html += '<div class="info-grid-col">';
+    html += '<div class="info-row"><span class="info-label">Lintel Date</span><span class="info-value">: ' + lintelDateFormatted + '</span></div>';
+    html += '<div class="info-row"><span class="info-label">Invoice Date</span><span class="info-value">: ' + invDate + '</span></div>';
+    html += '<div class="info-row"><span class="info-label">Prepared By</span><span class="info-value">: KSS Team</span></div>';
+    html += '</div>';
+
+    html += '</div>';
+    html += '</div>';
+
+    // Table
+    html += '<div class="section-title">Measurement Details</div>';
+    html += '<table class="measurement-table">';
+    html += '<thead><tr>';
+    html += '<th style="width:50px">Sl.</th><th style="width:120px">Type</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Formula</th><th style="text-align:right;width:150px">Area (Sq Ft)</th>';
+    html += '</tr></thead>';
+    html += '<tbody>' + rows + '</tbody>';
+    html += '</table>';
+
+    // Summary Box grid
+    html += '<div class="summary-grid">';
+    
+    // Left Box
+    html += '<div class="summary-box">';
+    html += '<div class="summary-box-header">Area Summary</div>';
+    html += '<div class="summary-box-body">';
+    html += '<div class="summary-row"><span>Slab Area</span><span>' + (parseFloat(bill.slabArea) || 0).toFixed(2) + ' Sq Ft</span></div>';
+    html += '<div class="summary-row"><span>Beam Area</span><span>' + (parseFloat(bill.beamArea) || 0).toFixed(2) + ' Sq Ft</span></div>';
+    html += '<div class="summary-row bold-total"><span>Gross Area (Slab + Beam)</span><span>' + gross.toFixed(2) + ' Sq Ft</span></div>';
+    html += '<div class="summary-row" style="color:#dc2626"><span>Open Area (Deductions)</span><span>- ' + openA.toFixed(2) + ' Sq Ft</span></div>';
+    html += '<div class="summary-row bold-net"><span>NET AREA</span><span>' + net.toFixed(2) + ' Sq Ft</span></div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Right Box
+    html += '<div class="summary-box">';
+    html += '<div class="summary-box-header">Pricing Summary</div>';
+    html += '<div class="summary-box-body" style="padding-bottom:0">';
+    html += '<div class="summary-row"><span>Rate per Sq Ft</span><span>' + (rateVal > 0 ? '₹ ' + rateVal.toFixed(2) : '—') + '</span></div>';
+    html += '<div class="summary-row bold-total"><span>Net Area</span><span>' + net.toFixed(2) + ' Sq Ft</span></div>';
+    html += '<div class="summary-row"><span>Total Amount</span><span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span></div>';
+    html += '<div class="summary-row"><span>GST (0%)</span><span>₹ 0.00</span></div>';
+    html += '</div>';
+    html += '<div class="grand-total-banner">';
+    html += '<span>GRAND TOTAL</span>';
+    html += '<span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '</div>';
+
+    // Notes and Scan Verify container
+    html += '<div class="notes-scan-container">';
+    html += '<div class="notes-box">';
+    html += '<div class="notes-title">Notes</div>';
+    html += '<ul class="notes-list">';
+    html += '<li>Measurement verified at site.</li>';
+    html += '<li>Rates are as agreed.</li>';
+    html += '<li>Subject to final verification.</li>';
+    html += '</ul>';
+    html += '</div>';
+
+    html += '<div class="scan-verify-box">';
+    html += '<svg width="50" height="50" viewBox="0 0 29 29" style="display:block;margin:0 auto 4px">';
+    html += '<path d="M0,0 h7 v7 h-7 z M1,1 v5 h5 v-5 z M2,2 h3 v3 h-3 z" fill="#0f172a" />';
+    html += '<path d="M22,0 h7 v7 h-7 z M23,1 v5 h5 v-5 z M24,2 h3 v3 h-3 z" fill="#0f172a" />';
+    html += '<path d="M0,22 h7 v7 h-7 z M1,23 v5 h5 v-5 z M2,24 h3 v3 h-3 z" fill="#0f172a" />';
+    html += '<path d="M9,0 h2 v2 h-2 z M13,1 h1 v1 h-1 z M17,0 h3 v1 h-3 z M10,3 h3 v1 h-3 z M16,4 h2 v2 h-2 z M20,3 h1 v2 h-1 z M8,6 h2 v1 h-2 z M12,8 h2 v2 h-2 z M15,9 h3 v1 h-3 z M9,11 h1 v3 h-1 z M13,14 h3 v1 h-3 z M19,12 h2 v2 h-2 z M25,9 h2 v2 h-2 z M23,13 h3 v1 h-3 z M8,17 h4 v1 h-4 z M14,19 h2 v2 h-2 z M18,17 h3 v1 h-3 z M24,18 h2 v2 h-2 z M9,23 h3 v1 h-3 z M15,24 h2 v2 h-2 z M19,23 h3 v1 h-3 z M23,25 h4 v1 h-4 z" fill="#0f172a" />';
+    html += '</svg>';
+    html += '<div class="scan-verify-text">Scan to Verify</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Signatures row
+    html += '<div class="signatures-row">';
+    html += '<div class="signature-item">';
+    html += '<div class="signature-label">Prepared By</div>';
+    html += '<div class="signature-line"></div>';
+    html += '<div class="signature-name">(KSS Team)</div>';
+    html += '</div>';
+    html += '<div class="signature-item">';
+    html += '<div class="signature-label">Customer Signature</div>';
+    html += '<div class="signature-line"></div>';
+    html += '<div class="signature-name">(____________________)</div>';
+    html += '</div>';
+    html += '<div class="signature-item">';
+    html += '<div class="signature-label">Authorized Signature</div>';
+    html += '<div class="signature-line"></div>';
+    html += '<div class="signature-name">(____________________)</div>';
+    html += '</div>';
+    html += '</div>';
+
+    // Footer lines
+    html += '<div class="invoice-footer">';
+    html += '<div class="invoice-footer-line"></div>';
+    html += '<span>Thank you for your business!</span>';
+    html += '<div class="invoice-footer-line"></div>';
+    html += '</div>';
+
+    html += '</div>';
+    html += '</body></html>';
     return html;
   }
 
