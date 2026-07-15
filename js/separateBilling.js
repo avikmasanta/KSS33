@@ -187,20 +187,9 @@ var SeparateBillingPage = (function() {
     html += '<div class="sb-header">';
     html += '<div class="sb-header-left">';
     html += '<div class="sb-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>';
-    html += '<div><h2 class="sb-header-title">Separate Billing</h2><p class="sb-header-subtitle">KSS Double Fin - Slab / Beam / Open formula</p></div>';
+    html += '<div><h2 class="sb-header-title">Separate Billing</h2><p class="sb-header-subtitle">Independent billing records - no site or customer required</p></div>';
     html += '</div>';
     html += '<div class="sb-header-actions"><button class="sb-btn sb-btn-primary" onclick="SeparateBillingPage.newBill()">+ New Bill</button></div>';
-    html += '</div>';
-
-    // Formula Legend
-    html += '<div class="sb-legend-strip">';
-    html += '<div class="sb-legend-item sb-legend-slab"><strong>Slab</strong><span>L x B x Qty</span></div>';
-    html += '<div class="sb-legend-sep">+</div>';
-    html += '<div class="sb-legend-item sb-legend-beam"><strong>Beam</strong><span>Qty x 2 x B</span></div>';
-    html += '<div class="sb-legend-sep">-</div>';
-    html += '<div class="sb-legend-item sb-legend-open"><strong>Open</strong><span>L x B x Qty (deduct)</span></div>';
-    html += '<div class="sb-legend-sep">=</div>';
-    html += '<div class="sb-legend-item sb-legend-net"><strong>Net Area</strong><span>x Rate = Amount</span></div>';
     html += '</div>';
 
     // Stats
