@@ -794,18 +794,17 @@ var SeparateBillingPage = (function() {
     html += '<rect x="5" y="65" width="90" height="4" fill="#0f3c7a" rx="2" />';
     html += '</svg>';
     html += '<div>';
-    html += '<div class="logo-text-title">KSS</div>';
-    html += '<div class="logo-text-sub">Double Fin</div>';
+    html += '<div class="logo-text-title" style="margin-top:5px">KSS</div>';
     html += '</div>';
     html += '</div>';
 
     html += '<div class="bill-title-container">';
-    html += '<div class="bill-title-main">KSS DOUBLE FIN</div>';
+    html += '<div class="bill-title-main">KSS</div>';
     html += '<div class="bill-title-sub">Estimation & Measurement Bill</div>';
     html += '</div>';
 
     html += '<div class="business-details">';
-    html += '<div class="business-name">KSS Double Fin Pvt. Ltd.</div>';
+    html += '<div class="business-name">KSS</div>';
     html += '<div>Construction Material & Lintel Solutions</div>';
     html += '<div>📍 Durgapur, West Bengal</div>';
     html += '<div>📞 +91 1234567890</div>';
