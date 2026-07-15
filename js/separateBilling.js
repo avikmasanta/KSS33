@@ -34,7 +34,7 @@ var SeparateBillingPage = (function() {
     var q = parseFloat(item.quantity) || 0;
     
     if (item.type === 'Beam') {
-      return parseFloat((q * 2 * b).toFixed(3));
+      return parseFloat((l * b * q * 2).toFixed(3));
     }
     // Slab and Open are L x B
     return parseFloat((l * b).toFixed(3));
@@ -140,10 +140,8 @@ var SeparateBillingPage = (function() {
     var areaVal = item.area > 0 ? (isOpen ? '- ' : '') + fNum(item.area) + ' Sq Ft' : '-';
     var areaClass = isOpen ? 'sb-area-cell sb-area-deduct' : 'sb-area-cell';
 
-    // Length input: only editable for Slab and Open
-    var lengthTd = isBeam
-      ? '<td><span class="sb-na-cell">—</span></td>'
-      : '<td><input type="number" class="sb-cell-input" id="sb-length-' + idx + '" placeholder="0" min="0" step="0.01" value="' + l + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'length\',this.value)"></td>';
+    // Length input: editable for all types
+    var lengthTd = '<td><input type="number" class="sb-cell-input" id="sb-length-' + idx + '" placeholder="0" min="0" step="0.01" value="' + l + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'length\',this.value)"></td>';
 
     // Quantity input: only editable for Beam
     var qtyTd = isBeam
@@ -364,7 +362,7 @@ var SeparateBillingPage = (function() {
       items.forEach(function(item, i) {
         s += '<tr style="background:' + cfg.bg + '">';
         s += '<td><span class="sb-row-num" style="background:' + cfg.badge + ';color:' + cfg.color + '">' + (i+1) + '</span></td>';
-        s += '<td>' + (type === 'Beam' ? '—' : fNum(item.length)) + '</td>';
+        s += '<td>' + fNum(item.length) + '</td>';
         s += '<td>' + fNum(item.breadth) + '</td>';
         s += '<td>' + (type !== 'Beam' ? '—' : fNum(item.quantity)) + '</td>';
         s += '<td><span class="' + (type === 'Open' ? 'sb-deduct-badge' : 'sb-area-badge') + '">' + (type === 'Open' ? '- ' : '') + fNum(item.area) + ' Sq Ft</span></td>';
@@ -561,7 +559,7 @@ var SeparateBillingPage = (function() {
     syncFormInputs();
     state.formItems[idx].type = type;
     state.formItems[idx].quantity = type === 'Beam' ? '' : '1';
-    state.formItems[idx].length = type === 'Beam' ? '1' : '';
+    state.formItems[idx].length = '';
     state.formItems[idx].area = calcArea(state.formItems[idx]);
     rerender();
   }
@@ -615,7 +613,7 @@ var SeparateBillingPage = (function() {
       .map(function(i, idx) {
         return {
           type:         i.type         || 'Slab',
-          formula:      i.type === 'Beam' ? 'Q * 2 * B' : 'L * B',
+          formula:      i.type === 'Beam' ? 'L * B * Q * 2' : 'L * B',
           materialName: 'Item ' + (idx + 1),
           length:       parseFloat(i.length)   || 0,
           breadth:      parseFloat(i.breadth)  || 0,
@@ -686,7 +684,7 @@ var SeparateBillingPage = (function() {
       arr.forEach(function(item, i) {
         s += '<tr>';
         s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (i+1) + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (type === 'Beam' ? '—' : item.length) + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.length + '</td>';
         s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.breadth + '</td>';
         s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (type !== 'Beam' ? '—' : item.quantity) + '</td>';
         s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;background:' + cfg.bg + ';color:' + cfg.color + '">' + (type === 'Open' ? '- ' : '') + fNum(item.area) + ' Sq Ft</td>';
