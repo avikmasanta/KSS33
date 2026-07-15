@@ -324,7 +324,8 @@ var SeparateBillingPage = (function() {
     });
     var siteOptions = '<option value="">-- Select a Site to Auto-Fill details --</option>';
     activeSites.forEach(function(s) {
-      siteOptions += '<option value="' + s.id + '">' + s.name + ' (' + (s.customerName || 'No Owner') + ')</option>';
+      var sId = s.id || s._id;
+      siteOptions += '<option value="' + sId + '">' + s.name + ' (' + (s.customerName || 'No Owner') + ')</option>';
     });
 
     // Basic Info card
@@ -789,10 +790,17 @@ var SeparateBillingPage = (function() {
   function printBill(id) {
     var bill = Store.SeparateBillings.getById(id);
     if (!bill) return;
-    var w = window.open('','_blank','width=900,height=700');
-    if (!w) { alert('Please allow popups to print.'); return; }
-    w.document.write(buildInvoiceHTML(bill, true));
-    w.document.close();
+    var printWindow = window.open('', '_blank');
+    if (!printWindow) { alert('Please allow popups to print.'); return; }
+    printWindow.document.write(buildInvoiceHTML(bill, false));
+    printWindow.document.close();
+    printWindow.onload = function() {
+      printWindow.print();
+    };
+    // fallback trigger after 500ms
+    setTimeout(function() {
+      try { printWindow.print(); } catch(e){}
+    }, 500);
   }
 
   // EXCEL EXPORT
