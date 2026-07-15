@@ -272,9 +272,18 @@ var SeparateBillingPage = (function() {
 
     html += '<div class="sb-form-layout">';
 
+    var activeSites = (Store.Sites ? Store.Sites.getAll() : []).filter(function(s) {
+      return s.status !== 'Archived';
+    });
+    var siteOptions = '<option value="">-- Select a Site to Auto-Fill details --</option>';
+    activeSites.forEach(function(s) {
+      siteOptions += '<option value="' + s.id + '">' + s.name + ' (' + (s.customerName || 'No Owner') + ')</option>';
+    });
+
     // Basic Info card
     html += '<div class="sb-card"><div class="sb-card-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;color:var(--primary-500)"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><h3>Basic Information</h3></div>';
     html += '<div class="sb-card-body"><div class="sb-form-grid">';
+    html += '<div class="sb-form-group sb-full-span"><label class="sb-label">Select Site Details from Existing Sites (Optional)</label><select class="sb-select" style="width:100%" onchange="SeparateBillingPage.onSelectExistingSite(this.value)">' + siteOptions + '</select></div>';
     html += '<div class="sb-form-group"><label class="sb-label">Site Name <span class="sb-required">*</span></label><input type="text" class="sb-input" id="sb-siteName" placeholder="Enter site name" value="' + state.formData.siteName + '" oninput="SeparateBillingPage.onFormChange(\'siteName\',this.value)"></div>';
     html += '<div class="sb-form-group"><label class="sb-label">Contractor Name <span class="sb-required">*</span></label><input type="text" class="sb-input" id="sb-contractorName" placeholder="Enter contractor name" value="' + state.formData.contractorName + '" oninput="SeparateBillingPage.onFormChange(\'contractorName\',this.value)"></div>';
     html += '<div class="sb-form-group"><label class="sb-label">Owner Name</label><input type="text" class="sb-input" id="sb-ownerName" placeholder="Enter owner name" value="' + state.formData.ownerName + '" oninput="SeparateBillingPage.onFormChange(\'ownerName\',this.value)"></div>';
@@ -413,6 +422,22 @@ var SeparateBillingPage = (function() {
   function onSearch(e)      { state.searchTerm  = e.target.value; rerender(); }
   function onSearchField(e) { state.searchField = e.target.value; rerender(); }
   function onFormChange(field, value) { state.formData[field] = value; }
+
+  function onSelectExistingSite(siteId) {
+    if (!siteId) return;
+    var site = Store.Sites.getById(siteId);
+    if (!site) return;
+    state.formData.siteName = site.name || '';
+    state.formData.ownerName = site.customerName || '';
+    state.formData.location = site.address || '';
+
+    var siteNameEl = document.getElementById('sb-siteName');
+    if (siteNameEl) siteNameEl.value = site.name || '';
+    var ownerNameEl = document.getElementById('sb-ownerName');
+    if (ownerNameEl) ownerNameEl.value = site.customerName || '';
+    var locationEl = document.getElementById('sb-location');
+    if (locationEl) locationEl.value = site.address || '';
+  }
 
   function rerender() {
     var c = document.getElementById('page-container');
@@ -735,6 +760,7 @@ var SeparateBillingPage = (function() {
     onSearch:      onSearch,
     onSearchField: onSearchField,
     onFormChange:  onFormChange,
+    onSelectExistingSite: onSelectExistingSite,
     refreshTotals: refreshTotals,
     goList:        goList,
     newBill:       newBill,
