@@ -1572,3 +1572,176 @@ select.form-control {
   .sb-stats-row { grid-template-columns: 1fr; }
 }
 
+/* ---- Type-colored Add Row Buttons ---- */
+.sb-btn-type-slab {
+  background: #eff6ff; color: #1d4ed8; border: 1.5px solid #bfdbfe;
+}
+.sb-btn-type-slab:hover { background: #dbeafe; border-color: #2563eb; }
+
+.sb-btn-type-beam {
+  background: #fef3c7; color: #92400e; border: 1.5px solid #fde68a;
+}
+.sb-btn-type-beam:hover { background: #fde68a; border-color: #d97706; }
+
+.sb-btn-type-open {
+  background: #fee2e2; color: #991b1b; border: 1.5px solid #fca5a5;
+}
+.sb-btn-type-open:hover { background: #fca5a5; border-color: #dc2626; }
+
+/* ---- Formula Legend Strip ---- */
+.sb-legend-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  font-size: 0.82rem;
+  box-shadow: var(--card-shadow);
+}
+.sb-legend-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 8px;
+  gap: 2px;
+  min-width: 90px;
+}
+.sb-legend-item strong { font-size: 0.8rem; font-weight: 700; }
+.sb-legend-item span   { font-size: 0.72rem; color: var(--text-tertiary); font-family: monospace; }
+.sb-legend-slab { background: #eff6ff; color: #1d4ed8; }
+.sb-legend-beam { background: #fef3c7; color: #92400e; }
+.sb-legend-open { background: #fee2e2; color: #991b1b; }
+.sb-legend-net  { background: #f0fdf4; color: #065f46; }
+.sb-legend-sep {
+  font-size: 1.2rem;
+  font-weight: 300;
+  color: var(--text-tertiary);
+}
+
+/* ---- Calculation Grid ---- */
+.sb-calc-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  overflow: hidden;
+  flex-wrap: wrap;
+}
+.sb-calc-item {
+  flex: 1;
+  min-width: 110px;
+  padding: 16px 18px;
+  text-align: center;
+  border-right: 1px solid var(--card-border);
+}
+.sb-calc-item:last-child { border-right: none; }
+.sb-calc-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+}
+.sb-calc-val {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+.sb-calc-formula {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-family: monospace;
+}
+.sb-calc-op {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  font-size: 1.4rem;
+  font-weight: 300;
+  color: var(--text-tertiary);
+  background: var(--border-light);
+  flex: 0 0 32px;
+}
+.sb-calc-slab { background: rgba(37,99,235,0.06);  }
+.sb-calc-slab .sb-calc-label { color: #1d4ed8; }
+.sb-calc-slab .sb-calc-val   { color: #1d4ed8; }
+.sb-calc-beam { background: rgba(217,119,6,0.06); }
+.sb-calc-beam .sb-calc-label { color: #92400e; }
+.sb-calc-beam .sb-calc-val   { color: #d97706; }
+.sb-calc-open { background: rgba(220,38,38,0.06); }
+.sb-calc-open .sb-calc-label { color: #991b1b; }
+.sb-calc-open .sb-calc-val   { color: #dc2626; }
+.sb-calc-net  { background: rgba(5,150,105,0.08); }
+.sb-calc-net  .sb-calc-label { color: #065f46; }
+.sb-calc-net-val              { color: #059669 !important; font-size: 1.3rem !important; }
+
+/* ---- Type Selector in Row ---- */
+.sb-type-select {
+  width: 80px;
+  height: 30px;
+  padding: 0 4px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  outline: none;
+  border-width: 1.5px;
+  border-style: solid;
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: center;
+}
+.sb-type-select:focus { box-shadow: 0 0 0 2px rgba(37,99,235,0.15); }
+
+/* ---- Formula Cell ---- */
+.sb-formula-cell {
+  font-family: monospace;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Deduction Badge ---- */
+.sb-deduct-badge {
+  display: inline-flex;
+  padding: 3px 10px;
+  background: rgba(220,38,38,0.1);
+  color: #dc2626;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sb-net-badge {
+  display: inline-flex;
+  padding: 3px 10px;
+  background: rgba(5,150,105,0.1);
+  color: #059669;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* ---- Area deduct style ---- */
+.sb-area-deduct {
+  background: rgba(220,38,38,0.08) !important;
+  color: #dc2626 !important;
+}
+
+/* ---- N/A cell ---- */
+.sb-na-cell {
+  display: inline-block;
+  padding: 0 10px;
+  color: var(--text-tertiary);
+  font-size: 0.85rem;
+}
