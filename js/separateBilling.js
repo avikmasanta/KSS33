@@ -157,7 +157,7 @@ var SeparateBillingPage = (function() {
     row += '<option value="Beam"' + beamSel + '>Beam</option>';
     row += '<option value="Open"' + openSel + '>Open</option>';
     row += '</select></td>';
-    row += '<td><input type="text" class="sb-cell-input" placeholder="Material name" value="' + (item.materialName || '') + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'materialName\',this.value)"></td>';
+    row += '<td><input type="text" class="sb-cell-input" list="sb-materials-list" placeholder="Material name" value="' + (item.materialName || '') + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'materialName\',this.value)"></td>';
     row += lengthTd;
     row += '<td><input type="number" class="sb-cell-input sb-cell-num" placeholder="0" min="0" step="0.01" value="' + b + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'breadth\',this.value)"></td>';
     row += '<td><input type="number" class="sb-cell-input sb-cell-num" placeholder="0" min="0" step="1" value="' + q + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'quantity\',this.value)"></td>';
@@ -269,6 +269,16 @@ var SeparateBillingPage = (function() {
     html += '<div class="sb-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
     html += '<div><h2 class="sb-header-title">' + (isEdit ? 'Edit Billing' : 'New Separate Bill') + '</h2>';
     html += '<p class="sb-header-subtitle">Slab (LxBxQty) + Beam (Qtyx2xB) - Open deductions</p></div></div></div>';
+
+    var activeMaterials = (Store.Materials ? Store.Materials.getAll() : []).filter(function(m) {
+      return m.status !== 'Archived';
+    });
+    var materialsDatalist = '<datalist id="sb-materials-list">';
+    activeMaterials.forEach(function(m) {
+      materialsDatalist += '<option value="' + m.name + '">';
+    });
+    materialsDatalist += '</datalist>';
+    html += materialsDatalist;
 
     html += '<div class="sb-form-layout">';
 
