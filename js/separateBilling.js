@@ -806,7 +806,7 @@ var SeparateBillingPage = (function() {
     html += '<div class="business-details">';
     html += '<div class="business-name">KSS</div>';
     html += '<div>Construction Material & Lintel Solutions</div>';
-    html += '<div>📍 ' + (bill.location || 'Durgapur, West Bengal') + '</div>';
+    html += '<div>📍 ' + (bill.location || 'Punjab') + '</div>';
     html += '<div>📞 +91 1234567890</div>';
     html += '<div>✉️ info@kssdoublefin.com</div>';
     html += '<div>GSTIN : 19ABCDE1234F1Z5</div>';
@@ -876,12 +876,11 @@ var SeparateBillingPage = (function() {
     html += '<div class="grand-total-banner">';
     html += '<span>GRAND TOTAL</span>';
     html += '<span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span>';
-    html += '</div>';
-    html += '</div>';
+    html += '</div>'; // closes grand-total-banner
+    html += '</div>'; // closes summary-box
+    html += '</div>'; // closes summary-grid
 
-    html += '</div>';
-
-    // Notes and Scan Verify container
+    // Notes container (without QR scan box)
     html += '<div class="notes-scan-container">';
     html += '<div class="notes-box">';
     html += '<div class="notes-title">Notes</div>';
@@ -890,16 +889,6 @@ var SeparateBillingPage = (function() {
     html += '<li>Rates are as agreed.</li>';
     html += '<li>Subject to final verification.</li>';
     html += '</ul>';
-    html += '</div>';
-
-    html += '<div class="scan-verify-box">';
-    html += '<svg width="50" height="50" viewBox="0 0 29 29" style="display:block;margin:0 auto 4px">';
-    html += '<path d="M0,0 h7 v7 h-7 z M1,1 v5 h5 v-5 z M2,2 h3 v3 h-3 z" fill="#0f172a" />';
-    html += '<path d="M22,0 h7 v7 h-7 z M23,1 v5 h5 v-5 z M24,2 h3 v3 h-3 z" fill="#0f172a" />';
-    html += '<path d="M0,22 h7 v7 h-7 z M1,23 v5 h5 v-5 z M2,24 h3 v3 h-3 z" fill="#0f172a" />';
-    html += '<path d="M9,0 h2 v2 h-2 z M13,1 h1 v1 h-1 z M17,0 h3 v1 h-3 z M10,3 h3 v1 h-3 z M16,4 h2 v2 h-2 z M20,3 h1 v2 h-1 z M8,6 h2 v1 h-2 z M12,8 h2 v2 h-2 z M15,9 h3 v1 h-3 z M9,11 h1 v3 h-1 z M13,14 h3 v1 h-3 z M19,12 h2 v2 h-2 z M25,9 h2 v2 h-2 z M23,13 h3 v1 h-3 z M8,17 h4 v1 h-4 z M14,19 h2 v2 h-2 z M18,17 h3 v1 h-3 z M24,18 h2 v2 h-2 z M9,23 h3 v1 h-3 z M15,24 h2 v2 h-2 z M19,23 h3 v1 h-3 z M23,25 h4 v1 h-4 z" fill="#0f172a" />';
-    html += '</svg>';
-    html += '<div class="scan-verify-text">Scan to Verify</div>';
     html += '</div>';
     html += '</div>';
 
