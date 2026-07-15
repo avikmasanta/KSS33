@@ -1457,15 +1457,15 @@ select.form-control {
 
 .sb-rate-prefix {
   position: absolute;
-  left: 13px;
+  left: 16px;
   font-size: 1rem;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-secondary);
   pointer-events: none;
 }
 
 .sb-rate-input {
-  padding-left: 30px !important;
+  padding-left: 48px !important;
   height: 48px !important;
   font-size: 1.1rem !important;
   font-weight: 700;
