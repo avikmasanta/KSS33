@@ -31,6 +31,7 @@ const schemas = {
   telegramChats: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
   smsContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
   whatsappContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
+  separateBillings: new mongoose.Schema({ _id: String, siteName: String, contractorName: String, ownerName: String, location: String, lintelDate: String, ratePerSqFt: Number, items: [{ materialName: String, length: Number, breadth: Number, quantity: Number, area: Number }], totalArea: { type: Number, default: 0 }, totalAmount: Number, createdAt: String }, schemaOptions),
 };
 
 

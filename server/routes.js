@@ -89,6 +89,7 @@ router.use('/categories', createCrudRoutes('Category', models.Category));
 router.use('/telegramChats', createCrudRoutes('TelegramChat', models.TelegramChat));
 router.use('/smsContacts', createCrudRoutes('SmsContact', models.SmsContact));
 router.use('/whatsappContacts', createCrudRoutes('WhatsappContact', models.WhatsappContact));
+router.use('/separateBillings', createCrudRoutes('SeparateBilling', models.SeparateBilling));
 
 
 // Special Cascade Delete for Sites

@@ -197,6 +197,27 @@ const WhatsappContactSchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+// ── Separate Billing (Fully Independent Module) ──────────────────────────────
+const SeparateBillingSchema = new mongoose.Schema({
+  _id: String,
+  siteName: String,
+  contractorName: String,
+  ownerName: String,
+  location: String,
+  lintelDate: String,
+  ratePerSqFt: { type: Number, default: null },
+  items: [{
+    materialName: String,
+    length: Number,
+    breadth: Number,
+    quantity: Number,
+    area: Number
+  }],
+  totalArea: { type: Number, default: 0 },
+  totalAmount: { type: Number, default: null },
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema, 'customers'),
   Site: mongoose.model('Site', SiteSchema, 'sites'),
@@ -213,7 +234,8 @@ module.exports = {
   Category: mongoose.model('Category', CategorySchema, 'categories'),
   TelegramChat: mongoose.model('TelegramChat', TelegramChatSchema, 'telegramChats'),
   SmsContact: mongoose.model('SmsContact', SmsContactSchema, 'smsContacts'),
-  WhatsappContact: mongoose.model('WhatsappContact', WhatsappContactSchema, 'whatsappContacts')
+  WhatsappContact: mongoose.model('WhatsappContact', WhatsappContactSchema, 'whatsappContacts'),
+  SeparateBilling: mongoose.model('SeparateBilling', SeparateBillingSchema, 'separate_billings')
 };
 
 
