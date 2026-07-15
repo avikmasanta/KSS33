@@ -3,9 +3,11 @@
    Fully independent of Customer/Site/Inventory
    ============================================
    Material Types:
-     Slab  -> Area = L x B
-     Beam  -> Area = Qty x 2 x B
-     Open  -> Area = L x B (Deducted)
+     Slab         -> Area = L x B
+     Beam         -> Area = L x B x Qty x 2
+     Open         -> Area = L x B (Deducted)
+     Custom (+)   -> Area = User Formula (Added)
+     Custom (-)   -> Area = User Formula (Deducted)
    ============================================ */
 
 var SeparateBillingPage = (function() {
@@ -16,23 +18,54 @@ var SeparateBillingPage = (function() {
     editId: null,
     searchTerm: '',
     searchField: 'all',
-    formItems: [{ type: 'Slab', length: '', breadth: '', quantity: '', area: 0 }],
+    formItems: [{ type: 'Slab', length: '', breadth: '', quantity: '1', formula: 'L * B', area: 0 }],
     formData: { siteName: '', contractorName: '', ownerName: '', location: '', lintelDate: '', ratePerSqFt: '' }
   };
 
   // Type config
   var TYPES = {
-    Slab: { label: 'Slab', color: '#1d4ed8', bg: 'rgba(37,99,235,0.06)', badge: '#eff6ff', badgeText: '#1d4ed8' },
-    Beam: { label: 'Beam', color: '#d97706', bg: 'rgba(217,119,6,0.06)', badge: '#fef3c7', badgeText: '#92400e' },
-    Open: { label: 'Open', color: '#dc2626', bg: 'rgba(220,38,38,0.06)', badge: '#fee2e2', badgeText: '#991b1b' }
+    Slab: { label: 'Slab', color: '#1d4ed8', bg: 'rgba(37,99,235,0.06)', badge: '#eff6ff', badgeText: '#1d4ed8', defaultFormula: 'L * B' },
+    Beam: { label: 'Beam', color: '#d97706', bg: 'rgba(217,119,6,0.06)', badge: '#fef3c7', badgeText: '#92400e', defaultFormula: 'L * B * Q * 2' },
+    Open: { label: 'Open', color: '#dc2626', bg: 'rgba(220,38,38,0.06)', badge: '#fee2e2', badgeText: '#991b1b', defaultFormula: 'L * B' },
+    CustomAdd: { label: 'Custom (+)', color: '#7c3aed', bg: 'rgba(124,58,237,0.06)', badge: '#f5f3ff', badgeText: '#7c3aed', defaultFormula: 'L * B * Q' },
+    CustomDeduct: { label: 'Custom (-)', color: '#db2777', bg: 'rgba(219,39,119,0.06)', badge: '#fdf2f8', badgeText: '#db2777', defaultFormula: 'L * B * Q' }
   };
 
-  // Calc area per row based on simplified formula rules
+  // Safe math evaluator for user-defined formulas
+  function evaluateFormula(expr, length, breadth, qty) {
+    if (!expr) return 0;
+    var clean = expr.replace(/x/gi, '*')
+                    .replace(/%/g, '/100')
+                    .toUpperCase();
+    var lVal = parseFloat(length)  || 0;
+    var bVal = parseFloat(breadth) || 0;
+    var qVal = parseFloat(qty)     || 0;
+    
+    clean = clean.replace(/\bL\b/g, '(' + lVal + ')')
+                 .replace(/\bB\b/g, '(' + bVal + ')')
+                 .replace(/\bQ\b/g, '(' + qVal + ')');
+                 
+    var allowed = /^[0-9+\-*/().\s]+$/;
+    if (!allowed.test(clean)) return 0;
+    try {
+      var fn = new Function('return (' + clean + ');');
+      var result = fn();
+      return isFinite(result) ? parseFloat(result.toFixed(3)) : 0;
+    } catch(e) {
+      return 0;
+    }
+  }
+
+  // Calc area per row based on formula rules
   function calcArea(item) {
     var l = parseFloat(item.length)   || 0;
     var b = parseFloat(item.breadth)  || 0;
     var q = parseFloat(item.quantity) || 0;
     
+    if (item.type === 'CustomAdd' || item.type === 'CustomDeduct') {
+      var formula = item.formula || 'L * B * Q';
+      return evaluateFormula(formula, item.length, item.breadth, item.quantity);
+    }
     if (item.type === 'Beam') {
       return parseFloat((l * b * q * 2).toFixed(3));
     }
@@ -46,9 +79,14 @@ var SeparateBillingPage = (function() {
     var slabArea = 0, beamArea = 0, openArea = 0;
     src.forEach(function(i) {
       var a = parseFloat(i.area) || 0;
-      if (i.type === 'Open')      openArea += Math.abs(a);
-      else if (i.type === 'Beam') beamArea += a;
-      else                        slabArea += a;
+      if (i.type === 'Open' || i.type === 'CustomDeduct') {
+        openArea += Math.abs(a);
+      } else if (i.type === 'Beam') {
+        beamArea += a;
+      } else {
+        // Slab or CustomAdd
+        slabArea += a;
+      }
     });
     var grossArea = slabArea + beamArea;
     var netArea   = parseFloat(Math.max(0, grossArea - openArea).toFixed(3));
@@ -132,21 +170,32 @@ var SeparateBillingPage = (function() {
   // ---- Material Row HTML ----
   function materialRowHTML(item, idx) {
     var cfg     = TYPES[item.type] || TYPES.Slab;
-    var isOpen  = item.type === 'Open';
+    var isOpen  = item.type === 'Open' || item.type === 'CustomDeduct';
     var isBeam  = item.type === 'Beam';
+    var isCustom = item.type === 'CustomAdd' || item.type === 'CustomDeduct';
+
     var l       = item.length   || '';
     var b       = item.breadth  || '';
     var q       = item.quantity || '';
+    var formula = item.formula  || cfg.defaultFormula;
     var areaVal = item.area > 0 ? (isOpen ? '- ' : '') + fNum(item.area) + ' Sq Ft' : '-';
     var areaClass = isOpen ? 'sb-area-cell sb-area-deduct' : 'sb-area-cell';
 
     // Length input: editable for all types
     var lengthTd = '<td><input type="number" class="sb-cell-input" id="sb-length-' + idx + '" placeholder="0" min="0" step="0.01" value="' + l + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'length\',this.value)"></td>';
 
-    // Quantity input: only editable for Beam
-    var qtyTd = isBeam
+    // Quantity input: editable for Beam and Custom; disabled/NA for Slab and Open
+    var qtyTd = (isBeam || isCustom)
       ? '<td><input type="number" class="sb-cell-input" id="sb-quantity-' + idx + '" placeholder="0" min="0" step="1" value="' + q + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'quantity\',this.value)"></td>'
       : '<td><span class="sb-na-cell">—</span></td>';
+
+    // Formula/Operation input:
+    var formulaTd = '';
+    if (isCustom) {
+      formulaTd = '<td><input type="text" class="sb-cell-input sb-formula-input" id="sb-formula-input-' + idx + '" style="font-family:monospace;font-size:0.85rem;color:' + cfg.color + ';border-color:' + cfg.color + ';text-align:center" value="' + formula + '" placeholder="L * B * Q" oninput="SeparateBillingPage.updateRowFormula(' + idx + ',this.value)"></td>';
+    } else {
+      formulaTd = '<td><span style="font-size:0.8rem;color:var(--text-tertiary);font-weight:500">' + cfg.defaultFormula + '</span></td>';
+    }
 
     var delTd = state.formItems.length > 1
       ? '<td><button class="sb-icon-btn sb-icon-delete" onclick="SeparateBillingPage.removeRow(' + idx + ')" title="Remove"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></td>'
@@ -155,6 +204,8 @@ var SeparateBillingPage = (function() {
     var slabSel = item.type === 'Slab' ? ' selected' : '';
     var beamSel = item.type === 'Beam' ? ' selected' : '';
     var openSel = item.type === 'Open' ? ' selected' : '';
+    var custAddSel = item.type === 'CustomAdd' ? ' selected' : '';
+    var custDedSel = item.type === 'CustomDeduct' ? ' selected' : '';
 
     var row = '<tr id="sb-row-' + idx + '" style="background:' + cfg.bg + '">';
     row += '<td class="sb-row-num-cell">' + (idx + 1) + '</td>';
@@ -162,10 +213,13 @@ var SeparateBillingPage = (function() {
     row += '<option value="Slab"' + slabSel + '>Slab</option>';
     row += '<option value="Beam"' + beamSel + '>Beam</option>';
     row += '<option value="Open"' + openSel + '>Open</option>';
+    row += '<option value="CustomAdd"' + custAddSel + '>Custom (+)</option>';
+    row += '<option value="CustomDeduct"' + custDedSel + '>Custom (-)</option>';
     row += '</select></td>';
     row += lengthTd;
     row += '<td><input type="number" class="sb-cell-input" id="sb-breadth-' + idx + '" placeholder="0" min="0" step="0.01" value="' + b + '" oninput="SeparateBillingPage.updateRowField(' + idx + ',\'breadth\',this.value)"></td>';
     row += qtyTd;
+    row += formulaTd;
     row += '<td><span class="' + areaClass + '" id="sb-area-' + idx + '">' + areaVal + '</span></td>';
     row += delTd;
     row += '</tr>';
@@ -272,7 +326,7 @@ var SeparateBillingPage = (function() {
     html += '<button class="sb-back-btn" onclick="SeparateBillingPage.goList()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:18px;height:18px"><polyline points="15 18 9 12 15 6"/></svg></button>';
     html += '<div class="sb-header-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:24px;height:24px"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>';
     html += '<div><h2 class="sb-header-title">' + (isEdit ? 'Edit Billing' : 'New Separate Bill') + '</h2>';
-    html += '<p class="sb-header-subtitle">Slab (LxB) &bull; Beam (Qtyx2xB) &bull; Open (LxB deduct)</p></div></div></div>';
+    html += '<p class="sb-header-subtitle">Standard types or fully customizable formula equations (+ / -)</p></div></div></div>';
 
     html += '<div class="sb-form-layout">';
 
@@ -311,11 +365,13 @@ var SeparateBillingPage = (function() {
     html += '<div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">';
     html += '<button type="button" class="sb-btn sb-btn-type-slab sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Slab\')">+ Slab</button>';
     html += '<button type="button" class="sb-btn sb-btn-type-beam sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Beam\')">+ Beam</button>';
-    html += '<button type="button" class="sb-btn sb-btn-type-open sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Open\')">+ Open (Deduct)</button>';
+    html += '<button type="button" class="sb-btn sb-btn-type-open sb-btn-sm" onclick="SeparateBillingPage.addRow(\'Open\')">+ Open</button>';
+    html += '<button type="button" class="sb-btn sb-btn-sm" style="background:#7c3aed;color:white" onclick="SeparateBillingPage.addRow(\'CustomAdd\')">+ Custom (+)</button>';
+    html += '<button type="button" class="sb-btn sb-btn-sm" style="background:#db2777;color:white" onclick="SeparateBillingPage.addRow(\'CustomDeduct\')">+ Custom (-)</button>';
     html += '</div></div>';
     html += '<div class="sb-card-body" style="padding:0"><div class="sb-material-table-wrap">';
     html += '<table class="sb-material-table"><thead><tr>';
-    html += '<th style="width:38px">#</th><th style="width:110px">Type</th><th style="width:140px">Length (ft)</th><th style="width:140px">Breadth (ft)</th><th style="width:110px">Qty</th><th style="width:160px">Area (Sq Ft)</th><th style="width:36px"></th>';
+    html += '<th style="width:38px">#</th><th style="width:115px">Type</th><th style="width:115px">Length (ft)</th><th style="width:115px">Breadth (ft)</th><th style="width:95px">Qty</th><th style="width:150px">Formula</th><th style="width:130px">Area (Sq Ft)</th><th style="width:36px"></th>';
     html += '</tr></thead><tbody id="sb-material-rows">' + rows + '</tbody></table>';
     html += '</div></div></div>';
 
@@ -348,9 +404,9 @@ var SeparateBillingPage = (function() {
     var bill = Store.SeparateBillings.getById(state.editId);
     if (!bill) { goList(); return '<div class="sb-page"></div>'; }
 
-    var slabItems = (bill.items || []).filter(function(i) { return i.type !== 'Beam' && i.type !== 'Open'; });
+    var slabItems = (bill.items || []).filter(function(i) { return i.type === 'Slab' || i.type === 'CustomAdd'; });
     var beamItems = (bill.items || []).filter(function(i) { return i.type === 'Beam'; });
-    var openItems = (bill.items || []).filter(function(i) { return i.type === 'Open'; });
+    var openItems = (bill.items || []).filter(function(i) { return i.type === 'Open' || i.type === 'CustomDeduct'; });
     var gross = parseFloat(bill.grossArea || bill.totalArea) || 0;
     var openA = parseFloat(bill.openArea)  || 0;
     var net   = parseFloat(bill.netArea   || bill.totalArea) || 0;
@@ -358,14 +414,17 @@ var SeparateBillingPage = (function() {
     function sectionRows(items, type) {
       if (!items.length) return '';
       var cfg = TYPES[type] || TYPES.Slab;
-      var s = '<tr><td colspan="5" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:0.78rem;text-transform:uppercase;padding:8px 14px">' + cfg.label + '</td></tr>';
+      var s = '<tr><td colspan="6" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:0.78rem;text-transform:uppercase;padding:8px 14px">' + cfg.label + '</td></tr>';
       items.forEach(function(item, i) {
-        s += '<tr style="background:' + cfg.bg + '">';
-        s += '<td><span class="sb-row-num" style="background:' + cfg.badge + ';color:' + cfg.color + '">' + (i+1) + '</span></td>';
+        var rowCfg = TYPES[item.type] || cfg;
+        var fml = item.formula || rowCfg.defaultFormula;
+        s += '<tr style="background:' + rowCfg.bg + '">';
+        s += '<td><span class="sb-row-num" style="background:' + rowCfg.badge + ';color:' + rowCfg.color + '">' + (i+1) + '</span></td>';
         s += '<td>' + fNum(item.length) + '</td>';
         s += '<td>' + fNum(item.breadth) + '</td>';
-        s += '<td>' + (type !== 'Beam' ? '—' : fNum(item.quantity)) + '</td>';
-        s += '<td><span class="' + (type === 'Open' ? 'sb-deduct-badge' : 'sb-area-badge') + '">' + (type === 'Open' ? '- ' : '') + fNum(item.area) + ' Sq Ft</span></td>';
+        s += '<td>' + (item.type !== 'Beam' && item.type !== 'CustomAdd' && item.type !== 'CustomDeduct' ? '—' : fNum(item.quantity)) + '</td>';
+        s += '<td><span style="font-family:monospace;font-size:0.8rem;color:' + rowCfg.color + '">' + fml + '</span></td>';
+        s += '<td><span class="' + (item.type === 'Open' || item.type === 'CustomDeduct' ? 'sb-deduct-badge' : 'sb-area-badge') + '">' + (item.type === 'Open' || item.type === 'CustomDeduct' ? '- ' : '') + fNum(item.area) + ' Sq Ft</span></td>';
         s += '</tr>';
       });
       return s;
@@ -408,7 +467,7 @@ var SeparateBillingPage = (function() {
     // Materials
     html += '<div class="sb-card"><div class="sb-card-header"><h3>Measurement Details</h3></div>';
     html += '<div class="sb-card-body" style="padding:0"><div class="sb-table-scroll">';
-    html += '<table class="sb-table"><thead><tr><th>#</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Area</th></tr></thead>';
+    html += '<table class="sb-table"><thead><tr><th>#</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Formula</th><th>Area</th></tr></thead>';
     html += '<tbody>' + sectionRows(slabItems, 'Slab') + sectionRows(beamItems, 'Beam') + sectionRows(openItems, 'Open') + '</tbody></table>';
     html += '</div></div></div>';
 
@@ -480,6 +539,7 @@ var SeparateBillingPage = (function() {
     if (ae) ae.textContent = t.totalAmount !== null ? 'Rs.' + fNum(t.totalAmount) : '-';
   }
 
+  // Navigation & CRUD
   function goList() {
     state.view   = 'list';
     state.editId = null;
@@ -490,7 +550,7 @@ var SeparateBillingPage = (function() {
     state.view      = 'form';
     state.editId    = null;
     state.formData  = { siteName:'', contractorName:'', ownerName:'', location:'', lintelDate:'', ratePerSqFt:'' };
-    state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
+    state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', formula:'L * B', area:0 }];
     rerender();
   }
 
@@ -508,9 +568,10 @@ var SeparateBillingPage = (function() {
       ratePerSqFt:    bill.ratePerSqFt    || ''
     };
     state.formItems = (bill.items || []).map(function(i) {
-      return Object.assign({ type: 'Slab' }, i);
+      var defaultForm = TYPES[i.type] ? TYPES[i.type].defaultFormula : 'L * B * Q';
+      return Object.assign({ type: 'Slab', formula: defaultForm }, i);
     });
-    if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
+    if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', formula:'L * B', area:0 }];
     rerender();
   }
 
@@ -534,16 +595,18 @@ var SeparateBillingPage = (function() {
       ratePerSqFt:    bill.ratePerSqFt    || ''
     };
     state.formItems = (bill.items || []).map(function(i) {
-      return Object.assign({ type: 'Slab' }, i);
+      var defaultForm = TYPES[i.type] ? TYPES[i.type].defaultFormula : 'L * B * Q';
+      return Object.assign({ type: 'Slab', formula: defaultForm }, i);
     });
-    if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
+    if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', formula:'L * B', area:0 }];
     rerender();
   }
 
   function addRow(type) {
     syncFormInputs();
-    var defaultQty = type === 'Beam' ? '' : '1';
-    state.formItems.push({ type: type || 'Slab', length: '', breadth: '', quantity: defaultQty, area: 0 });
+    var cfg = TYPES[type] || TYPES.Slab;
+    var defaultQty = (type === 'Slab' || type === 'Open') ? '1' : '';
+    state.formItems.push({ type: type || 'Slab', length: '', breadth: '', quantity: defaultQty, formula: cfg.defaultFormula, area: 0 });
     rerender();
   }
 
@@ -558,10 +621,33 @@ var SeparateBillingPage = (function() {
     if (!state.formItems[idx]) return;
     syncFormInputs();
     state.formItems[idx].type = type;
-    state.formItems[idx].quantity = type === 'Beam' ? '' : '1';
-    state.formItems[idx].length = '';
+    var cfg = TYPES[type] || TYPES.Slab;
+    state.formItems[idx].formula = cfg.defaultFormula;
+    
+    if (type === 'Slab' || type === 'Open') {
+      state.formItems[idx].quantity = '1';
+    } else if (type === 'Beam') {
+      state.formItems[idx].quantity = '';
+    } else {
+      state.formItems[idx].quantity = '';
+    }
     state.formItems[idx].area = calcArea(state.formItems[idx]);
     rerender();
+  }
+
+  function updateRowFormula(idx, value) {
+    if (!state.formItems[idx]) return;
+    state.formItems[idx].formula = value;
+    state.formItems[idx].area = calcArea(state.formItems[idx]);
+
+    // Fast-path DOM updates
+    var areaEl = document.getElementById('sb-area-' + idx);
+    if (areaEl) {
+      var isOpen = state.formItems[idx].type === 'Open' || state.formItems[idx].type === 'CustomDeduct';
+      var a      = state.formItems[idx].area;
+      areaEl.textContent = a > 0 ? (isOpen ? '- ' : '') + fNum(a) + ' Sq Ft' : '-';
+    }
+    refreshTotals();
   }
 
   function updateRowField(idx, field, value) {
@@ -569,10 +655,9 @@ var SeparateBillingPage = (function() {
     state.formItems[idx][field] = value;
     state.formItems[idx].area   = calcArea(state.formItems[idx]);
     
-    // Fast DOM update
     var areaEl = document.getElementById('sb-area-' + idx);
     if (areaEl) {
-      var isOpen = state.formItems[idx].type === 'Open';
+      var isOpen = state.formItems[idx].type === 'Open' || state.formItems[idx].type === 'CustomDeduct';
       var a      = state.formItems[idx].area;
       areaEl.textContent = a > 0 ? (isOpen ? '- ' : '') + fNum(a) + ' Sq Ft' : '-';
     }
@@ -589,6 +674,7 @@ var SeparateBillingPage = (function() {
       var lengthEl   = document.getElementById('sb-length-' + idx);
       var breadthEl  = document.getElementById('sb-breadth-' + idx);
       var quantityEl = document.getElementById('sb-quantity-' + idx);
+      var formulaEl  = document.getElementById('sb-formula-input-' + idx);
       
       if (lengthEl)   item.length   = lengthEl.value;
       else            item.length   = '';
@@ -598,6 +684,8 @@ var SeparateBillingPage = (function() {
       
       if (quantityEl) item.quantity = quantityEl.value;
       else            item.quantity = '';
+      
+      if (formulaEl)  item.formula  = formulaEl.value;
       
       item.area = calcArea(item);
     });
@@ -611,9 +699,10 @@ var SeparateBillingPage = (function() {
     var items = state.formItems
       .filter(function(i) { return i.length || i.breadth || i.quantity; })
       .map(function(i, idx) {
+        var defaultForm = TYPES[i.type] ? TYPES[i.type].defaultFormula : 'L * B * Q';
         return {
           type:         i.type         || 'Slab',
-          formula:      i.type === 'Beam' ? 'L * B * Q * 2' : 'L * B',
+          formula:      i.formula      || defaultForm,
           materialName: 'Item ' + (idx + 1),
           length:       parseFloat(i.length)   || 0,
           breadth:      parseFloat(i.breadth)  || 0,
@@ -670,9 +759,9 @@ var SeparateBillingPage = (function() {
   // ---- PRINT / PDF ----
   function buildInvoiceHTML(bill, forPrint) {
     var items     = bill.items || [];
-    var slabItems = items.filter(function(i) { return i.type !== 'Beam' && i.type !== 'Open'; });
+    var slabItems = items.filter(function(i) { return i.type === 'Slab' || i.type === 'CustomAdd'; });
     var beamItems = items.filter(function(i) { return i.type === 'Beam'; });
-    var openItems = items.filter(function(i) { return i.type === 'Open'; });
+    var openItems = items.filter(function(i) { return i.type === 'Open' || i.type === 'CustomDeduct'; });
     var gross = parseFloat(bill.grossArea || bill.totalArea) || 0;
     var openA = parseFloat(bill.openArea) || 0;
     var net   = parseFloat(bill.netArea  || bill.totalArea) || 0;
@@ -680,14 +769,17 @@ var SeparateBillingPage = (function() {
     function secRows(arr, type) {
       if (!arr.length) return '';
       var cfg = TYPES[type] || TYPES.Slab;
-      var s = '<tr><td colspan="5" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:12px;text-transform:uppercase;padding:8px 12px">' + cfg.label + '</td></tr>';
+      var s = '<tr><td colspan="6" style="background:' + cfg.badge + ';color:' + cfg.color + ';font-weight:700;font-size:12px;text-transform:uppercase;padding:8px 12px">' + cfg.label + '</td></tr>';
       arr.forEach(function(item, i) {
+        var rowCfg = TYPES[item.type] || cfg;
+        var fml = item.formula || rowCfg.defaultFormula;
         s += '<tr>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (i+1) + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.length + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + item.breadth + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + cfg.bg + '">' + (type !== 'Beam' ? '—' : item.quantity) + '</td>';
-        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;background:' + cfg.bg + ';color:' + cfg.color + '">' + (type === 'Open' ? '- ' : '') + fNum(item.area) + ' Sq Ft</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + rowCfg.bg + '">' + (i+1) + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + rowCfg.bg + '">' + item.length + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + rowCfg.bg + '">' + item.breadth + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;background:' + rowCfg.bg + '">' + (item.type !== 'Beam' && item.type !== 'CustomAdd' && item.type !== 'CustomDeduct' ? '—' : item.quantity) + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:center;font-family:monospace;font-size:11px;background:' + rowCfg.bg + ';color:' + rowCfg.color + '">' + fml + '</td>';
+        s += '<td style="padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;background:' + rowCfg.bg + ';color:' + rowCfg.color + '">' + (item.type === 'Open' || item.type === 'CustomDeduct' ? '- ' : '') + fNum(item.area) + ' Sq Ft</td>';
         s += '</tr>';
       });
       return s;
@@ -698,7 +790,7 @@ var SeparateBillingPage = (function() {
     html += '</head><body><div class="wrap">';
     html += '<div class="hd"><div class="hd-co">KSS</div><div class="hd-sub">Estimation & Measurement Bill</div></div>';
     html += '<div class="meta"><div><label>Site Name</label><span>' + (bill.siteName || '-') + '</span></div><div><label>Lintel Date</label><span>' + (bill.lintelDate || '-') + '</span></div><div><label>Contractor</label><span>' + (bill.contractorName || '-') + '</span></div><div><label>Owner</label><span>' + (bill.ownerName || '-') + '</span></div><div class="meta-full"><label>Location</label><span>' + (bill.location || '-') + '</span></div></div>';
-    html += '<table><thead><tr><th>#</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th style="text-align:right">Area (Sq Ft)</th></tr></thead><tbody>' + secRows(slabItems,'Slab') + secRows(beamItems,'Beam') + secRows(openItems,'Open') + '</tbody></table>';
+    html += '<table><thead><tr><th>#</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Formula</th><th style="text-align:right">Area (Sq Ft)</th></tr></thead><tbody>' + secRows(slabItems,'Slab') + secRows(beamItems,'Beam') + secRows(openItems,'Open') + '</tbody></table>';
     html += '<div class="calc-strip">';
     html += '<div class="calc-cell" style="background:#eff6ff"><div class="calc-lbl" style="color:#1d4ed8">Slab</div><div class="calc-val" style="color:#1d4ed8">' + fNum(parseFloat(bill.slabArea)||0) + ' Sq Ft</div></div>';
     html += '<div class="calc-op">+</div>';
@@ -730,7 +822,6 @@ var SeparateBillingPage = (function() {
     printWindow.onload = function() {
       printWindow.print();
     };
-    // fallback trigger after 500ms
     setTimeout(function() {
       try { printWindow.print(); } catch(e){}
     }, 500);
@@ -746,10 +837,10 @@ var SeparateBillingPage = (function() {
         r.slabArea||0, r.beamArea||0, r.openArea||0, r.grossArea||r.totalArea||0, r.netArea||r.totalArea||0,
         r.ratePerSqFt||'', r.totalAmount||'', r.createdAt||'']);
     });
-    rows.push([], ['--- MATERIAL DETAILS ---'], ['Bill #','Site','Type','Length','Breadth','Qty','Area']);
+    rows.push([], ['--- MATERIAL DETAILS ---'], ['Bill #','Site','Type','Length','Breadth','Qty','Formula','Area']);
     records.forEach(function(r, ri) {
       (r.items || []).forEach(function(item) {
-        rows.push([ri+1, r.siteName||'', item.type||'Slab', item.length||0, item.breadth||0, item.quantity||0, item.area||0]);
+        rows.push([ri+1, r.siteName||'', item.type||'Slab', item.length||0, item.breadth||0, item.quantity||0, item.formula||'L * B', item.area||0]);
       });
     });
     var csv = rows.map(function(r) { return r.map(function(c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
@@ -791,6 +882,7 @@ var SeparateBillingPage = (function() {
     addRow:        addRow,
     removeRow:     removeRow,
     updateRowType: updateRowType,
+    updateRowFormula: updateRowFormula,
     updateRowField:updateRowField,
     saveBill:      saveBill,
     deleteBill:    deleteBill,
