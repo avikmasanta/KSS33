@@ -31,7 +31,32 @@ const schemas = {
   telegramChats: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
   smsContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
   whatsappContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
-  separateBillings: new mongoose.Schema({ _id: String, siteName: String, contractorName: String, ownerName: String, location: String, lintelDate: String, ratePerSqFt: Number, items: [{ materialName: String, length: Number, breadth: Number, quantity: Number, area: Number }], totalArea: { type: Number, default: 0 }, totalAmount: Number, createdAt: String }, schemaOptions),
+  separateBillings: new mongoose.Schema({
+    _id: String,
+    siteName: String,
+    contractorName: String,
+    ownerName: String,
+    location: String,
+    lintelDate: String,
+    ratePerSqFt: { type: Number, default: null },
+    items: [{
+      type: { type: String, default: 'Slab' },
+      formula: { type: String, default: 'L * B * Q' },
+      materialName: String,
+      length: Number,
+      breadth: Number,
+      quantity: Number,
+      area: Number
+    }],
+    slabArea: { type: Number, default: 0 },
+    beamArea: { type: Number, default: 0 },
+    openArea: { type: Number, default: 0 },
+    grossArea: { type: Number, default: 0 },
+    netArea: { type: Number, default: 0 },
+    totalArea: { type: Number, default: 0 },
+    totalAmount: { type: Number, default: null },
+    createdAt: String
+  }, schemaOptions),
 };
 
 

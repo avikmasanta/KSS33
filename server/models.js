@@ -207,12 +207,19 @@ const SeparateBillingSchema = new mongoose.Schema({
   lintelDate: String,
   ratePerSqFt: { type: Number, default: null },
   items: [{
+    type: { type: String, default: 'Slab' },
+    formula: { type: String, default: 'L * B * Q' },
     materialName: String,
     length: Number,
     breadth: Number,
     quantity: Number,
     area: Number
   }],
+  slabArea: { type: Number, default: 0 },
+  beamArea: { type: Number, default: 0 },
+  openArea: { type: Number, default: 0 },
+  grossArea: { type: Number, default: 0 },
+  netArea: { type: Number, default: 0 },
   totalArea: { type: Number, default: 0 },
   totalAmount: { type: Number, default: null },
   createdAt: String
