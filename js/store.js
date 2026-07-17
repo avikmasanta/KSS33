@@ -86,11 +86,11 @@ const Store = (() => {
     });
   }
 
-  // Phase 2: Sync with cloud in background — silently updates cache + localStorage
+  // Phase 2: Sync with cloud in background — silently updates cache + localStorage sequentially to avoid network congestion
   async function syncFromCloud() {
     const keys = Object.keys(endpointMap);
 
-    await Promise.all(keys.map(async (key) => {
+    for (const key of keys) {
       const config = endpointMap[key];
       try {
         const controller = new AbortController();
@@ -106,7 +106,8 @@ const Store = (() => {
       } catch (err) {
         // Network error — silently keep local data
       }
-    }));
+    }
+  }
 
     // Seed default materials if completely empty everywhere
     if (cache.materials.length === 0) {
