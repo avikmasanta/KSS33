@@ -90,6 +90,9 @@ router.use('/telegramChats', createCrudRoutes('TelegramChat', models.TelegramCha
 router.use('/smsContacts', createCrudRoutes('SmsContact', models.SmsContact));
 router.use('/whatsappContacts', createCrudRoutes('WhatsappContact', models.WhatsappContact));
 router.use('/separateBillings', createCrudRoutes('SeparateBilling', models.SeparateBilling));
+router.use('/labours', createCrudRoutes('Labour', models.Labour));
+router.use('/labourLogs', createCrudRoutes('LabourLog', models.LabourLog));
+
 
 
 // Special Cascade Delete for Sites
@@ -322,4 +325,198 @@ router.all('/whatsapp-report/send', async (req, res) => {
   }
 });
 
+// Custom aggregation routes for Labour Module
+router.get('/labours-summary', async (req, res) => {
+  try {
+    const { startDate, endDate, siteId, labourId, attendance } = req.query;
+
+    function getTodayIST() {
+      const now = new Date();
+      const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+      const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+      return istTime.toISOString().split('T')[0];
+    }
+
+    const logMatch = {};
+    if (startDate || endDate) {
+      logMatch.date = {};
+      if (startDate) logMatch.date.$gte = startDate;
+      if (endDate) logMatch.date.$lte = endDate;
+    }
+    if (siteId) logMatch.siteId = siteId;
+    if (labourId) logMatch.labourId = labourId;
+    if (attendance) logMatch.attendance = attendance;
+
+    // Create aggregation pipeline to summarize details per labour
+    const pipeline = [];
+
+    // Filter by specific labour ID if requested
+    if (labourId) {
+      pipeline.push({ $match: { _id: labourId } });
+    }
+
+    pipeline.push({
+      $lookup: {
+        from: 'labour_logs',
+        let: { lId: "$_id" },
+        pipeline: [
+          {
+            $match: {
+              $expr: { $eq: ["$labourId", "$$lId"] },
+              ...(startDate ? { date: { $gte: startDate } } : {}),
+              ...(endDate ? { date: { $lte: endDate } } : {}),
+              ...(siteId ? { siteId: siteId } : {}),
+              ...(attendance ? { attendance: attendance } : {})
+            }
+          }
+        ],
+        as: 'logs'
+      }
+    });
+
+    pipeline.push({
+      $project: {
+        name: 1,
+        nickname: 1,
+        phone: 1,
+        status: 1,
+        createdAt: 1,
+        stats: {
+          $reduce: {
+            input: "$logs",
+            initialValue: {
+              presentDays: 0,
+              halfDays: 0,
+              absentDays: 0,
+              grossWages: 0,
+              totalOvertime: 0,
+              totalMoneyGiven: 0
+            },
+            in: {
+              presentDays: {
+                $add: [
+                  "$$value.presentDays",
+                  { $cond: [{ $eq: ["$$this.attendance", "Present"] }, 1, 0] }
+                ]
+              },
+              halfDays: {
+                $add: [
+                  "$$value.halfDays",
+                  { $cond: [{ $eq: ["$$this.attendance", "Half Day"] }, 1, 0] }
+                ]
+              },
+              absentDays: {
+                $add: [
+                  "$$value.absentDays",
+                  { $cond: [{ $eq: ["$$this.attendance", "Absent"] }, 1, 0] }
+                ]
+              },
+              grossWages: {
+                $add: [
+                  "$$value.grossWages",
+                  {
+                    $multiply: [
+                      { $ifNull: ["$$this.dailyWage", 0] },
+                      {
+                        $cond: [
+                          { $eq: ["$$this.attendance", "Present"] }, 1.0,
+                          { $cond: [{ $eq: ["$$this.attendance", "Half Day"] }, 0.5, 0.0] }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              totalOvertime: { $add: ["$$value.totalOvertime", { $ifNull: ["$$this.overtime", 0] }] },
+              totalMoneyGiven: { $add: ["$$value.totalMoneyGiven", { $ifNull: ["$$this.moneyGiven", 0] }] }
+            }
+          }
+        }
+      }
+    });
+
+    pipeline.push({
+      $project: {
+        name: 1,
+        nickname: 1,
+        phone: 1,
+        status: 1,
+        createdAt: 1,
+        presentDays: "$stats.presentDays",
+        halfDays: "$stats.halfDays",
+        absentDays: "$stats.absentDays",
+        grossWages: "$stats.grossWages",
+        totalOvertime: "$stats.totalOvertime",
+        totalMoneyGiven: "$stats.totalMoneyGiven",
+        totalEarnings: { $add: ["$stats.grossWages", "$stats.totalOvertime"] }
+      }
+    });
+
+    pipeline.push({
+      $project: {
+        name: 1,
+        nickname: 1,
+        phone: 1,
+        status: 1,
+        createdAt: 1,
+        presentDays: 1,
+        halfDays: 1,
+        absentDays: 1,
+        grossWages: 1,
+        totalOvertime: 1,
+        totalMoneyGiven: 1,
+        totalEarnings: 1,
+        payableAmount: {
+          $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
+        },
+        advanceBalance: {
+          $cond: [{ $gt: ["$totalMoneyGiven", "$totalEarnings"] }, { $subtract: ["$totalMoneyGiven", "$totalEarnings"] }, 0]
+        }
+      }
+    });
+
+    const laboursData = await models.Labour.aggregate(pipeline);
+
+    // Calculate dashboard counts
+    const totalLabour = await models.Labour.countDocuments({});
+    const todayStr = getTodayIST();
+    const todayLogs = await models.LabourLog.find({ date: todayStr });
+    const presentToday = todayLogs.filter(l => l.attendance === 'Present').length;
+    const halfDayToday = todayLogs.filter(l => l.attendance === 'Half Day').length;
+    const absentToday = todayLogs.filter(l => l.attendance === 'Absent').length;
+
+    // Calculate dashboard grand totals (using the computed/filtered labours data)
+    let overallPayable = 0;
+    let overallAdvance = 0;
+    laboursData.forEach(l => {
+      overallPayable += l.payableAmount;
+      overallAdvance += l.advanceBalance;
+    });
+
+    res.json({
+      summary: {
+        totalLabour,
+        presentToday,
+        halfDayToday,
+        absentToday,
+        totalPayable: overallPayable,
+        totalAdvancePaid: overallAdvance
+      },
+      labours: laboursData
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/labours/:id/logs', async (req, res) => {
+  try {
+    const logs = await models.LabourLog.find({ labourId: req.params.id }).sort({ date: -1 });
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+

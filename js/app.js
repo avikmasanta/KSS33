@@ -6,7 +6,9 @@ var App = (() => {
   const pages = {
     dashboard: { title: 'Operations Dashboard', subtitle: 'Real-time overview of stock, sites and recent movements.', icon: 'home', module: 'DashboardPage' },
     sites: { title: 'Sites', subtitle: 'Manage customer sites', icon: 'mapPin', module: 'SitesPage' },
+    labour: { title: 'Labour Log', subtitle: 'Manage labour, logs and wages', icon: 'users', module: 'LabourPage' },
     materials: { title: 'Materials', subtitle: 'Manage all materials', icon: 'package', module: 'MaterialsPage' },
+
     incoming: { title: 'Incoming Stock', subtitle: 'Record new incoming stock', icon: 'arrowDownCircle', module: 'IncomingPage' },
     outgoing: { title: 'Outgoing Stock', subtitle: 'Record new outgoing stock', icon: 'arrowUpCircle', module: 'OutgoingPage' },
     reports: { title: 'Reports', subtitle: 'Generate and view reports', icon: 'barChart', module: 'ReportsPage' },
@@ -165,6 +167,7 @@ var App = (() => {
     const navItems = [
       { key: 'dashboard', label: 'Dashboard', icon: 'home' },
       { key: 'sites', label: 'Sites', icon: 'mapPin' },
+      { key: 'labour', label: 'Labour Log', icon: 'users' },
       { key: 'rentals', label: 'Rental Sites', icon: 'truck' },
       { key: 'materials', label: 'Materials', icon: 'package' },
       { key: 'site-returns', label: 'Warehouse', icon: 'arrowDownCircle' },

@@ -225,6 +225,29 @@ const SeparateBillingSchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+// -- Labour Module Schemas --
+const LabourSchema = new mongoose.Schema({
+  _id: String,
+  name: String,
+  nickname: String,
+  phone: String,
+  status: { type: String, default: 'Active' },
+  createdAt: String
+}, schemaOptions);
+
+const LabourLogSchema = new mongoose.Schema({
+  _id: String,
+  date: String,
+  labourId: String,
+  siteId: String, // optional site assignment
+  attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] },
+  dailyWage: { type: Number, default: 0 },
+  overtime: { type: Number, default: 0 },
+  moneyGiven: { type: Number, default: 0 },
+  notes: { type: String, default: '' },
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema, 'customers'),
   Site: mongoose.model('Site', SiteSchema, 'sites'),
@@ -242,7 +265,10 @@ module.exports = {
   TelegramChat: mongoose.model('TelegramChat', TelegramChatSchema, 'telegramChats'),
   SmsContact: mongoose.model('SmsContact', SmsContactSchema, 'smsContacts'),
   WhatsappContact: mongoose.model('WhatsappContact', WhatsappContactSchema, 'whatsappContacts'),
-  SeparateBilling: mongoose.model('SeparateBilling', SeparateBillingSchema, 'separate_billings')
+  SeparateBilling: mongoose.model('SeparateBilling', SeparateBillingSchema, 'separate_billings'),
+  Labour: mongoose.model('Labour', LabourSchema, 'labours'),
+  LabourLog: mongoose.model('LabourLog', LabourLogSchema, 'labour_logs')
 };
+
 
 
