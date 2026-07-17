@@ -57,6 +57,8 @@ const schemas = {
     totalAmount: { type: Number, default: null },
     createdAt: String
   }, schemaOptions),
+  labours: new mongoose.Schema({ _id: String, name: String, nickname: String, phone: String, status: { type: String, default: 'Active' }, createdAt: String }, schemaOptions),
+  labourLogs: new mongoose.Schema({ _id: String, date: String, labourId: String, siteId: String, attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] }, dailyWage: { type: Number, default: 0 }, overtime: { type: Number, default: 0 }, moneyGiven: { type: Number, default: 0 }, notes: { type: String, default: '' }, createdAt: String }, schemaOptions),
 };
 
 
@@ -67,7 +69,8 @@ function getModel(name) {
     try {
       models[name] = mongoose.model(name);
     } catch {
-      models[name] = mongoose.model(name, schemas[name], name);
+      const collName = name === 'labourLogs' ? 'labour_logs' : name;
+      models[name] = mongoose.model(name, schemas[name], collName);
     }
   }
   return models[name];
@@ -296,6 +299,196 @@ module.exports = async function handler(req, res) {
       }
     }
     return json(res, 405, { error: 'Method not allowed' });
+  }
+
+  // ---- Custom Labour Module Endpoints ----
+  if (collection === 'labours-summary') {
+    try {
+      const getQueryParam = (name) => {
+        if (req.query && req.query[name]) return req.query[name];
+        try {
+          return new URL(req.url, 'http://localhost').searchParams.get(name);
+        } catch { return null; }
+      };
+
+      const startDate = getQueryParam('startDate');
+      const endDate = getQueryParam('endDate');
+      const siteId = getQueryParam('siteId');
+      const labourId = getQueryParam('labourId');
+      const attendance = getQueryParam('attendance');
+
+      function getTodayIST() {
+        const now = new Date();
+        const utc = now.getTime() + now.getTimezoneOffset() * 60 * 1000;
+        const istTime = new Date(utc + 5.5 * 60 * 60 * 1000);
+        return istTime.toISOString().split('T')[0];
+      }
+
+      const pipeline = [];
+
+      if (labourId) {
+        pipeline.push({ $match: { _id: labourId } });
+      }
+
+      pipeline.push({
+        $lookup: {
+          from: 'labour_logs',
+          let: { lId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: { $eq: ["$labourId", "$$lId"] },
+                ...(startDate ? { date: { $gte: startDate } } : {}),
+                ...(endDate ? { date: { $lte: endDate } } : {}),
+                ...(siteId ? { siteId: siteId } : {}),
+                ...(attendance ? { attendance: attendance } : {})
+              }
+            }
+          ],
+          as: 'logs'
+        }
+      });
+
+      pipeline.push({
+        $project: {
+          name: 1,
+          nickname: 1,
+          phone: 1,
+          status: 1,
+          createdAt: 1,
+          stats: {
+            $reduce: {
+              input: "$logs",
+              initialValue: {
+                presentDays: 0,
+                halfDays: 0,
+                absentDays: 0,
+                grossWages: 0,
+                totalOvertime: 0,
+                totalMoneyGiven: 0
+              },
+              in: {
+                presentDays: {
+                  $add: [
+                    "$$value.presentDays",
+                    { $cond: [{ $eq: ["$$this.attendance", "Present"] }, 1, 0] }
+                  ]
+                },
+                halfDays: {
+                  $add: [
+                    "$$value.halfDays",
+                    { $cond: [{ $eq: ["$$this.attendance", "Half Day"] }, 1, 0] }
+                  ]
+                },
+                absentDays: {
+                  $add: [
+                    "$$value.absentDays",
+                    { $cond: [{ $eq: ["$$this.attendance", "Absent"] }, 1, 0] }
+                  ]
+                },
+                grossWages: {
+                  $add: [
+                    "$$value.grossWages",
+                    {
+                      $multiply: [
+                        { $ifNull: ["$$this.dailyWage", 0] },
+                        {
+                          $cond: [
+                            { $eq: ["$$this.attendance", "Present"] }, 1.0,
+                            { $cond: [{ $eq: ["$$this.attendance", "Half Day"] }, 0.5, 0.0] }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                totalOvertime: { $add: ["$$value.totalOvertime", { $ifNull: ["$$this.overtime", 0] }] },
+                totalMoneyGiven: { $add: ["$$value.totalMoneyGiven", { $ifNull: ["$$this.moneyGiven", 0] }] }
+              }
+            }
+          }
+        }
+      });
+
+      pipeline.push({
+        $project: {
+          name: 1,
+          nickname: 1,
+          phone: 1,
+          status: 1,
+          createdAt: 1,
+          presentDays: "$stats.presentDays",
+          halfDays: "$stats.halfDays",
+          absentDays: "$stats.absentDays",
+          grossWages: "$stats.grossWages",
+          totalOvertime: "$stats.totalOvertime",
+          totalMoneyGiven: "$stats.totalMoneyGiven",
+          totalEarnings: { $add: ["$stats.grossWages", "$stats.totalOvertime"] }
+        }
+      });
+
+      pipeline.push({
+        $project: {
+          name: 1,
+          nickname: 1,
+          phone: 1,
+          status: 1,
+          createdAt: 1,
+          presentDays: 1,
+          halfDays: 1,
+          absentDays: 1,
+          grossWages: 1,
+          totalOvertime: 1,
+          totalMoneyGiven: 1,
+          totalEarnings: 1,
+          payableAmount: {
+            $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
+          },
+          advanceBalance: {
+            $cond: [{ $gt: ["$totalMoneyGiven", "$totalEarnings"] }, { $subtract: ["$totalMoneyGiven", "$totalEarnings"] }, 0]
+          }
+        }
+      });
+
+      const laboursData = await getModel('labours').aggregate(pipeline);
+
+      const totalLabour = await getModel('labours').countDocuments({});
+      const todayStr = getTodayIST();
+      const todayLogs = await getModel('labourLogs').find({ date: todayStr });
+      const presentToday = todayLogs.filter(l => l.attendance === 'Present').length;
+      const halfDayToday = todayLogs.filter(l => l.attendance === 'Half Day').length;
+      const absentToday = todayLogs.filter(l => l.attendance === 'Absent').length;
+
+      let overallPayable = 0;
+      let overallAdvance = 0;
+      laboursData.forEach(l => {
+        overallPayable += l.payableAmount;
+        overallAdvance += l.advanceBalance;
+      });
+
+      return json(res, 200, {
+        summary: {
+          totalLabour,
+          presentToday,
+          halfDayToday,
+          absentToday,
+          totalPayable: overallPayable,
+          totalAdvancePaid: overallAdvance
+        },
+        labours: laboursData
+      });
+    } catch (err) {
+      return json(res, 500, { error: err.message });
+    }
+  }
+
+  if (collection === 'labours' && action === 'logs') {
+    try {
+      const logs = await getModel('labourLogs').find({ labourId: id }).sort({ date: -1 });
+      return json(res, 200, logs);
+    } catch (err) {
+      return json(res, 500, { error: err.message });
+    }
   }
 
   if (!collection || !schemas[collection]) {
