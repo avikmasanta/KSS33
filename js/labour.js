@@ -124,39 +124,40 @@ var LabourPage = {
       </div>
 
       <!-- Add/Edit Labour Modal -->
-      <div class="modal-backdrop" id="labour-modal-backdrop" onclick="LabourPage.closeLabourModal()"></div>
-      <div class="modal" id="labour-modal" style="max-width: 480px;">
-        <div class="modal-header">
-          <h3 id="labour-modal-title">Add New Labour</h3>
-          <button class="modal-close" onclick="LabourPage.closeLabourModal()">${Icons.x}</button>
-        </div>
-        <div class="modal-body">
-          <form id="labour-form" onsubmit="LabourPage.handleLabourSubmit(event)">
-            <input type="hidden" id="labour-id">
-            <div class="form-group" style="margin-bottom: 16px;">
-              <label for="labour-name">Labour Name <span style="color:var(--danger)">*</span></label>
-              <input type="text" id="labour-name" class="form-control" placeholder="e.g. Ramesh Kumar" required>
-            </div>
-            <div class="form-group" style="margin-bottom: 16px;">
-              <label for="labour-nickname">Nickname / Alias</label>
-              <input type="text" id="labour-nickname" class="form-control" placeholder="e.g. Ramesh">
-            </div>
-            <div class="form-group" style="margin-bottom: 16px;">
-              <label for="labour-phone">Mobile Number</label>
-              <input type="tel" id="labour-phone" class="form-control" placeholder="e.g. 9876543210" pattern="[0-9]{10}">
-            </div>
-            <div class="form-group" style="margin-bottom: 24px;">
-              <label for="labour-status">Status</label>
-              <select id="labour-status" class="form-control">
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-            <div style="display: flex; gap: 12px; justify-content: flex-end;">
-              <button type="button" class="btn btn-outline" onclick="LabourPage.closeLabourModal()">Cancel</button>
-              <button type="submit" class="btn btn-primary">Save Details</button>
-            </div>
-          </form>
+      <div class="modal-backdrop" id="labour-modal-backdrop" onclick="LabourPage.closeLabourModal()">
+        <div class="modal" id="labour-modal" style="max-width: 480px;" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h3 id="labour-modal-title">Add New Labour</h3>
+            <button type="button" class="modal-close" onclick="LabourPage.closeLabourModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body">
+            <form id="labour-form" onsubmit="LabourPage.handleLabourSubmit(event)">
+              <input type="hidden" id="labour-id">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="labour-name">Labour Name <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="labour-name" class="form-control" placeholder="e.g. Ramesh Kumar" required>
+              </div>
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="labour-nickname">Nickname / Alias</label>
+                <input type="text" id="labour-nickname" class="form-control" placeholder="e.g. Ramesh">
+              </div>
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="labour-phone">Mobile Number</label>
+                <input type="tel" id="labour-phone" class="form-control" placeholder="e.g. 9876543210" pattern="[0-9]{10}">
+              </div>
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label for="labour-status">Status</label>
+                <select id="labour-status" class="form-control">
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="LabourPage.closeLabourModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Details</button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     `;
@@ -567,7 +568,6 @@ var LabourPage = {
     document.getElementById('labour-modal-title').textContent = 'Add New Labour';
 
     document.getElementById('labour-modal-backdrop').classList.add('active');
-    document.getElementById('labour-modal').classList.add('active');
   },
 
   openEditLabourModal(id) {
@@ -581,12 +581,10 @@ var LabourPage = {
     document.getElementById('labour-modal-title').textContent = 'Edit Labour details';
 
     document.getElementById('labour-modal-backdrop').classList.add('active');
-    document.getElementById('labour-modal').classList.add('active');
   },
 
   closeLabourModal() {
     document.getElementById('labour-modal-backdrop').classList.remove('active');
-    document.getElementById('labour-modal').classList.remove('active');
   },
 
   async handleLabourSubmit(e) {
