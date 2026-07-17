@@ -65,18 +65,14 @@ var LabourPage = {
         this.summaryData = await res.json();
       }
 
-      // Fetch logs for the selected daily log date to prefill logs
-      const logsRes = await fetch(`/api/labourLogs`);
-      if (logsRes.ok) {
-        const allLogs = await logsRes.json();
-        // Index logs by date and labourId
-        this.dailyLogsData = {};
-        allLogs.forEach(log => {
-          if (log.date === this.logDate) {
-            this.dailyLogsData[log.labourId] = log;
-          }
-        });
-      }
+      // Prefill logs from local Store cache to ensure instant reactivity and sync
+      const allLogs = Store.LabourLogs.getAll();
+      this.dailyLogsData = {};
+      allLogs.forEach(log => {
+        if (log.date === this.logDate) {
+          this.dailyLogsData[log.labourId] = log;
+        }
+      });
     } catch (err) {
       console.error("Error fetching labour data:", err);
     }
