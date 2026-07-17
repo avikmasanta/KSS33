@@ -329,10 +329,15 @@ var LabourPage = {
           </div>
           <div style="max-height: 60vh; overflow-y: auto;">
             ${filteredLabours.map(l => `
-              <div class="list-item ${this.selectedLabourId === l.id ? 'active' : ''}" style="cursor: pointer;" onclick="LabourPage.selectLabour('${l.id}')">
+              <div class="list-item ${this.selectedLabourId === l.id ? 'active' : ''}" style="cursor: pointer; position: relative;" onclick="LabourPage.selectLabour('${l.id}')">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
                   <div style="font-weight: 600; color: var(--text-primary);">${l.name}</div>
-                  <span class="badge ${l.status === 'Active' ? 'badge-success' : 'badge-danger'}">${l.status}</span>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span class="badge ${l.status === 'Active' ? 'badge-success' : 'badge-danger'}">${l.status}</span>
+                    <button class="btn btn-icon btn-sm text-danger" style="padding: 2px; color: var(--danger); border: none; background: transparent; display: inline-flex; align-items: center;" onclick="event.stopPropagation(); LabourPage.deleteLabour('${l.id}')" title="Delete Labour">
+                      ${Icons.trash}
+                    </button>
+                  </div>
                 </div>
                 <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
                   Nickname: ${l.nickname || '-'} • Phone: ${l.phone || '-'}
