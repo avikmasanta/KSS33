@@ -107,7 +107,6 @@ const Store = (() => {
         // Network error — silently keep local data
       }
     }
-  }
 
     // Seed default materials if completely empty everywhere
     if (cache.materials.length === 0) {
