@@ -205,6 +205,8 @@ const SeparateBillingSchema = new mongoose.Schema({
   ownerName: String,
   location: String,
   lintelDate: String,
+  receivedDate: String,
+  receivedAmount: { type: Number, default: 0 },
   ratePerSqFt: { type: Number, default: null },
   items: [{
     type: { type: String, default: 'Slab' },

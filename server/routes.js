@@ -152,7 +152,10 @@ router.get('/telegram-report/preview', async (req, res) => {
     Site: models.Site,
     TelegramChat: models.TelegramChat,
     SiteUsage: models.SiteUsage,
-    SiteDamaged: models.SiteDamaged
+    SiteDamaged: models.SiteDamaged,
+    Labour: models.Labour,
+    LabourLog: models.LabourLog,
+    SeparateBilling: models.SeparateBilling
   };
 
   try {
@@ -185,7 +188,10 @@ router.all('/telegram-report/send', async (req, res) => {
     Site: models.Site,
     TelegramChat: models.TelegramChat,
     SiteUsage: models.SiteUsage,
-    SiteDamaged: models.SiteDamaged
+    SiteDamaged: models.SiteDamaged,
+    Labour: models.Labour,
+    LabourLog: models.LabourLog,
+    SeparateBilling: models.SeparateBilling
   };
 
   try {

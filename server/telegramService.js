@@ -135,7 +135,77 @@ async function generateTelegramReportText({ date, models }) {
   });
   lintelAlertSites.sort((a, b) => b.daysPassed - a.daysPassed);
 
-  // 5. Format Date
+  // 5. Calculate Labour & Payroll Summary for the date
+  let labourReportText = '';
+  if (models.LabourLog) {
+    try {
+      const dayLogs = await models.LabourLog.find({ date });
+      const presentCount = dayLogs.filter(l => l.attendance === 'Present').length;
+      const halfCount = dayLogs.filter(l => l.attendance === 'Half Day').length;
+      const absentCount = dayLogs.filter(l => l.attendance === 'Absent').length;
+
+      let totalOtHours = 0;
+      let totalOtPay = 0;
+      let totalMoneyGiven = 0;
+
+      dayLogs.forEach(l => {
+        const otH = parseFloat(l.overtimeHours) || 0;
+        const dw = parseFloat(l.dailyWage) || 0;
+        totalOtHours += otH;
+        totalOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        totalMoneyGiven += parseFloat(l.moneyGiven) || 0;
+      });
+
+      labourReportText += `\n👷 *Daily Labour & Payroll Summary:*\n`;
+      if (dayLogs.length === 0) {
+        labourReportText += `_- No attendance logged for this date_\n`;
+      } else {
+        labourReportText += `- Attendance: *${presentCount}* Present, *${halfCount}* Half Day, *${absentCount}* Absent\n`;
+        labourReportText += `- Overtime: *${totalOtHours} hrs* (₹${Math.round(totalOtPay).toLocaleString('en-IN')})\n`;
+        labourReportText += `- Money Paid Today: *₹${Math.round(totalMoneyGiven).toLocaleString('en-IN')}*\n`;
+      }
+    } catch (e) {
+      console.error('Error calculating labour summary for Telegram:', e);
+    }
+  }
+
+  // 6. Calculate Measurement Bills Summary
+  let billsReportText = '';
+  if (models.SeparateBilling) {
+    try {
+      const allBills = await models.SeparateBilling.find({});
+      if (allBills.length > 0) {
+        let totalNetArea = 0;
+        let totalBillAmt = 0;
+        let totalReceivedAmt = 0;
+        const billSummaries = [];
+
+        allBills.forEach(b => {
+          const net = parseFloat(b.netArea || b.totalArea) || 0;
+          const amt = parseFloat(b.totalAmount) || 0;
+          const rec = parseFloat(b.receivedAmount) || 0;
+          totalNetArea += net;
+          totalBillAmt += amt;
+          totalReceivedAmt += rec;
+          
+          if (b.receivedDate || rec > 0) {
+            billSummaries.push(`- *${b.siteName}*: Rec ₹${rec.toLocaleString('en-IN')}${b.receivedDate ? ' (on ' + b.receivedDate + ')' : ''}`);
+          }
+        });
+
+        billsReportText += `\n📐 *Measurement Bills Summary:*\n`;
+        billsReportText += `- Total Bills: *${allBills.length}* | Net Area: *${Math.round(totalNetArea).toLocaleString('en-IN')} Sq Ft*\n`;
+        billsReportText += `- Total Amount: *₹${Math.round(totalBillAmt).toLocaleString('en-IN')}* | Total Received: *₹${Math.round(totalReceivedAmt).toLocaleString('en-IN')}*\n`;
+        if (billSummaries.length > 0) {
+          billsReportText += `  Payment Dates:\n  ` + billSummaries.slice(0, 5).join('\n  ') + `\n`;
+        }
+      }
+    } catch (e) {
+      console.error('Error calculating billing summary for Telegram:', e);
+    }
+  }
+
+  // 7. Format Date
   const [yr, mo, dy] = date.split('-').map(Number);
   const dateFormatted = new Date(yr, mo - 1, dy).toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -143,8 +213,8 @@ async function generateTelegramReportText({ date, models }) {
     year: 'numeric'
   });
 
-  // 6. Build Text Message
-  let text = `📋 *KSS Daily Warehouse & Site Lintel Report*\n📅 *Date:* ${dateFormatted}\n\n`;
+  // 8. Build Text Message
+  let text = `📋 *KSS Daily Operations & Warehouse Backup Report*\n📅 *Date:* ${dateFormatted}\n\n`;
 
   // Warehouse Stock
   text += `🏢 *Warehouse Stock:*\n`;
@@ -194,6 +264,10 @@ async function generateTelegramReportText({ date, models }) {
       text += `- *${s.name}*${custStr}: *${s.daysPassed}* Days (since ${s.lintelDate})\n`;
     });
   }
+
+  // Labour & Bills
+  text += labourReportText;
+  text += billsReportText;
 
   return text;
 }

@@ -494,7 +494,8 @@ var LabourPage = {
       const ledgerRows = logs.map(l => {
         const attVal = l.attendance === 'Present' ? 1.0 : (l.attendance === 'Half Day' ? 0.5 : 0.0);
         const gross = (l.dailyWage || 0) * attVal;
-        const totalEarn = gross + (l.overtime || 0);
+        const otEarn = (l.overtimeHours && l.dailyWage) ? ((l.dailyWage / 8) * l.overtimeHours) : (l.overtime || 0);
+        const totalEarn = gross + otEarn;
         const given = l.moneyGiven || 0;
         runningBalance = runningBalance + totalEarn - given;
 
@@ -677,10 +678,19 @@ var LabourPage = {
               ${activeLabours.map(l => {
                 const log = this.dailyLogsData[l.id] || {};
                 const att = log.attendance || 'Absent';
-                // Always check master Store.Labours for defaultWage persistence
-                const masterLabour = Store.Labours.getById(l.id) || l;
-                const defaultWage = masterLabour.defaultWage !== undefined ? masterLabour.defaultWage : 500;
-                const wage = log.dailyWage !== undefined ? log.dailyWage : defaultWage;
+                // Resolve wage: current log wage -> most recent past log wage -> master defaultWage -> 500
+                let wage = log.dailyWage;
+                if (wage === undefined) {
+                  const pastLogs = Store.LabourLogs.getAll()
+                    .filter(pl => pl.labourId === l.id && pl.dailyWage !== undefined && pl.dailyWage > 0)
+                    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                  if (pastLogs.length > 0) {
+                    wage = pastLogs[0].dailyWage;
+                  } else {
+                    const masterLabour = Store.Labours.getById(l.id) || l;
+                    wage = masterLabour.defaultWage !== undefined ? masterLabour.defaultWage : 500;
+                  }
+                }
                 const overtimeHours = log.overtimeHours !== undefined ? log.overtimeHours : 0;
                 const otTime = log.overtimeTime || '';
                 const money = log.moneyGiven || 0;
@@ -715,13 +725,13 @@ var LabourPage = {
                       </select>
                     </td>
                     <td>
-                      <input type="number" class="form-control log-wage" value="${wage}" style="height:36px; text-align:right;" min="0">
+                      <input type="number" class="form-control log-wage" value="${wage}" style="height:36px; text-align:right;" min="0" oninput="LabourPage.updateOtDisplay(this)">
                     </td>
                     <td>
                       <div style="display:flex; flex-direction:column; gap:3px;">
-                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:34px; text-align:right;" min="0" step="0.5" placeholder="hrs">
+                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:34px; text-align:right;" min="0" step="0.5" placeholder="hrs" oninput="LabourPage.updateOtDisplay(this)">
                         <input type="text" class="form-control log-ot-time" value="${otTime}" placeholder="e.g. 7pm-9pm, 10pm-11pm" style="height:28px; font-size:11px;" title="Written time slots / notes">
-                        ${overtimeHours > 0 ? `<span style="font-size:10px; color:var(--text-tertiary); text-align:right;">= ₹${otPay}</span>` : ''}
+                        <span class="log-ot-calc" style="font-size:10px; color:var(--text-tertiary); text-align:right; display:${overtimeHours > 0 ? 'block' : 'none'};">= ₹${otPay}</span>
                       </div>
                     </td>
                     <td>
@@ -782,6 +792,25 @@ var LabourPage = {
       button.classList.remove('btn-outline');
       button.classList.add('btn-danger');
       button.style.color = 'white';
+    }
+  },
+
+  updateOtDisplay(inputElement) {
+    const tr = inputElement.closest('tr');
+    if (!tr) return;
+    const wageInput = tr.querySelector('.log-wage');
+    const otInput = tr.querySelector('.log-ot-hours');
+    const calcSpan = tr.querySelector('.log-ot-calc');
+    if (wageInput && otInput && calcSpan) {
+      const wage = parseFloat(wageInput.value) || 0;
+      const otHours = parseFloat(otInput.value) || 0;
+      if (otHours > 0 && wage > 0) {
+        const otPay = ((wage / 8) * otHours).toFixed(0);
+        calcSpan.textContent = `= ₹${otPay}`;
+        calcSpan.style.display = 'block';
+      } else {
+        calcSpan.style.display = 'none';
+      }
     }
   },
 
