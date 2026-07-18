@@ -913,10 +913,14 @@ var LabourPage = {
           ${this.summaryData.labours.length === 0 ? `
             <div style="text-align:center; padding:40px; color:var(--text-tertiary);">No report details match the selected filters.</div>
           ` : this.summaryData.labours.map(l => {
-            const fmt = (d) => { const p = d.split('-'); return p[2] + '/' + p[1]; };
+            const fmt = (d) => { const p = (d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : d; };
             const presentDates = (l.presentDates || []).sort().map(d => `<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
             const halfDates = (l.halfDayDates || []).sort().map(d => `<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
             const absentDates = (l.absentDates || []).sort().map(d => `<span style="background:#fee2e2;color:#991b1b;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
+            const otLogs = (l.overtimeLogs || []).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(o => {
+              const timeStr = o.time ? ` (${o.time})` : '';
+              return `<span style="background:#f3e8ff;color:#6b21a8;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${fmt(o.date)}: ${o.hours}h${timeStr} = ₹${Math.round(o.pay)}</span>`;
+            }).join(' ');
             const otHours = l.totalOvertimeHours || 0;
             const otPay = Math.round(l.totalOvertime || 0);
             const payable = Math.round(l.payableAmount || 0);
@@ -954,6 +958,11 @@ var LabourPage = {
                   <div style="display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;">
                     <span style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); min-width:80px; padding-top:2px;">❌ ABSENT (${l.absentDays})</span>
                     <div style="display:flex; flex-wrap:wrap; gap:4px;">${absentDates}</div>
+                  </div>` : ''}
+                  ${(l.overtimeLogs && l.overtimeLogs.length > 0) ? `
+                  <div style="display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:0.75rem; font-weight:700; color:#7c3aed; min-width:80px; padding-top:2px;">⏰ OVERTIME (${otHours}h)</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px;">${otLogs}</div>
                   </div>` : ''}
                 </div>
 

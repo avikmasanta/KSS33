@@ -380,7 +380,8 @@ module.exports = async function handler(req, res) {
                 totalMoneyGiven: 0,
                 presentDates: [],
                 halfDayDates: [],
-                absentDates: []
+                absentDates: [],
+                overtimeLogs: []
               },
               in: {
                 presentDays: {
@@ -448,6 +449,28 @@ module.exports = async function handler(req, res) {
                     "$$value.absentDates",
                     { $cond: [{ $eq: ["$$this.attendance", "Absent"] }, ["$$this.date"], []] }
                   ]
+                },
+                overtimeLogs: {
+                  $concatArrays: [
+                    "$$value.overtimeLogs",
+                    {
+                      $cond: [
+                        { $gt: [{ $ifNull: ["$$this.overtimeHours", 0] }, 0] },
+                        [{
+                          date: "$$this.date",
+                          hours: "$$this.overtimeHours",
+                          time: { $ifNull: ["$$this.overtimeTime", ""] },
+                          pay: {
+                            $multiply: [
+                              { $divide: [{ $ifNull: ["$$this.dailyWage", 0] }, 8] },
+                              { $ifNull: ["$$this.overtimeHours", 0] }
+                            ]
+                          }
+                        }],
+                        []
+                      ]
+                    }
+                  ]
                 }
               }
             }
@@ -473,6 +496,7 @@ module.exports = async function handler(req, res) {
           presentDates: "$stats.presentDates",
           halfDayDates: "$stats.halfDayDates",
           absentDates: "$stats.absentDates",
+          overtimeLogs: "$stats.overtimeLogs",
           totalEarnings: { $add: ["$stats.grossWages", "$stats.totalOvertime"] }
         }
       });
@@ -496,6 +520,8 @@ module.exports = async function handler(req, res) {
           presentDates: 1,
           halfDayDates: 1,
           absentDates: 1,
+          overtimeLogs: 1,
+
 
           payableAmount: {
             $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
