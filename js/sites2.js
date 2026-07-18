@@ -105,10 +105,6 @@ var SitesPage = {
                   <label>Token Number</label>
                   <input type="text" class="form-control" id="site-token" placeholder="Token Number">
                 </div>
-                <div class="form-group">
-                  <label>Site Budget / Cost (₹)</label>
-                  <input type="number" class="form-control" id="site-budget" placeholder="0.00" min="0" step="1">
-                </div>
               </div>
               <div class="form-row">
                 <div class="form-group">
