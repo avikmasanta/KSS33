@@ -369,7 +369,11 @@ module.exports = async function handler(req, res) {
                 absentDays: 0,
                 grossWages: 0,
                 totalOvertime: 0,
-                totalMoneyGiven: 0
+                totalOvertimeHours: 0,
+                totalMoneyGiven: 0,
+                presentDates: [],
+                halfDayDates: [],
+                absentDates: []
               },
               in: {
                 presentDays: {
@@ -418,7 +422,26 @@ module.exports = async function handler(req, res) {
                     }
                   ]
                 },
-                totalMoneyGiven: { $add: ["$$value.totalMoneyGiven", { $ifNull: ["$$this.moneyGiven", 0] }] }
+                totalOvertimeHours: { $add: ["$$value.totalOvertimeHours", { $ifNull: ["$$this.overtimeHours", 0] }] },
+                totalMoneyGiven: { $add: ["$$value.totalMoneyGiven", { $ifNull: ["$$this.moneyGiven", 0] }] },
+                presentDates: {
+                  $concatArrays: [
+                    "$$value.presentDates",
+                    { $cond: [{ $eq: ["$$this.attendance", "Present"] }, ["$$this.date"], []] }
+                  ]
+                },
+                halfDayDates: {
+                  $concatArrays: [
+                    "$$value.halfDayDates",
+                    { $cond: [{ $eq: ["$$this.attendance", "Half Day"] }, ["$$this.date"], []] }
+                  ]
+                },
+                absentDates: {
+                  $concatArrays: [
+                    "$$value.absentDates",
+                    { $cond: [{ $eq: ["$$this.attendance", "Absent"] }, ["$$this.date"], []] }
+                  ]
+                }
               }
             }
           }
@@ -437,7 +460,11 @@ module.exports = async function handler(req, res) {
           absentDays: "$stats.absentDays",
           grossWages: "$stats.grossWages",
           totalOvertime: "$stats.totalOvertime",
+          totalOvertimeHours: "$stats.totalOvertimeHours",
           totalMoneyGiven: "$stats.totalMoneyGiven",
+          presentDates: "$stats.presentDates",
+          halfDayDates: "$stats.halfDayDates",
+          absentDates: "$stats.absentDates",
           totalEarnings: { $add: ["$stats.grossWages", "$stats.totalOvertime"] }
         }
       });
@@ -454,8 +481,12 @@ module.exports = async function handler(req, res) {
           absentDays: 1,
           grossWages: 1,
           totalOvertime: 1,
+          totalOvertimeHours: 1,
           totalMoneyGiven: 1,
           totalEarnings: 1,
+          presentDates: 1,
+          halfDayDates: 1,
+          absentDates: 1,
           payableAmount: {
             $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
           },

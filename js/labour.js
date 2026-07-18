@@ -895,43 +895,87 @@ var LabourPage = {
         </button>
       </div>
 
-      <!-- Aggregated Results Table -->
+      <!-- Aggregated Results - Detailed Cards per Labour -->
       <div class="card">
-        <div class="card-header">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
           <h3>Payroll Summary Report</h3>
+          <span style="font-size:0.8rem; color:var(--text-tertiary);">${this.summaryData.labours.length} labour(s)</span>
         </div>
-        <div class="table-container">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Labour Name</th>
-                <th>Mobile Number</th>
-                <th style="text-align:center;">Present</th>
-                <th style="text-align:center;">Half Day</th>
-                <th style="text-align:center;">Absent</th>
-                <th style="text-align:right;">Gross Wages</th>
-                <th style="text-align:right;">OT Hrs → Pay</th>
-                <th style="text-align:right;">Money Given</th>
-                <th style="text-align:right;">Payable Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${this.summaryData.labours.map(l => `
-                <tr>
-                  <td><strong>${l.name}</strong></td>
-                  <td>${l.phone || '-'}</td>
-                  <td style="text-align:center;">${l.presentDays}</td>
-                  <td style="text-align:center;">${l.halfDays}</td>
-                  <td style="text-align:center;">${l.absentDays}</td>
-                  <td style="text-align:right; font-weight:600;">₹${l.grossWages}</td>
-                  <td style="text-align:right;">₹${Math.round(l.totalOvertime || 0)}</td>
-                  <td style="text-align:right;">₹${l.totalMoneyGiven}</td>
-                  <td style="text-align:right; font-weight:700; color:${l.payableAmount > 0 ? 'var(--danger)' : 'var(--success)'}">₹${Math.round(l.payableAmount)}</td>
-                </tr>
-              `).join('')}
-              ${this.summaryData.labours.length === 0 ? '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-tertiary)">No report details match the selected filters.</td></tr>' : ''}
-            </tbody>
-          </table>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 20px;">
+          ${this.summaryData.labours.length === 0 ? `
+            <div style="text-align:center; padding:40px; color:var(--text-tertiary);">No report details match the selected filters.</div>
+          ` : this.summaryData.labours.map(l => {
+            const fmt = (d) => { const p = d.split('-'); return p[2] + '/' + p[1]; };
+            const presentDates = (l.presentDates || []).sort().map(d => `<span style="background:#dcfce7;color:#166534;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
+            const halfDates = (l.halfDayDates || []).sort().map(d => `<span style="background:#fef9c3;color:#854d0e;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
+            const absentDates = (l.absentDates || []).sort().map(d => `<span style="background:#fee2e2;color:#991b1b;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
+            const otHours = l.totalOvertimeHours || 0;
+            const otPay = Math.round(l.totalOvertime || 0);
+            const payable = Math.round(l.payableAmount || 0);
+            const advance = Math.round(l.advanceBalance || 0);
+
+            return `
+              <div style="border:1px solid var(--border-color); border-radius:12px; overflow:hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05);">
+                <!-- Header row -->
+                <div style="background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color:white; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                  <div>
+                    <div style="font-size:1.05rem; font-weight:700;">${l.name} ${l.nickname ? `<span style="opacity:0.75;font-size:0.85rem;">(${l.nickname})</span>` : ''}</div>
+                    <div style="font-size:0.8rem; opacity:0.85; margin-top:2px;">${l.phone || 'No phone'}</div>
+                  </div>
+                  <div style="text-align:right;">
+                    <div style="font-size:0.75rem; opacity:0.8; text-transform:uppercase; letter-spacing:0.5px;">Net Payable</div>
+                    <div style="font-size:1.6rem; font-weight:800; line-height:1; color:${payable > 0 ? '#fde68a' : '#6ee7b7'};">
+                      ₹${payable > 0 ? payable.toLocaleString('en-IN') : (advance > 0 ? '-' + advance.toLocaleString('en-IN') : '0')}
+                    </div>
+                    <div style="font-size:0.7rem; opacity:0.8;">${payable > 0 ? 'to pay' : advance > 0 ? 'advance paid' : 'settled'}</div>
+                  </div>
+                </div>
+
+                <!-- Attendance date chips -->
+                <div style="padding:14px 20px; background:var(--bg-body); display:flex; flex-direction:column; gap:10px; border-bottom:1px solid var(--border-color);">
+                  <div style="display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); min-width:80px; padding-top:2px;">✅ PRESENT (${l.presentDays})</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px;">${presentDates || '<span style="font-size:11px;color:var(--text-tertiary);">—</span>'}</div>
+                  </div>
+                  ${(l.halfDays > 0) ? `
+                  <div style="display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); min-width:80px; padding-top:2px;">🌗 HALF DAY (${l.halfDays})</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px;">${halfDates}</div>
+                  </div>` : ''}
+                  ${(l.absentDays > 0) ? `
+                  <div style="display:flex; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                    <span style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); min-width:80px; padding-top:2px;">❌ ABSENT (${l.absentDays})</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px;">${absentDates}</div>
+                  </div>` : ''}
+                </div>
+
+                <!-- Financial summary row -->
+                <div style="padding:14px 20px; display:grid; grid-template-columns: repeat(auto-fit, minmax(120px,1fr)); gap:12px;">
+                  <div style="text-align:center;">
+                    <div style="font-size:0.72rem; color:var(--text-tertiary); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Gross Wages</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:var(--text-primary);">₹${Math.round(l.grossWages || 0).toLocaleString('en-IN')}</div>
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:0.72rem; color:var(--text-tertiary); text-transform:uppercase; font-weight:600; margin-bottom:4px;">OT Hours</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:#7c3aed;">${otHours > 0 ? otHours + ' hrs' : '—'}</div>
+                    ${otHours > 0 ? `<div style="font-size:0.7rem; color:var(--text-tertiary);">= ₹${otPay}</div>` : ''}
+                  </div>
+                  <div style="text-align:center;">
+                    <div style="font-size:0.72rem; color:var(--text-tertiary); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Money Given</div>
+                    <div style="font-size:1.1rem; font-weight:700; color:var(--success);">₹${Math.round(l.totalMoneyGiven || 0).toLocaleString('en-IN')}</div>
+                  </div>
+                  <div style="text-align:center; background:${payable > 0 ? '#fef2f2' : '#f0fdf4'}; border-radius:8px; padding:8px;">
+                    <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:${payable > 0 ? 'var(--danger)' : 'var(--success)'}; margin-bottom:4px;">
+                      ${payable > 0 ? '💰 To Pay' : advance > 0 ? '✅ Advance Bal' : '✅ Settled'}
+                    </div>
+                    <div style="font-size:1.2rem; font-weight:800; color:${payable > 0 ? 'var(--danger)' : 'var(--success)'};">
+                      ₹${(payable > 0 ? payable : advance).toLocaleString('en-IN')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
     `;
