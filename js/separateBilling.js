@@ -720,7 +720,6 @@ var SeparateBillingPage = (function() {
       rows += '<td style="text-align:center">' + lText + '</td>';
       rows += '<td style="text-align:center">' + bText + '</td>';
       rows += '<td style="text-align:center">' + qText + '</td>';
-      rows += '<td style="font-family: monospace; font-weight: 600; text-align:center">' + fmlText + '</td>';
       rows += '<td style="font-weight: 700; text-align: right; color:' + (isOpen ? '#dc2626' : '#0f172a') + '">' + (isOpen ? '- ' : '') + areaVal.toFixed(2) + '</td>';
       rows += '</tr>';
     });
@@ -809,8 +808,6 @@ var SeparateBillingPage = (function() {
     html += '<div>📍 ' + (bill.location || 'Punjab') + '</div>';
     html += '<div>📞 +91 1234567890</div>';
     html += '<div>✉️ info@kssdoublefin.com</div>';
-    html += '<div>GSTIN : TAN1234F1Z5</div>';
-    // Note: GSTIN line kept for business identification only; GST is not charged
     html += '</div>';
     html += '</div>';
 
@@ -845,7 +842,7 @@ var SeparateBillingPage = (function() {
     html += '<div class="section-title">Measurement Details</div>';
     html += '<table class="measurement-table">';
     html += '<thead><tr>';
-    html += '<th style="width:50px">Sl.</th><th style="width:120px">Type</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th>Formula</th><th style="text-align:right;width:150px">Area (Sq Ft)</th>';
+    html += '<th style="width:50px">Sl.</th><th style="width:120px">Type</th><th>Length (ft)</th><th>Breadth (ft)</th><th>Qty</th><th style="text-align:right;width:150px">Area (Sq Ft)</th>';
     html += '</tr></thead>';
     html += '<tbody>' + rows + '</tbody>';
     html += '</table>';
