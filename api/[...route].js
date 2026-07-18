@@ -424,15 +424,47 @@ module.exports = async function handler(req, res) {
                   $add: [
                     "$$value.totalOvertime",
                     {
-                      // Overtime pay = (dailyWage / 8) * overtimeHours
-                      $multiply: [
-                        { $divide: [{ $ifNull: ["$$this.dailyWage", 0] }, 8] },
-                        { $ifNull: ["$$this.overtimeHours", 0] }
+                      $cond: [
+                        { $gt: [{ $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } }, 0] },
+                        {
+                          $multiply: [
+                            { $divide: [{ $toDouble: { $ifNull: ["$$this.dailyWage", 0] } }, 8] },
+                            { $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } }
+                          ]
+                        },
+                        { $toDouble: { $ifNull: ["$$this.overtime", 0] } }
                       ]
                     }
                   ]
                 },
-                totalOvertimeHours: { $add: ["$$value.totalOvertimeHours", { $ifNull: ["$$this.overtimeHours", 0] }] },
+                totalOvertimeHours: {
+                  $add: [
+                    "$$value.totalOvertimeHours",
+                    {
+                      $cond: [
+                        { $gt: [{ $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } }, 0] },
+                        { $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } },
+                        {
+                          $cond: [
+                            {
+                              $and: [
+                                { $gt: [{ $toDouble: { $ifNull: ["$$this.overtime", 0] } }, 0] },
+                                { $gt: [{ $toDouble: { $ifNull: ["$$this.dailyWage", 0] } }, 0] }
+                              ]
+                            },
+                            {
+                              $divide: [
+                                { $multiply: [{ $toDouble: { $ifNull: ["$$this.overtime", 0] } }, 8] },
+                                { $toDouble: { $ifNull: ["$$this.dailyWage", 0] } }
+                              ]
+                            },
+                            0
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
                 totalMoneyGiven: { $add: ["$$value.totalMoneyGiven", { $ifNull: ["$$this.moneyGiven", 0] }] },
                 presentDates: {
                   $concatArrays: [
@@ -457,15 +489,48 @@ module.exports = async function handler(req, res) {
                     "$$value.overtimeLogs",
                     {
                       $cond: [
-                        { $gt: [{ $ifNull: ["$$this.overtimeHours", 0] }, 0] },
+                        {
+                          $or: [
+                            { $gt: [{ $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } }, 0] },
+                            { $gt: [{ $toDouble: { $ifNull: ["$$this.overtime", 0] } }, 0] }
+                          ]
+                        },
                         [{
                           date: "$$this.date",
-                          hours: "$$this.overtimeHours",
+                          hours: {
+                            $round: [
+                              {
+                                $cond: [
+                                  { $gt: [{ $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } }, 0] },
+                                  { $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } },
+                                  {
+                                    $cond: [
+                                      { $gt: [{ $toDouble: { $ifNull: ["$$this.dailyWage", 0] } }, 0] },
+                                      {
+                                        $divide: [
+                                          { $multiply: [{ $toDouble: { $ifNull: ["$$this.overtime", 0] } }, 8] },
+                                          { $toDouble: { $ifNull: ["$$this.dailyWage", 0] } }
+                                        ]
+                                      },
+                                      0
+                                    ]
+                                  }
+                                ]
+                              },
+                              1
+                            ]
+                          },
                           time: { $ifNull: ["$$this.overtimeTime", ""] },
                           pay: {
-                            $multiply: [
-                              { $divide: [{ $ifNull: ["$$this.dailyWage", 0] }, 8] },
-                              { $ifNull: ["$$this.overtimeHours", 0] }
+                            $cond: [
+                              { $gt: [{ $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } }, 0] },
+                              {
+                                $multiply: [
+                                  { $divide: [{ $toDouble: { $ifNull: ["$$this.dailyWage", 0] } }, 8] },
+                                  { $toDouble: { $ifNull: ["$$this.overtimeHours", 0] } }
+                                ]
+                              },
+                              { $toDouble: { $ifNull: ["$$this.overtime", 0] } }
                             ]
                           }
                         }],
