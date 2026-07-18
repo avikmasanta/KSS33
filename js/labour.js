@@ -694,32 +694,33 @@ var LabourPage = {
               ${activeLabours.map(l => {
                 const log = this.dailyLogsData[l.id] || {};
                 const att = log.attendance || 'Absent';
-                // Resolve wage: current log wage -> most recent past log wage -> master defaultWage -> 500
+                
+                // Resolve wage: current log wage -> master defaultWage -> most recent past log -> 500
+                const masterLabour = Store.Labours.getById(l.id) || l;
                 let wage = log.dailyWage;
                 if (wage === undefined) {
-                  const pastLogs = Store.LabourLogs.getAll()
-                    .filter(pl => pl.labourId === l.id && pl.dailyWage !== undefined && pl.dailyWage > 0)
-                    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-                  if (pastLogs.length > 0) {
-                    wage = pastLogs[0].dailyWage;
+                  if (masterLabour && masterLabour.defaultWage !== undefined && masterLabour.defaultWage > 0) {
+                    wage = masterLabour.defaultWage;
                   } else {
-                    const masterLabour = Store.Labours.getById(l.id) || l;
-                    wage = masterLabour.defaultWage !== undefined ? masterLabour.defaultWage : 500;
+                    const pastLogs = Store.LabourLogs.getAll()
+                      .filter(pl => pl.labourId === l.id && pl.dailyWage !== undefined && pl.dailyWage > 0)
+                      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+                    wage = pastLogs.length > 0 ? pastLogs[0].dailyWage : 500;
                   }
                 }
+
                 const overtimeHours = log.overtimeHours !== undefined ? log.overtimeHours : 0;
                 const otTime = log.overtimeTime || '';
                 const money = log.moneyGiven || 0;
                 const note = log.notes || '';
                 const siteId = log.siteId || this.globalSiteId || '';
-                // Calculate OT pay for display: (wage / 8) * hours
                 const otPay = overtimeHours > 0 ? ((wage / 8) * overtimeHours).toFixed(0) : 0;
 
                 return `
                   <tr data-labour-id="${l.id}">
                     <td>
-                      <strong>${l.name}</strong><br>
-                      <span style="font-size:11px;color:var(--text-secondary);">${l.nickname ? l.nickname : ''}</span>
+                      <strong>${l.name}</strong>
+                      ${l.nickname ? `<br><span style="font-size:11px;color:var(--text-tertiary);">(${l.nickname})</span>` : ''}
                     </td>
                     <td>
                       <div class="attendance-buttons" style="display:flex; gap:4px;">
@@ -741,20 +742,20 @@ var LabourPage = {
                       </select>
                     </td>
                     <td>
-                      <input type="number" class="form-control log-wage" value="${wage}" style="height:36px; text-align:right;" min="0" oninput="LabourPage.updateOtDisplay(this)">
+                      <input type="number" class="form-control log-wage" value="${wage}" style="height:36px; text-align:right; font-weight:600;" min="0" oninput="LabourPage.updateOtDisplay(this)">
                     </td>
                     <td>
-                      <div style="display:flex; flex-direction:column; gap:3px;">
-                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:34px; text-align:right;" min="0" step="0.5" placeholder="hrs" oninput="LabourPage.updateOtDisplay(this)">
-                        <input type="text" class="form-control log-ot-time" value="${otTime}" placeholder="e.g. 7pm-9pm, 10pm-11pm" style="height:28px; font-size:11px;" title="Written time slots / notes">
-                        <span class="log-ot-calc" style="font-size:10px; color:var(--text-tertiary); text-align:right; display:${overtimeHours > 0 ? 'block' : 'none'};">= ₹${otPay}</span>
+                      <div style="display:flex; flex-direction:column; gap:2px;">
+                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:36px; text-align:right; font-weight:600;" min="0" step="0.5" placeholder="0" oninput="LabourPage.updateOtDisplay(this)">
+                        <input type="hidden" class="log-ot-time" value="${otTime}">
+                        <span class="log-ot-calc" style="font-size:11px; font-weight:600; color:#7c3aed; text-align:right; display:${overtimeHours > 0 ? 'block' : 'none'};">= ₹${otPay}</span>
                       </div>
                     </td>
                     <td>
-                      <input type="number" class="form-control log-money" value="${money}" style="height:36px; text-align:right;" min="0">
+                      <input type="number" class="form-control log-money" value="${money}" style="height:36px; text-align:right; font-weight:600;" min="0" placeholder="0">
                     </td>
                     <td>
-                      <input type="text" class="form-control log-notes" value="${note}" placeholder="e.g. advance payment" style="height:36px;">
+                      <input type="text" class="form-control log-notes" value="${note}" placeholder="Optional notes" style="height:36px;">
                     </td>
                   </tr>
                 `;
@@ -855,9 +856,9 @@ var LabourPage = {
       const moneyGiven = parseFloat(tr.querySelector('.log-money').value) || 0;
       const notes = tr.querySelector('.log-notes').value;
 
-      // Auto-set defaultWage on the master labour only if missing
+      // Auto-update defaultWage on the master labour so it carries forward for future days
       const labour = Store.Labours.getById(labourId);
-      if (labour && labour.defaultWage === undefined) {
+      if (labour && dailyWage > 0 && (labour.defaultWage !== dailyWage || labour.defaultWage === undefined)) {
         labour.defaultWage = dailyWage;
         await Store.Labours.update(labourId, { ...labour, defaultWage: dailyWage });
       }
