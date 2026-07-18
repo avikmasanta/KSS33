@@ -59,8 +59,8 @@ const schemas = {
     totalAmount: { type: Number, default: null },
     createdAt: String
   }, schemaOptions),
-  labours: new mongoose.Schema({ _id: String, name: String, nickname: String, phone: String, status: { type: String, default: 'Active' }, createdAt: String }, schemaOptions),
-  labourLogs: new mongoose.Schema({ _id: String, date: String, labourId: String, siteId: String, attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] }, dailyWage: { type: Number, default: 0 }, overtime: { type: Number, default: 0 }, moneyGiven: { type: Number, default: 0 }, notes: { type: String, default: '' }, createdAt: String }, schemaOptions),
+  labours: new mongoose.Schema({ _id: String, name: String, nickname: String, phone: String, status: { type: String, default: 'Active' }, defaultWage: { type: Number, default: 500 }, createdAt: String }, schemaOptions),
+  labourLogs: new mongoose.Schema({ _id: String, date: String, labourId: String, siteId: String, attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] }, dailyWage: { type: Number, default: 0 }, overtimeHours: { type: Number, default: 0 }, overtimeTime: { type: String, default: '' }, overtime: { type: Number, default: 0 }, moneyGiven: { type: Number, default: 0 }, notes: { type: String, default: '' }, createdAt: String }, schemaOptions),
 };
 
 
