@@ -505,15 +505,29 @@ var LabourPage = {
 
         const site = Store.Sites.getById(l.siteId);
 
+        let otDisplay = '—';
+        const otH = parseFloat(l.overtimeHours) || 0;
+        const otP = parseFloat(l.overtime) || 0;
+        const dw = parseFloat(l.dailyWage) || 0;
+        if (otH > 0) {
+          const otPayVal = dw > 0 ? Math.round((dw / 8) * otH) : Math.round(otP);
+          otDisplay = `${Number(otH.toFixed(1))} hrs${l.overtimeTime ? ` (${l.overtimeTime})` : ''} = ₹${otPayVal}`;
+        } else if (otP > 0) {
+          const derivedH = dw > 0 ? Number(((otP / dw) * 8).toFixed(1)) : 0;
+          otDisplay = `${derivedH > 0 ? derivedH + ' hrs = ' : ''}₹${Math.round(otP)}`;
+        }
+
+        const balFormatted = Math.abs(runningBalance).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
         return `
           <tr>
             <td>${l.date}</td>
             <td><span class="badge ${statusClass}">${l.attendance}</span></td>
             <td>${site ? site.name : '-'}</td>
             <td>₹${l.dailyWage} (₹${gross})</td>
-            <td>${l.overtimeHours ? l.overtimeHours + ' hrs' + (l.overtimeTime ? ` (${l.overtimeTime})` : '') + ' = ₹' + ((l.dailyWage/8)*l.overtimeHours).toFixed(0) : '—'}</td>
+            <td>${otDisplay}</td>
             <td>₹${given}</td>
-            <td style="font-weight:700; color:${runningBalance >= 0 ? 'var(--danger)' : 'var(--success)'}">₹${Math.abs(runningBalance)} ${runningBalance >= 0 ? 'Payable' : 'Adv'}</td>
+            <td style="font-weight:700; color:${runningBalance >= 0 ? 'var(--danger)' : 'var(--success)'}">₹${balFormatted} ${runningBalance >= 0 ? 'Payable' : 'Adv'}</td>
           </tr>
         `;
       }).reverse(); // Latest on top for view
@@ -839,9 +853,9 @@ var LabourPage = {
       const moneyGiven = parseFloat(tr.querySelector('.log-money').value) || 0;
       const notes = tr.querySelector('.log-notes').value;
 
-      // Auto-update defaultWage on the labour if changed or set
+      // Auto-set defaultWage on the master labour only if missing
       const labour = Store.Labours.getById(labourId);
-      if (labour && (labour.defaultWage !== dailyWage || labour.defaultWage === undefined)) {
+      if (labour && labour.defaultWage === undefined) {
         labour.defaultWage = dailyWage;
         await Store.Labours.update(labourId, { ...labour, defaultWage: dailyWage });
       }
