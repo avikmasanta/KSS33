@@ -431,7 +431,6 @@ var SitesPage = {
     document.getElementById('site-start-date').value = s.startDate || '';
     document.getElementById('site-address').value = s.address || '';
     document.getElementById('site-token').value = s.tokenNumber || '';
-    document.getElementById('site-budget').value = s.budget || '';
     document.getElementById('site-lintel-date').value = s.lintelDate || '';
     document.getElementById('site-rate-sqft').value = s.ratePerSqFt || '';
     document.getElementById('site-notes').value = s.notes || '';
@@ -450,7 +449,7 @@ var SitesPage = {
         startDate: document.getElementById('site-start-date').value,
         address: document.getElementById('site-address').value.trim(),
         tokenNumber: document.getElementById('site-token').value.trim(),
-        budget: parseFloat(document.getElementById('site-budget').value) || 0,
+        budget: 0, // Budget removed — determined by measurement billing
         lintelDate: document.getElementById('site-lintel-date').value,
         ratePerSqFt: parseFloat(document.getElementById('site-rate-sqft').value) || 0,
         notes: document.getElementById('site-notes').value.trim()
