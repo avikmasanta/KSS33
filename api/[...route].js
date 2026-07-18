@@ -333,25 +333,32 @@ module.exports = async function handler(req, res) {
       pipeline.push({
         $lookup: {
           from: 'labour_logs',
-          let: { lId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$labourId", "$$lId"] },
-                    ...(startDate ? [{ $gte: ["$date", startDate] }] : []),
-                    ...(endDate   ? [{ $lte: ["$date", endDate] }]   : []),
-                    ...(siteId    ? [{ $eq:  ["$siteId", siteId] }]  : []),
-                    ...(attendance ? [{ $eq: ["$attendance", attendance] }] : [])
-                  ]
-                }
-              }
-            }
-          ],
-          as: 'logs'
+          localField: '_id',
+          foreignField: 'labourId',
+          as: 'rawLogs'
         }
       });
+
+      const filterConds = [];
+      if (startDate) filterConds.push({ $gte: ["$$log.date", startDate] });
+      if (endDate) filterConds.push({ $lte: ["$$log.date", endDate] });
+      if (siteId) filterConds.push({ $eq: ["$$log.siteId", siteId] });
+      if (attendance) filterConds.push({ $eq: ["$$log.attendance", attendance] });
+
+      pipeline.push({
+        $addFields: {
+          logs: {
+            $filter: {
+              input: "$rawLogs",
+              as: "log",
+              cond: filterConds.length === 0
+                ? true
+                : (filterConds.length === 1 ? filterConds[0] : { $and: filterConds })
+            }
+          }
+        }
+      });
+
 
       pipeline.push({
         $project: {
