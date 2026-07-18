@@ -244,6 +244,7 @@ const LabourLogSchema = new mongoose.Schema({
   attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] },
   dailyWage: { type: Number, default: 0 },
   overtimeHours: { type: Number, default: 0 },  // Hours of overtime worked that day
+  overtimeTime: { type: String, default: '' },   // Written time slots e.g. "8pm-10pm, 6am-7am"
   overtime: { type: Number, default: 0 },        // Legacy: kept for backward compat, now derived from hours
   moneyGiven: { type: Number, default: 0 },
   notes: { type: String, default: '' },

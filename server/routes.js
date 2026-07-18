@@ -486,6 +486,7 @@ router.get('/labours-summary', async (req, res) => {
         nickname: 1,
         phone: 1,
         status: 1,
+        defaultWage: 1,
         createdAt: 1,
         presentDays: "$stats.presentDays",
         halfDays: "$stats.halfDays",
@@ -507,6 +508,7 @@ router.get('/labours-summary', async (req, res) => {
         nickname: 1,
         phone: 1,
         status: 1,
+        defaultWage: 1,
         createdAt: 1,
         presentDays: 1,
         halfDays: 1,
@@ -519,6 +521,7 @@ router.get('/labours-summary', async (req, res) => {
         presentDates: 1,
         halfDayDates: 1,
         absentDates: 1,
+
         payableAmount: {
           $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
         },

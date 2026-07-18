@@ -510,7 +510,7 @@ var LabourPage = {
             <td><span class="badge ${statusClass}">${l.attendance}</span></td>
             <td>${site ? site.name : '-'}</td>
             <td>₹${l.dailyWage} (₹${gross})</td>
-            <td>${l.overtimeHours ? l.overtimeHours + ' hrs = ₹' + ((l.dailyWage/8)*l.overtimeHours).toFixed(0) : '—'}</td>
+            <td>${l.overtimeHours ? l.overtimeHours + ' hrs' + (l.overtimeTime ? ` (${l.overtimeTime})` : '') + ' = ₹' + ((l.dailyWage/8)*l.overtimeHours).toFixed(0) : '—'}</td>
             <td>₹${given}</td>
             <td style="font-weight:700; color:${runningBalance >= 0 ? 'var(--danger)' : 'var(--success)'}">₹${Math.abs(runningBalance)} ${runningBalance >= 0 ? 'Payable' : 'Adv'}</td>
           </tr>
@@ -677,9 +677,12 @@ var LabourPage = {
               ${activeLabours.map(l => {
                 const log = this.dailyLogsData[l.id] || {};
                 const att = log.attendance || 'Absent';
-                // Prefill wage from today's log, else from labour's defaultWage, else 500
-                const wage = log.dailyWage !== undefined ? log.dailyWage : (l.defaultWage !== undefined ? l.defaultWage : 500);
+                // Always check master Store.Labours for defaultWage persistence
+                const masterLabour = Store.Labours.getById(l.id) || l;
+                const defaultWage = masterLabour.defaultWage !== undefined ? masterLabour.defaultWage : 500;
+                const wage = log.dailyWage !== undefined ? log.dailyWage : defaultWage;
                 const overtimeHours = log.overtimeHours !== undefined ? log.overtimeHours : 0;
+                const otTime = log.overtimeTime || '';
                 const money = log.moneyGiven || 0;
                 const note = log.notes || '';
                 const siteId = log.siteId || this.globalSiteId || '';
@@ -715,8 +718,9 @@ var LabourPage = {
                       <input type="number" class="form-control log-wage" value="${wage}" style="height:36px; text-align:right;" min="0">
                     </td>
                     <td>
-                      <div style="display:flex; flex-direction:column; gap:2px;">
-                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:36px; text-align:right;" min="0" step="0.5" placeholder="hrs">
+                      <div style="display:flex; flex-direction:column; gap:3px;">
+                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:34px; text-align:right;" min="0" step="0.5" placeholder="hrs">
+                        <input type="text" class="form-control log-ot-time" value="${otTime}" placeholder="e.g. 7pm-9pm, 10pm-11pm" style="height:28px; font-size:11px;" title="Written time slots / notes">
                         ${overtimeHours > 0 ? `<span style="font-size:10px; color:var(--text-tertiary); text-align:right;">= ₹${otPay}</span>` : ''}
                       </div>
                     </td>
@@ -799,14 +803,17 @@ var LabourPage = {
       const siteId = tr.querySelector('.log-site').value;
       const dailyWage = parseFloat(tr.querySelector('.log-wage').value) || 0;
       const overtimeHours = parseFloat(tr.querySelector('.log-ot-hours').value) || 0;
+      const overtimeTimeInput = tr.querySelector('.log-ot-time');
+      const overtimeTime = overtimeTimeInput ? overtimeTimeInput.value.trim() : '';
       // Calculate OT rupee amount for backwards compat display
       const overtimeAmount = overtimeHours > 0 ? parseFloat(((dailyWage / 8) * overtimeHours).toFixed(2)) : 0;
       const moneyGiven = parseFloat(tr.querySelector('.log-money').value) || 0;
       const notes = tr.querySelector('.log-notes').value;
 
-      // Auto-update defaultWage on the labour if the user changed it
+      // Auto-update defaultWage on the labour if changed or set
       const labour = Store.Labours.getById(labourId);
-      if (labour && labour.defaultWage !== dailyWage) {
+      if (labour && (labour.defaultWage !== dailyWage || labour.defaultWage === undefined)) {
+        labour.defaultWage = dailyWage;
         await Store.Labours.update(labourId, { ...labour, defaultWage: dailyWage });
       }
 
@@ -820,6 +827,7 @@ var LabourPage = {
         attendance,
         dailyWage,
         overtimeHours,
+        overtimeTime,
         overtime: overtimeAmount, // legacy field kept for backward compat
         moneyGiven,
         notes
