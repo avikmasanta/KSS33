@@ -337,11 +337,15 @@ module.exports = async function handler(req, res) {
           pipeline: [
             {
               $match: {
-                $expr: { $eq: ["$labourId", "$$lId"] },
-                ...(startDate ? { date: { $gte: startDate } } : {}),
-                ...(endDate ? { date: { $lte: endDate } } : {}),
-                ...(siteId ? { siteId: siteId } : {}),
-                ...(attendance ? { attendance: attendance } : {})
+                $expr: {
+                  $and: [
+                    { $eq: ["$labourId", "$$lId"] },
+                    ...(startDate ? [{ $gte: ["$date", startDate] }] : []),
+                    ...(endDate   ? [{ $lte: ["$date", endDate] }]   : []),
+                    ...(siteId    ? [{ $eq:  ["$siteId", siteId] }]  : []),
+                    ...(attendance ? [{ $eq: ["$attendance", attendance] }] : [])
+                  ]
+                }
               }
             }
           ],
@@ -402,7 +406,18 @@ module.exports = async function handler(req, res) {
                     }
                   ]
                 },
-                totalOvertime: { $add: ["$$value.totalOvertime", { $ifNull: ["$$this.overtime", 0] }] },
+                totalOvertime: {
+                  $add: [
+                    "$$value.totalOvertime",
+                    {
+                      // Overtime pay = (dailyWage / 8) * overtimeHours
+                      $multiply: [
+                        { $divide: [{ $ifNull: ["$$this.dailyWage", 0] }, 8] },
+                        { $ifNull: ["$$this.overtimeHours", 0] }
+                      ]
+                    }
+                  ]
+                },
                 totalMoneyGiven: { $add: ["$$value.totalMoneyGiven", { $ifNull: ["$$this.moneyGiven", 0] }] }
               }
             }

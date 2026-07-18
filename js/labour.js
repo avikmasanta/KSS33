@@ -141,6 +141,10 @@ var LabourPage = {
                 <label for="labour-phone">Mobile Number</label>
                 <input type="tel" id="labour-phone" class="form-control" placeholder="e.g. 9876543210" pattern="[0-9]{10}">
               </div>
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="labour-default-wage">Default Daily Wage (₹) <span style="font-size:0.8em;color:var(--text-secondary)">— carries forward each day</span></label>
+                <input type="number" id="labour-default-wage" class="form-control" placeholder="e.g. 700" min="0">
+              </div>
               <div class="form-group" style="margin-bottom: 24px;">
                 <label for="labour-status">Status</label>
                 <select id="labour-status" class="form-control">
@@ -506,7 +510,7 @@ var LabourPage = {
             <td><span class="badge ${statusClass}">${l.attendance}</span></td>
             <td>${site ? site.name : '-'}</td>
             <td>₹${l.dailyWage} (₹${gross})</td>
-            <td>₹${l.overtime || 0}</td>
+            <td>${l.overtimeHours ? l.overtimeHours + ' hrs = ₹' + ((l.dailyWage/8)*l.overtimeHours).toFixed(0) : '—'}</td>
             <td>₹${given}</td>
             <td style="font-weight:700; color:${runningBalance >= 0 ? 'var(--danger)' : 'var(--success)'}">₹${Math.abs(runningBalance)} ${runningBalance >= 0 ? 'Payable' : 'Adv'}</td>
           </tr>
@@ -565,9 +569,9 @@ var LabourPage = {
     document.getElementById('labour-name').value = '';
     document.getElementById('labour-nickname').value = '';
     document.getElementById('labour-phone').value = '';
+    document.getElementById('labour-default-wage').value = '500';
     document.getElementById('labour-status').value = 'Active';
     document.getElementById('labour-modal-title').textContent = 'Add New Labour';
-
     document.getElementById('labour-modal-backdrop').classList.add('active');
   },
 
@@ -578,9 +582,9 @@ var LabourPage = {
     document.getElementById('labour-name').value = l.name;
     document.getElementById('labour-nickname').value = l.nickname || '';
     document.getElementById('labour-phone').value = l.phone || '';
+    document.getElementById('labour-default-wage').value = l.defaultWage !== undefined ? l.defaultWage : 500;
     document.getElementById('labour-status').value = l.status;
     document.getElementById('labour-modal-title').textContent = 'Edit Labour details';
-
     document.getElementById('labour-modal-backdrop').classList.add('active');
   },
 
@@ -595,6 +599,7 @@ var LabourPage = {
       name: document.getElementById('labour-name').value,
       nickname: document.getElementById('labour-nickname').value,
       phone: document.getElementById('labour-phone').value,
+      defaultWage: parseFloat(document.getElementById('labour-default-wage').value) || 500,
       status: document.getElementById('labour-status').value
     };
 
@@ -663,7 +668,7 @@ var LabourPage = {
                 <th style="width: 250px;">Attendance Status</th>
                 <th style="width: 150px;">Site</th>
                 <th style="width: 110px;">Daily Wage (₹)</th>
-                <th style="width: 110px;">Overtime (₹)</th>
+                <th style="width: 120px;">Overtime Hrs</th>
                 <th style="width: 110px;">Money Paid (₹)</th>
                 <th>Notes</th>
               </tr>
@@ -672,11 +677,14 @@ var LabourPage = {
               ${activeLabours.map(l => {
                 const log = this.dailyLogsData[l.id] || {};
                 const att = log.attendance || 'Absent';
-                const wage = log.dailyWage !== undefined ? log.dailyWage : 500; // default 500
-                const overtime = log.overtime || 0;
+                // Prefill wage from today's log, else from labour's defaultWage, else 500
+                const wage = log.dailyWage !== undefined ? log.dailyWage : (l.defaultWage !== undefined ? l.defaultWage : 500);
+                const overtimeHours = log.overtimeHours !== undefined ? log.overtimeHours : 0;
                 const money = log.moneyGiven || 0;
                 const note = log.notes || '';
                 const siteId = log.siteId || this.globalSiteId || '';
+                // Calculate OT pay for display: (wage / 8) * hours
+                const otPay = overtimeHours > 0 ? ((wage / 8) * overtimeHours).toFixed(0) : 0;
 
                 return `
                   <tr data-labour-id="${l.id}">
@@ -707,7 +715,10 @@ var LabourPage = {
                       <input type="number" class="form-control log-wage" value="${wage}" style="height:36px; text-align:right;" min="0">
                     </td>
                     <td>
-                      <input type="number" class="form-control log-ot" value="${overtime}" style="height:36px; text-align:right;" min="0">
+                      <div style="display:flex; flex-direction:column; gap:2px;">
+                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:36px; text-align:right;" min="0" step="0.5" placeholder="hrs">
+                        ${overtimeHours > 0 ? `<span style="font-size:10px; color:var(--text-tertiary); text-align:right;">= ₹${otPay}</span>` : ''}
+                      </div>
                     </td>
                     <td>
                       <input type="number" class="form-control log-money" value="${money}" style="height:36px; text-align:right;" min="0">
@@ -787,9 +798,17 @@ var LabourPage = {
 
       const siteId = tr.querySelector('.log-site').value;
       const dailyWage = parseFloat(tr.querySelector('.log-wage').value) || 0;
-      const overtime = parseFloat(tr.querySelector('.log-ot').value) || 0;
+      const overtimeHours = parseFloat(tr.querySelector('.log-ot-hours').value) || 0;
+      // Calculate OT rupee amount for backwards compat display
+      const overtimeAmount = overtimeHours > 0 ? parseFloat(((dailyWage / 8) * overtimeHours).toFixed(2)) : 0;
       const moneyGiven = parseFloat(tr.querySelector('.log-money').value) || 0;
       const notes = tr.querySelector('.log-notes').value;
+
+      // Auto-update defaultWage on the labour if the user changed it
+      const labour = Store.Labours.getById(labourId);
+      if (labour && labour.defaultWage !== dailyWage) {
+        await Store.Labours.update(labourId, { ...labour, defaultWage: dailyWage });
+      }
 
       // Check if existing log for this date & labour exists
       const existing = this.dailyLogsData[labourId];
@@ -800,16 +819,15 @@ var LabourPage = {
         siteId,
         attendance,
         dailyWage,
-        overtime,
+        overtimeHours,
+        overtime: overtimeAmount, // legacy field kept for backward compat
         moneyGiven,
         notes
       };
 
       if (existing) {
-        // Update
         await Store.LabourLogs.update(existing.id, payload);
       } else {
-        // Create
         await Store.LabourLogs.addAsync(payload);
       }
       count++;
@@ -892,7 +910,7 @@ var LabourPage = {
                 <th style="text-align:center;">Half Day</th>
                 <th style="text-align:center;">Absent</th>
                 <th style="text-align:right;">Gross Wages</th>
-                <th style="text-align:right;">Overtime</th>
+                <th style="text-align:right;">OT Hrs → Pay</th>
                 <th style="text-align:right;">Money Given</th>
                 <th style="text-align:right;">Payable Amount</th>
               </tr>
@@ -906,9 +924,9 @@ var LabourPage = {
                   <td style="text-align:center;">${l.halfDays}</td>
                   <td style="text-align:center;">${l.absentDays}</td>
                   <td style="text-align:right; font-weight:600;">₹${l.grossWages}</td>
-                  <td style="text-align:right;">₹${l.totalOvertime}</td>
+                  <td style="text-align:right;">₹${Math.round(l.totalOvertime || 0)}</td>
                   <td style="text-align:right;">₹${l.totalMoneyGiven}</td>
-                  <td style="text-align:right; font-weight:700; color:${l.payableAmount > 0 ? 'var(--danger)' : 'var(--success)'}">₹${l.payableAmount}</td>
+                  <td style="text-align:right; font-weight:700; color:${l.payableAmount > 0 ? 'var(--danger)' : 'var(--success)'}">₹${Math.round(l.payableAmount)}</td>
                 </tr>
               `).join('')}
               ${this.summaryData.labours.length === 0 ? '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-tertiary)">No report details match the selected filters.</td></tr>' : ''}

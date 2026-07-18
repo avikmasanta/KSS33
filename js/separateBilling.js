@@ -809,7 +809,8 @@ var SeparateBillingPage = (function() {
     html += '<div>📍 ' + (bill.location || 'Punjab') + '</div>';
     html += '<div>📞 +91 1234567890</div>';
     html += '<div>✉️ info@kssdoublefin.com</div>';
-    html += '<div>GSTIN : 19ABCDE1234F1Z5</div>';
+    html += '<div>GSTIN : TAN1234F1Z5</div>';
+    // Note: GSTIN line kept for business identification only; GST is not charged
     html += '</div>';
     html += '</div>';
 
@@ -871,7 +872,6 @@ var SeparateBillingPage = (function() {
     html += '<div class="summary-row"><span>Rate per Sq Ft</span><span>' + (rateVal > 0 ? '₹ ' + rateVal.toFixed(2) : '—') + '</span></div>';
     html += '<div class="summary-row bold-total"><span>Net Area</span><span>' + net.toFixed(2) + ' Sq Ft</span></div>';
     html += '<div class="summary-row"><span>Total Amount</span><span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span></div>';
-    html += '<div class="summary-row"><span>GST (0%)</span><span>₹ 0.00</span></div>';
     html += '</div>';
     html += '<div class="grand-total-banner">';
     html += '<span>GRAND TOTAL</span>';

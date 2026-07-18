@@ -232,6 +232,7 @@ const LabourSchema = new mongoose.Schema({
   nickname: String,
   phone: String,
   status: { type: String, default: 'Active' },
+  defaultWage: { type: Number, default: 500 }, // Persists daily wage rate for this labour
   createdAt: String
 }, schemaOptions);
 
@@ -242,7 +243,8 @@ const LabourLogSchema = new mongoose.Schema({
   siteId: String, // optional site assignment
   attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] },
   dailyWage: { type: Number, default: 0 },
-  overtime: { type: Number, default: 0 },
+  overtimeHours: { type: Number, default: 0 },  // Hours of overtime worked that day
+  overtime: { type: Number, default: 0 },        // Legacy: kept for backward compat, now derived from hours
   moneyGiven: { type: Number, default: 0 },
   notes: { type: String, default: '' },
   createdAt: String
