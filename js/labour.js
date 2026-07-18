@@ -519,12 +519,14 @@ var LabourPage = {
 
         const balFormatted = Math.abs(runningBalance).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
+        const wageDisplay = gross === l.dailyWage ? `₹${l.dailyWage}` : `₹${l.dailyWage} (Earned ₹${gross})`;
+
         return `
           <tr>
             <td>${l.date}</td>
             <td><span class="badge ${statusClass}">${l.attendance}</span></td>
             <td>${site ? site.name : '-'}</td>
-            <td>₹${l.dailyWage} (₹${gross})</td>
+            <td>${wageDisplay}</td>
             <td>${otDisplay}</td>
             <td>₹${given}</td>
             <td style="font-weight:700; color:${runningBalance >= 0 ? 'var(--danger)' : 'var(--success)'}">₹${balFormatted} ${runningBalance >= 0 ? 'Payable' : 'Adv'}</td>
