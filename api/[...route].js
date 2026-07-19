@@ -133,7 +133,10 @@ module.exports = async function handler(req, res) {
       Site: getModel('sites'),
       TelegramChat: getModel('telegramChats'),
       SiteUsage: getModel('siteUsage'),
-      SiteDamaged: getModel('siteDamaged')
+      SiteDamaged: getModel('siteDamaged'),
+      Labour: getModel('labours'),
+      LabourLog: getModel('labourLogs'),
+      SeparateBilling: getModel('separateBillings')
     };
 
     if (id === 'preview') {

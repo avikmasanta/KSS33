@@ -191,6 +191,21 @@ async function generateDailyWarehouseSummary({ date, models }) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
 
+  // ── Pre-fetch LabourLog and SeparateBilling for summary sections ─────
+  let dayLogs = [];
+  if (models.LabourLog) {
+    try {
+      dayLogs = await models.LabourLog.find({ date });
+    } catch (e) {}
+  }
+
+  let allBills = [];
+  if (models.SeparateBilling) {
+    try {
+      allBills = await models.SeparateBilling.find({});
+    } catch (e) {}
+  }
+
   // ═══════════════════════════════════════════════════════════════════
   // PDF Generation — Mobile-first large-font layout
   // Page size: A4 portrait
@@ -503,63 +518,53 @@ async function generateDailyWarehouseSummary({ date, models }) {
     }
 
     // ── Labour & Payroll Summary
-    if (models.LabourLog) {
-      try {
-        const dayLogs = await models.LabourLog.find({ date });
-        if (dayLogs.length > 0) {
-          if (y > 680) { doc.addPage(); y = 30; }
-          y = sectionTitle('👷  Labour & Daily Payroll Summary', y, '#4338ca');
-          y += 6;
+    if (dayLogs.length > 0) {
+      if (y > 680) { doc.addPage(); y = 30; }
+      y = sectionTitle('👷  Labour & Daily Payroll Summary', y, '#4338ca');
+      y += 6;
 
-          const presentCount = dayLogs.filter(l => l.attendance === 'Present').length;
-          const halfCount = dayLogs.filter(l => l.attendance === 'Half Day').length;
-          const absentCount = dayLogs.filter(l => l.attendance === 'Absent').length;
+      const presentCount = dayLogs.filter(l => l.attendance === 'Present').length;
+      const halfCount = dayLogs.filter(l => l.attendance === 'Half Day').length;
+      const absentCount = dayLogs.filter(l => l.attendance === 'Absent').length;
 
-          let totalOtHours = 0;
-          let totalOtPay = 0;
-          let totalMoneyGiven = 0;
-          dayLogs.forEach(l => {
-            const otH = parseFloat(l.overtimeHours) || 0;
-            const dw = parseFloat(l.dailyWage) || 0;
-            totalOtHours += otH;
-            totalOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
-            totalMoneyGiven += parseFloat(l.moneyGiven) || 0;
-          });
+      let totalOtHours = 0;
+      let totalOtPay = 0;
+      let totalMoneyGiven = 0;
+      dayLogs.forEach(l => {
+        const otH = parseFloat(l.overtimeHours) || 0;
+        const dw = parseFloat(l.dailyWage) || 0;
+        totalOtHours += otH;
+        totalOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        totalMoneyGiven += parseFloat(l.moneyGiven) || 0;
+      });
 
-          doc.fillColor(C_LIGHT).rect(30, y, PW, 40).fill();
-          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-          doc.text(`Attendance: ${presentCount} Present, ${halfCount} Half Day, ${absentCount} Absent`, 42, y + 8);
-          doc.text(`Overtime: ${totalOtHours} hrs (Rs. ${Math.round(totalOtPay)})  |  Money Paid: Rs. ${Math.round(totalMoneyGiven)}`, 42, y + 22);
-          y += 46;
-        }
-      } catch (e) {}
+      doc.fillColor(C_LIGHT).rect(30, y, PW, 40).fill();
+      doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+      doc.text(`Attendance: ${presentCount} Present, ${halfCount} Half Day, ${absentCount} Absent`, 42, y + 8);
+      doc.text(`Overtime: ${totalOtHours} hrs (Rs. ${Math.round(totalOtPay)})  |  Money Paid: Rs. ${Math.round(totalMoneyGiven)}`, 42, y + 22);
+      y += 46;
     }
 
     // ── Measurement & Separate Bills Summary
-    if (models.SeparateBilling) {
-      try {
-        const allBills = await models.SeparateBilling.find({});
-        if (allBills.length > 0) {
-          if (y > 680) { doc.addPage(); y = 30; }
-          y = sectionTitle('📐  Measurement Bills Summary', y, '#0f3c7a');
-          y += 6;
+    if (allBills.length > 0) {
+      if (y > 680) { doc.addPage(); y = 30; }
+      y = sectionTitle('📐  Measurement Bills Summary', y, '#0f3c7a');
+      y += 6;
 
-          let totalNetArea = 0;
-          let totalBillAmt = 0;
-          let totalReceivedAmt = 0;
-          allBills.forEach(b => {
-            totalNetArea += parseFloat(b.netArea || b.totalArea) || 0;
-            totalBillAmt += parseFloat(b.totalAmount) || 0;
-            totalReceivedAmt += parseFloat(b.receivedAmount) || 0;
-          });
+      let totalNetArea = 0;
+      let totalBillAmt = 0;
+      let totalReceivedAmt = 0;
+      allBills.forEach(b => {
+        totalNetArea += parseFloat(b.netArea || b.totalArea) || 0;
+        totalBillAmt += parseFloat(b.totalAmount) || 0;
+        totalReceivedAmt += parseFloat(b.receivedAmount) || 0;
+      });
 
-          doc.fillColor(C_LIGHT).rect(30, y, PW, 40).fill();
-          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-          doc.text(`Total Bills: ${allBills.length}  |  Total Net Area: ${Math.round(totalNetArea)} Sq Ft`, 42, y + 8);
-          doc.text(`Total Amount: Rs. ${Math.round(totalBillAmt)}  |  Total Received: Rs. ${Math.round(totalReceivedAmt)}`, 42, y + 22);
-          y += 46;
-        }
-      } catch (e) {}
+      doc.fillColor(C_LIGHT).rect(30, y, PW, 40).fill();
+      doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+      doc.text(`Total Bills: ${allBills.length}  |  Total Net Area: ${Math.round(totalNetArea)} Sq Ft`, 42, y + 8);
+      doc.text(`Total Amount: Rs. ${Math.round(totalBillAmt)}  |  Total Received: Rs. ${Math.round(totalReceivedAmt)}`, 42, y + 22);
+      y += 46;
     }
 
     // ── PAGE FOOTER ──────────────────────────────────────────────────
