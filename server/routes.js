@@ -412,7 +412,8 @@ router.get('/labours-summary', async (req, res) => {
               presentDates: [],
               halfDayDates: [],
               absentDates: [],
-              overtimeLogs: []
+              overtimeLogs: [],
+              paymentLogs: []
             },
             in: {
               presentDays: {
@@ -567,6 +568,23 @@ router.get('/labours-summary', async (req, res) => {
                     ]
                   }
                 ]
+              },
+              paymentLogs: {
+                $concatArrays: [
+                  "$$value.paymentLogs",
+                  {
+                    $cond: [
+                      { $gt: [{ $toDouble: { $ifNull: ["$$this.moneyGiven", 0] } }, 0] },
+                      [{
+                        date: "$$this.date",
+                        amount: { $toDouble: { $ifNull: ["$$this.moneyGiven", 0] } },
+                        notes: { $ifNull: ["$$this.notes", ""] },
+                        createdAt: { $ifNull: ["$$this.createdAt", ""] }
+                      }],
+                      []
+                    ]
+                  }
+                ]
               }
             }
           }
@@ -593,6 +611,7 @@ router.get('/labours-summary', async (req, res) => {
         halfDayDates: "$stats.halfDayDates",
         absentDates: "$stats.absentDates",
         overtimeLogs: "$stats.overtimeLogs",
+        paymentLogs: "$stats.paymentLogs",
         totalEarnings: { $add: ["$stats.grossWages", "$stats.totalOvertime"] }
       }
     });

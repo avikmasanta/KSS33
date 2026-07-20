@@ -969,6 +969,11 @@ var LabourPage = {
               const hrsNum = o.hours !== undefined ? Number(parseFloat(o.hours).toFixed(1)) : 0;
               return `<span style="background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(o.date)}: ${hrsNum}h${timeStr} = ₹${Math.round(o.pay)}</span>`;
             }).join(' ');
+
+            const payLogs = (l.paymentLogs || []).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(p => {
+              const notesStr = p.notes ? ` (${p.notes})` : '';
+              return `<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(p.date)}: ₹${Math.round(p.amount)}${notesStr}</span>`;
+            }).join(' ');
             
             const rawOtHours = parseFloat(l.totalOvertimeHours) || 0;
             const otHours = Number(rawOtHours.toFixed(1));
@@ -1018,6 +1023,11 @@ var LabourPage = {
                   <div style="display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap;">
                     <span style="font-size:0.75rem; font-weight:700; color:#6b21a8; min-width:90px; padding-top:2px;">⏰ OVERTIME (${otHours}h)</span>
                     <div style="display:flex; flex-wrap:wrap; gap:6px;">${otLogs}</div>
+                  </div>` : ''}
+                  ${(l.paymentLogs && l.paymentLogs.length > 0) ? `
+                  <div style="display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                    <span style="font-size:0.75rem; font-weight:700; color:#047857; min-width:90px; padding-top:2px;">💵 MONEY PAID</span>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px;">${payLogs}</div>
                   </div>` : ''}
                 </div>
 
@@ -1132,61 +1142,199 @@ var LabourPage = {
     }
 
     const dateRangeStr = `${this.reportStartDate} to ${this.reportEndDate}`;
-    const tableRows = this.summaryData.labours.map(l => `
-      <tr>
-        <td style="border: 1px solid #333; padding: 8px;"><strong>${l.name}</strong></td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:center;">${l.phone || '-'}</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:center;">${l.presentDays}</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:center;">${l.halfDays}</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:center;">${l.absentDays}</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:right;">₹${l.grossWages}</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:right;">₹${l.totalOvertime}</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:right;">₹${l.totalMoneyGiven}</td>
-        <td style="border: 1px solid #333; padding: 8px; text-align:right; font-weight:bold;">₹${l.payableAmount}</td>
-      </tr>
-    `).join('');
+    const printDate = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const labourSections = this.summaryData.labours.map((l, lIdx) => {
+      const rawOtHours = parseFloat(l.totalOvertimeHours) || 0;
+      const otHours = Number(rawOtHours.toFixed(1));
+      const otPay = Math.round(l.totalOvertime || 0);
+      const payable = Math.round(l.payableAmount || 0);
+      const advance = Math.round(l.advanceBalance || 0);
+
+      // Format Overtime Logs Table
+      const sortedOt = (l.overtimeLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
+      let otTableHtml = '';
+      if (sortedOt.length > 0) {
+        otTableHtml = `
+          <div style="margin-top: 12px;">
+            <h5 style="margin: 0 0 6px 0; color: #6b21a8; font-size: 11px; text-transform: uppercase;">⏰ Overtime Worked Logs (${otHours} hrs total = ₹${otPay.toLocaleString('en-IN')})</h5>
+            <table class="sub-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+              <thead>
+                <tr style="background:#f3e8ff; color:#6b21a8;">
+                  <th style="width:40px; text-align:center;">#</th>
+                  <th style="width:120px; text-align:left;">Date Worked</th>
+                  <th style="width:100px; text-align:center;">OT Hours</th>
+                  <th style="text-align:left;">Time Slot / Notes</th>
+                  <th style="width:120px; text-align:right;">OT Pay (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sortedOt.map((o, idx) => `
+                  <tr>
+                    <td style="text-align:center; color:#666;">${idx + 1}</td>
+                    <td style="font-weight:600;">${o.date}</td>
+                    <td style="text-align:center; font-weight:600; color:#6b21a8;">${Number(parseFloat(o.hours).toFixed(1))} hrs</td>
+                    <td style="color:#555;">${o.time || 'Standard OT'}</td>
+                    <td style="text-align:right; font-weight:700; color:#6b21a8;">₹${Math.round(o.pay).toLocaleString('en-IN')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      // Format Money Given / Payment History Table
+      const sortedPayments = (l.paymentLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
+      let paymentTableHtml = '';
+      if (sortedPayments.length > 0) {
+        paymentTableHtml = `
+          <div style="margin-top: 12px;">
+            <h5 style="margin: 0 0 6px 0; color: #047857; font-size: 11px; text-transform: uppercase;">💵 Money Paid / Advance Payment History (Total ₹${Math.round(l.totalMoneyGiven || 0).toLocaleString('en-IN')})</h5>
+            <table class="sub-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+              <thead>
+                <tr style="background:#ecfdf5; color:#047857;">
+                  <th style="width:40px; text-align:center;">#</th>
+                  <th style="width:130px; text-align:left;">Payment Date</th>
+                  <th style="width:150px; text-align:left;">Time / Logged Date</th>
+                  <th style="width:130px; text-align:right;">Amount Paid (₹)</th>
+                  <th style="text-align:left;">Payment Notes / Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sortedPayments.map((p, idx) => {
+                  let timeDisplay = p.date;
+                  if (p.createdAt) {
+                    try {
+                      const cd = new Date(p.createdAt);
+                      if (!isNaN(cd.getTime())) {
+                        timeDisplay = cd.toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+                      }
+                    } catch(e) {}
+                  }
+                  return `
+                    <tr>
+                      <td style="text-align:center; color:#666;">${idx + 1}</td>
+                      <td style="font-weight:600;">${p.date}</td>
+                      <td style="font-size:10px; color:#475569;">${timeDisplay}</td>
+                      <td style="text-align:right; font-weight:700; color:#059669;">₹${Math.round(p.amount).toLocaleString('en-IN')}</td>
+                      <td style="color:#555;">${p.notes || 'Payment / Advance'}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="labour-section" style="${lIdx > 0 ? 'page-break-before: auto; margin-top: 25px;' : ''}">
+          <div class="labour-card">
+            <!-- Header bar -->
+            <div class="card-header">
+              <div>
+                <span class="labour-name">${l.name}</span>
+                ${l.nickname ? `<span class="nickname">(${l.nickname})</span>` : ''}
+                <span class="phone">📞 ${l.phone || 'No phone'}</span>
+              </div>
+              <div class="net-status">
+                ${payable > 0 ? `Net Payable: ₹${payable.toLocaleString('en-IN')}` : advance > 0 ? `Advance Bal: ₹${advance.toLocaleString('en-IN')}` : 'Settled (₹0 Balance)'}
+              </div>
+            </div>
+
+            <!-- Attendance Overview -->
+            <div style="padding: 10px 14px; background: #f8fafc; font-size: 11px; border-bottom: 1px solid #e2e8f0; display:flex; gap:16px; flex-wrap:wrap;">
+              <span>✅ <strong>Present:</strong> ${l.presentDays} days</span>
+              <span>🌗 <strong>Half Days:</strong> ${l.halfDays} days</span>
+              <span>❌ <strong>Absent:</strong> ${l.absentDays} days</span>
+              <span>⏰ <strong>OT Hours:</strong> ${otHours} hrs</span>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="metrics-grid">
+              <div class="metric-box">
+                <div class="m-label">Gross Wages</div>
+                <div class="m-val">₹${Math.round(l.grossWages || 0).toLocaleString('en-IN')}</div>
+              </div>
+              <div class="metric-box">
+                <div class="m-label">Overtime Pay</div>
+                <div class="m-val" style="color:#6b21a8;">₹${otPay.toLocaleString('en-IN')}</div>
+                <div style="font-size:9px; color:#7c3aed;">(${otHours} hrs)</div>
+              </div>
+              <div class="metric-box">
+                <div class="m-label">Money Given</div>
+                <div class="m-val" style="color:#059669;">₹${Math.round(l.totalMoneyGiven || 0).toLocaleString('en-IN')}</div>
+              </div>
+              <div class="metric-box" style="background:${payable > 0 ? '#fef2f2' : '#f0fdf4'}; border-color:${payable > 0 ? '#fecaca' : '#bbf7d0'};">
+                <div class="m-label" style="color:${payable > 0 ? '#b91c1c' : '#15803d'}; font-weight:700;">
+                  ${payable > 0 ? 'To Pay Balance' : advance > 0 ? 'Advance Balance' : 'Net Balance'}
+                </div>
+                <div class="m-val" style="color:${payable > 0 ? '#dc2626' : '#16a34a'}; font-weight:800;">
+                  ₹${(payable > 0 ? payable : advance).toLocaleString('en-IN')}
+                </div>
+              </div>
+            </div>
+
+            <!-- Overtime Table -->
+            ${otTableHtml}
+
+            <!-- Money Given Payment Table -->
+            ${paymentTableHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>KSS Labour Payroll Summary</title>
+        <title>KSS Labour Payroll Printable Statement</title>
         <style>
-          @page { size: A4 landscape; margin: 15mm; }
-          body { font-family: 'Inter', Arial, sans-serif; color: #111; padding: 10px; }
-          h2 { margin: 0 0 5px 0; }
-          p { margin: 0 0 20px 0; font-size: 13px; color: #555; }
-          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          th { border: 1px solid #333; padding: 10px; background: #f1f5f9; text-align: left; font-size: 12px; }
-          td { font-size: 11px; }
+          @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+          @page { size: A4 portrait; margin: 12mm; }
+          body { font-family: 'Inter', sans-serif; color: #0f172a; padding: 10px; background: #fff; line-height: 1.4; }
+          .report-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f3c7a; padding-bottom: 12px; margin-bottom: 20px; }
+          .title { font-size: 20px; font-weight: 800; color: #0f3c7a; text-transform: uppercase; letter-spacing: 0.5px; }
+          .subtitle { font-size: 11px; color: #475569; margin-top: 3px; font-weight: 500; }
+          .labour-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+          .card-header { background: #0f172a; color: white; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+          .labour-name { font-size: 14px; font-weight: 700; }
+          .nickname { font-size: 12px; color: #cbd5e1; margin-left: 6px; }
+          .phone { font-size: 11px; color: #94a3b8; margin-left: 10px; }
+          .net-status { font-size: 13px; font-weight: 800; color: #fde047; }
+          .metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px 14px; background: #ffffff; border-bottom: 1px solid #e2e8f0; }
+          .metric-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; text-align: center; }
+          .m-label { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 2px; }
+          .m-val { font-size: 14px; font-weight: 800; color: #0f172a; }
+          .sub-table { margin-top: 4px; font-size: 11px; }
+          .sub-table th { padding: 6px 10px; font-size: 10px; text-transform: uppercase; border: 1px solid #cbd5e1; }
+          .sub-table td { padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 11px; }
+          @media print {
+            body { padding: 0; }
+            .no-print { display: none; }
+          }
         </style>
       </head>
       <body>
-        <h2>Labour Payroll Summary Report</h2>
-        <p>Report Period: ${dateRangeStr} | Printed on: ${new Date().toLocaleString('en-IN')}</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Labour Name</th>
-              <th style="text-align:center;">Mobile</th>
-              <th style="text-align:center;">Present</th>
-              <th style="text-align:center;">Half</th>
-              <th style="text-align:center;">Absent</th>
-              <th style="text-align:right;">Gross Wages</th>
-              <th style="text-align:right;">Overtime</th>
-              <th style="text-align:right;">Money Given</th>
-              <th style="text-align:right;">Payable Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${tableRows}
-          </tbody>
-        </table>
+        <div class="report-header">
+          <div>
+            <div class="title">KSS Construction Materials</div>
+            <div class="subtitle">Labour Payroll Detailed Statement | Period: <strong>${dateRangeStr}</strong></div>
+          </div>
+          <div style="text-align:right; font-size:10px; color:#64748b;">
+            <div>Printed on: ${printDate}</div>
+            <div>Prepared By: KSS System</div>
+          </div>
+        </div>
+
+        ${labourSections}
+
         <script>
           window.onload = function() {
             setTimeout(function() {
               window.print();
-              window.close();
             }, 300);
           }
         </script>
