@@ -11,12 +11,14 @@
 var SeparateBillingPage = (function() {
 
   // State
+  // State
   var state = {
     view: 'list',
     editId: null,
     searchTerm: '',
     searchField: 'all',
     formItems: [{ type: 'Slab', length: '', breadth: '', quantity: '1', area: 0 }],
+    payments: [{ date: '', amount: '', notes: '' }],
     formData: { siteName: '', contractorName: '', ownerName: '', location: '', lintelDate: '', ratePerSqFt: '', receivedAmount: '', receivedDate: '' }
   };
 
@@ -48,8 +50,9 @@ var SeparateBillingPage = (function() {
   }
 
   // Calc totals
-  function calcTotals(items) {
+  function calcTotals(items, payments) {
     var src = items || state.formItems;
+    var paySrc = payments || state.payments || [];
     var slabArea = 0, beamArea = 0, openArea = 0, miscAddArea = 0, miscDeductArea = 0;
     src.forEach(function(i) {
       var a = parseFloat(i.area) || 0;
@@ -64,8 +67,18 @@ var SeparateBillingPage = (function() {
     var netArea   = parseFloat(Math.max(0, grossArea - totalDeductions).toFixed(3));
     var rate      = parseFloat(state.formData.ratePerSqFt) || 0;
     var totalAmount = rate > 0 ? parseFloat((netArea * rate).toFixed(2)) : null;
-    var receivedAmount = parseFloat(state.formData.receivedAmount) || 0;
-    var netPayable = totalAmount !== null ? Math.max(0, parseFloat((totalAmount - receivedAmount).toFixed(2))) : null;
+    
+    var totalReceived = 0;
+    paySrc.forEach(function(p) {
+      totalReceived += (parseFloat(p.amount) || 0);
+    });
+
+    if (totalReceived === 0 && parseFloat(state.formData.receivedAmount) > 0) {
+      totalReceived = parseFloat(state.formData.receivedAmount);
+    }
+
+    var netPayable = totalAmount !== null ? Math.max(0, parseFloat((totalAmount - totalReceived).toFixed(2))) : null;
+
     return {
       slabArea:       parseFloat(slabArea.toFixed(3)),
       beamArea:       parseFloat(beamArea.toFixed(3)),
@@ -76,7 +89,8 @@ var SeparateBillingPage = (function() {
       totalDeductions:parseFloat(totalDeductions.toFixed(3)),
       netArea:        netArea,
       totalAmount:    totalAmount,
-      receivedAmount: receivedAmount,
+      totalReceived:  parseFloat(totalReceived.toFixed(2)),
+      receivedAmount: parseFloat(totalReceived.toFixed(2)),
       netPayable:     netPayable
     };
   }
@@ -160,6 +174,26 @@ var SeparateBillingPage = (function() {
     html += '</div>';
     html += '</div>';
     return html;
+  }
+
+  // ---- Payment Row HTML ----
+  function paymentRowHTML(item, idx) {
+    var d = item.date || '';
+    var a = item.amount || '';
+    var n = item.notes || '';
+
+    var delBtn = (state.payments.length > 1 || a !== '' || d !== '')
+      ? '<button type="button" class="sb-icon-btn sb-icon-delete" onclick="SeparateBillingPage.removePaymentRow(' + idx + ')" title="Delete Payment" style="margin-top:16px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
+      : '';
+
+    var row = '<div style="display:flex; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap; background:#f0fdf4; padding:10px 14px; border-radius:8px; border:1px solid #bbf7d0;">';
+    row += '<div style="font-weight:700; color:#059669; font-size:12px; min-width:24px;">#' + (idx + 1) + '</div>';
+    row += '<div style="flex:1; min-width:140px;"><label class="sb-label" style="font-size:11px; color:#047857;">Payment Date</label><input type="date" class="sb-input" id="sb-pay-date-' + idx + '" value="' + d + '" oninput="SeparateBillingPage.updatePaymentField(' + idx + ',\'date\',this.value)"></div>';
+    row += '<div style="flex:1; min-width:140px;"><label class="sb-label" style="font-size:11px; color:#047857;">Amount Received (₹)</label><div class="sb-rate-input-wrap"><span class="sb-rate-prefix">Rs.</span><input type="number" class="sb-input sb-rate-input" id="sb-pay-amount-' + idx + '" min="0" step="1" placeholder="Amount" value="' + a + '" oninput="SeparateBillingPage.updatePaymentField(' + idx + ',\'amount\',this.value)"></div></div>';
+    row += '<div style="flex:1.5; min-width:180px;"><label class="sb-label" style="font-size:11px; color:#047857;">Payment Mode / Notes (Optional)</label><input type="text" class="sb-input" id="sb-pay-notes-' + idx + '" placeholder="e.g. Bank Transfer, Cash Advance" value="' + n + '" oninput="SeparateBillingPage.updatePaymentField(' + idx + ',\'notes\',this.value)"></div>';
+    row += '<div>' + delBtn + '</div>';
+    row += '</div>';
+    return row;
   }
 
   // ---- Material Row HTML ----
@@ -481,7 +515,9 @@ var SeparateBillingPage = (function() {
 
     // Grand total / Net Payable
     var recVal = parseFloat(bill.receivedAmount) || 0;
-    var netPay = bill.netPayable !== null && bill.netPayable !== undefined ? bill.netPayable : (bill.totalAmount ? Math.max(0, bill.totalAmount - recVal) : null);
+    var payList = bill.payments && bill.payments.length > 0 ? bill.payments : (recVal > 0 ? [{ date: bill.receivedDate, amount: recVal, notes: 'Received' }] : []);
+    var totalRecVal = payList.reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+    var netPay = bill.netPayable !== null && bill.netPayable !== undefined ? bill.netPayable : (bill.totalAmount ? Math.max(0, bill.totalAmount - totalRecVal) : null);
 
     html += '<div class="sb-card sb-summary-card"><div class="sb-summary-row">';
     html += '<div class="sb-summary-item"><div class="sb-summary-label">Net Area</div><div class="sb-summary-value">' + fNum(net) + ' Sq Ft</div></div>';
@@ -490,18 +526,23 @@ var SeparateBillingPage = (function() {
       html += '<div class="sb-summary-item"><div class="sb-summary-label">Rate / Sq Ft</div><div class="sb-summary-value">Rs.' + fNum(bill.ratePerSqFt) + '</div></div>';
       html += '<div class="sb-summary-sep">=</div>';
       html += '<div class="sb-summary-item"><div class="sb-summary-label">Total Amount</div><div class="sb-summary-value">Rs.' + fNum(bill.totalAmount) + '</div></div>';
-      if (recVal > 0) {
-        html += '<div class="sb-summary-sep">-</div>';
-        html += '<div class="sb-summary-item"><div class="sb-summary-label" style="color:#059669">Money Received ' + (bill.receivedDate ? '<span style="font-size:11px;opacity:0.8">(' + bill.receivedDate + ')</span>' : '') + '</div><div class="sb-summary-value" style="color:#059669">Rs.' + fNum(recVal) + '</div></div>';
+      if (payList.length > 0) {
+        payList.forEach(function(p) {
+          if (parseFloat(p.amount) > 0) {
+            var dStr = p.date ? ' (' + p.date + ')' : '';
+            var nStr = p.notes ? ' - ' + p.notes : '';
+            html += '<div class="sb-summary-sep">-</div>';
+            html += '<div class="sb-summary-item"><div class="sb-summary-label" style="color:#059669">Money Received' + dStr + nStr + '</div><div class="sb-summary-value" style="color:#059669">Rs.' + fNum(p.amount) + '</div></div>';
+          }
+        });
       }
       html += '<div class="sb-summary-sep">=</div>';
-      html += '<div class="sb-summary-item"><div class="sb-summary-label">' + (recVal > 0 ? 'Net Payable' : 'Grand Total') + '</div><div class="sb-summary-value sb-grand-total">Rs.' + fNum(netPay !== null ? netPay : bill.totalAmount) + '</div></div>';
+      html += '<div class="sb-summary-item"><div class="sb-summary-label">' + (totalRecVal > 0 ? 'Net Payable' : 'Grand Total') + '</div><div class="sb-summary-value sb-grand-total">Rs.' + fNum(netPay !== null ? netPay : bill.totalAmount) + '</div></div>';
     }
     html += '</div></div>';
     html += '</div></div>';
     return html;
   }
-
   // ---- EVENT HANDLERS ----
   function init() {}
   function onSearch(e)      { state.searchTerm  = e.target.value; rerender(); }
@@ -529,28 +570,27 @@ var SeparateBillingPage = (function() {
 
     // Auto-fetch money received / payments for this site
     var sId = site.id || site._id;
-    var totalCollected = 0;
-    var latestPaymentDate = '';
+    var sitePayments = [];
     if (Store.SitePayments && Store.SitePayments.getBySite) {
-      var sitePayments = Store.SitePayments.getBySite(sId) || [];
-      totalCollected = Store.SitePayments.getTotalBySite(sId);
-      if (sitePayments.length > 0) {
-        var sorted = sitePayments.slice().sort(function(a,b) { return new Date(b.date || 0) - new Date(a.date || 0); });
-        latestPaymentDate = sorted[0].date || '';
-      }
+      sitePayments = Store.SitePayments.getBySite(sId) || [];
     } else {
       try {
         var payments = JSON.parse(localStorage.getItem('bm_sitePayments')) || [];
-        var sitePayments = payments.filter(function(p) { return p.siteId === sId; });
-        totalCollected = sitePayments.reduce(function(sum, p) { return sum + (parseFloat(p.amount) || 0); }, 0);
-        if (sitePayments.length > 0) {
-          sitePayments.sort(function(a,b) { return new Date(b.date || 0) - new Date(a.date || 0); });
-          latestPaymentDate = sitePayments[0].date || '';
-        }
+        sitePayments = payments.filter(function(p) { return p.siteId === sId; });
       } catch(e) {}
     }
-    state.formData.receivedAmount = totalCollected > 0 ? totalCollected : '';
-    state.formData.receivedDate = latestPaymentDate;
+
+    if (sitePayments.length > 0) {
+      state.payments = sitePayments.map(function(sp) {
+        return {
+          date: sp.date || '',
+          amount: sp.amount || '',
+          notes: sp.paymentMode ? sp.paymentMode : (sp.notes || 'Site Payment')
+        };
+      });
+    } else {
+      state.payments = [{ date: window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0,10), amount: '', notes: '' }];
+    }
 
     var siteNameEl = document.getElementById('sb-siteName');
     if (siteNameEl) siteNameEl.value = site.name || '';
@@ -558,12 +598,8 @@ var SeparateBillingPage = (function() {
     if (ownerNameEl) ownerNameEl.value = site.customerName || '';
     var locationEl = document.getElementById('sb-location');
     if (locationEl) locationEl.value = site.address || '';
-    var recEl = document.getElementById('sb-receivedAmount');
-    if (recEl) recEl.value = totalCollected > 0 ? totalCollected : '';
-    var recDateEl = document.getElementById('sb-receivedDate');
-    if (recDateEl) recDateEl.value = latestPaymentDate;
 
-    refreshTotals();
+    rerender();
   }
 
   function rerender() {
@@ -574,10 +610,16 @@ var SeparateBillingPage = (function() {
   function refreshTotals() {
     var rateEl = document.getElementById('sb-ratePerSqFt');
     if (rateEl) state.formData.ratePerSqFt = rateEl.value;
-    var recEl = document.getElementById('sb-receivedAmount');
-    if (recEl) state.formData.receivedAmount = recEl.value;
-    var recDateEl = document.getElementById('sb-receivedDate');
-    if (recDateEl) state.formData.receivedDate = recDateEl.value;
+
+    state.payments.forEach(function(p, idx) {
+      var amtEl  = document.getElementById('sb-pay-amount-' + idx);
+      var dateEl = document.getElementById('sb-pay-date-' + idx);
+      var noteEl = document.getElementById('sb-pay-notes-' + idx);
+
+      if (amtEl)  p.amount = amtEl.value;
+      if (dateEl) p.date   = dateEl.value;
+      if (noteEl) p.notes  = noteEl.value;
+    });
 
     var t = calcTotals();
     var g = document.getElementById('sb-calc-grid');
@@ -586,6 +628,8 @@ var SeparateBillingPage = (function() {
     if (nd) nd.textContent = fNum(t.netArea) + ' Sq Ft';
     var ae = document.getElementById('sb-total-amount');
     if (ae) ae.textContent = t.totalAmount !== null ? 'Rs.' + fNum(t.totalAmount) : '-';
+    var tr = document.getElementById('sb-total-received-display');
+    if (tr) tr.textContent = 'Total Received: Rs.' + fNum(t.totalReceived);
     var np = document.getElementById('sb-net-payable-display');
     if (np) np.textContent = t.netPayable !== null ? 'Rs.' + fNum(t.netPayable) : '-';
   }
@@ -602,6 +646,7 @@ var SeparateBillingPage = (function() {
     state.editId    = null;
     state.formData  = { siteName:'', contractorName:'', ownerName:'', location:'', lintelDate:'', ratePerSqFt:'', receivedAmount:'', receivedDate:'' };
     state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
+    state.payments  = [{ date: window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0,10), amount: '', notes: '' }];
     rerender();
   }
 
@@ -624,6 +669,15 @@ var SeparateBillingPage = (function() {
       return Object.assign({ type: 'Slab' }, i);
     });
     if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
+
+    if (bill.payments && bill.payments.length > 0) {
+      state.payments = bill.payments.map(function(p) { return Object.assign({}, p); });
+    } else if (parseFloat(bill.receivedAmount) > 0) {
+      state.payments = [{ date: bill.receivedDate || '', amount: bill.receivedAmount, notes: 'Received' }];
+    } else {
+      state.payments = [{ date: window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0,10), amount: '', notes: '' }];
+    }
+
     rerender();
   }
 
@@ -652,6 +706,15 @@ var SeparateBillingPage = (function() {
       return Object.assign({ type: 'Slab' }, i);
     });
     if (!state.formItems.length) state.formItems = [{ type:'Slab', length:'', breadth:'', quantity:'1', area:0 }];
+
+    if (bill.payments && bill.payments.length > 0) {
+      state.payments = bill.payments.map(function(p) { return Object.assign({}, p); });
+    } else if (parseFloat(bill.receivedAmount) > 0) {
+      state.payments = [{ date: '', amount: bill.receivedAmount, notes: 'Received' }];
+    } else {
+      state.payments = [{ date: '', amount: '', notes: '' }];
+    }
+
     rerender();
   }
 
@@ -668,6 +731,27 @@ var SeparateBillingPage = (function() {
     syncFormInputs();
     state.formItems.splice(idx, 1);
     rerender();
+  }
+
+  function addPaymentRow() {
+    syncFormInputs();
+    state.payments.push({ date: window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0,10), amount: '', notes: '' });
+    rerender();
+  }
+
+  function removePaymentRow(idx) {
+    syncFormInputs();
+    state.payments.splice(idx, 1);
+    if (!state.payments.length) {
+      state.payments = [{ date: window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0,10), amount: '', notes: '' }];
+    }
+    rerender();
+  }
+
+  function updatePaymentField(idx, field, value) {
+    if (!state.payments[idx]) return;
+    state.payments[idx][field] = value;
+    refreshTotals();
   }
 
   function updateRowType(idx, type) {
@@ -697,10 +781,19 @@ var SeparateBillingPage = (function() {
   }
 
   function syncFormInputs() {
-    var fields = ['siteName','contractorName','ownerName','location','lintelDate','ratePerSqFt','receivedAmount','receivedDate'];
+    var fields = ['siteName','contractorName','ownerName','location','lintelDate','ratePerSqFt'];
     fields.forEach(function(f) {
       var el = document.getElementById('sb-' + f);
       if (el) state.formData[f] = el.value;
+    });
+    state.payments.forEach(function(p, idx) {
+      var amtEl  = document.getElementById('sb-pay-amount-' + idx);
+      var dateEl = document.getElementById('sb-pay-date-' + idx);
+      var noteEl = document.getElementById('sb-pay-notes-' + idx);
+
+      if (amtEl)  p.amount = amtEl.value;
+      if (dateEl) p.date   = dateEl.value;
+      if (noteEl) p.notes  = noteEl.value;
     });
     state.formItems.forEach(function(item, idx) {
       var nameEl     = document.getElementById('sb-materialName-' + idx);
@@ -744,16 +837,28 @@ var SeparateBillingPage = (function() {
           materialName: (i.materialName && i.materialName.trim()) ? i.materialName.trim() : (defaultLabel + ' ' + (idx + 1)),
           length:       parseFloat(i.length)   || 0,
           breadth:      parseFloat(i.breadth)  || 0,
-          quantity:     parseFloat(i.quantity) || (isMisc ? 1 : 0),
-          area:         calcArea(i)
+          quantity:     (i.type === 'Beam' || isMisc) ? (parseFloat(i.quantity) || 1) : 1,
+          area:         parseFloat(i.area)     || 0
         };
       });
 
     if (!items.length) { alert('Please add at least one material row with data.'); return; }
 
-    var t    = calcTotals(items);
-    var rate = parseFloat(state.formData.ratePerSqFt) || null;
-    var rec  = parseFloat(state.formData.receivedAmount) || 0;
+    var validPayments = state.payments
+      .filter(function(p) { return parseFloat(p.amount) > 0 || p.date || (p.notes && p.notes.trim()); })
+      .map(function(p) {
+        return {
+          date:   p.date || '',
+          amount: parseFloat(p.amount) || 0,
+          notes:  (p.notes || '').trim()
+        };
+      });
+
+    var totalRec = validPayments.reduce(function(s, p) { return s + p.amount; }, 0);
+    var lastDate = validPayments.length > 0 ? (validPayments[validPayments.length - 1].date || '') : '';
+
+    var totals = calcTotals(items, validPayments);
+    var rate   = parseFloat(state.formData.ratePerSqFt) || null;
 
     var record = {
       siteName:       state.formData.siteName.trim(),
@@ -762,19 +867,20 @@ var SeparateBillingPage = (function() {
       location:       state.formData.location.trim(),
       lintelDate:     state.formData.lintelDate || '',
       ratePerSqFt:    rate,
-      receivedAmount: rec,
-      receivedDate:   state.formData.receivedDate || '',
+      receivedAmount: totalRec,
+      receivedDate:   lastDate,
+      payments:       validPayments,
       items:          items,
-      slabArea:       t.slabArea,
-      beamArea:       t.beamArea,
-      openArea:       t.openArea,
-      miscAddArea:    t.miscAddArea,
-      miscDeductArea: t.miscDeductArea,
-      grossArea:      t.grossArea,
-      netArea:        t.netArea,
-      totalArea:      t.netArea,
-      totalAmount:    t.totalAmount,
-      netPayable:     t.netPayable,
+      slabArea:       totals.slabArea,
+      beamArea:       totals.beamArea,
+      openArea:       totals.openArea,
+      miscAddArea:    totals.miscAddArea,
+      miscDeductArea: totals.miscDeductArea,
+      grossArea:      totals.grossArea,
+      netArea:        totals.netArea,
+      totalArea:      totals.netArea,
+      totalAmount:    totals.totalAmount,
+      netPayable:     totals.netPayable,
       createdAt:      state.editId
         ? (Store.SeparateBillings.getById(state.editId) || {}).createdAt || (window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0,10))
         : (window.localDateStr ? window.localDateStr() : new Date().toISOString().slice(0,10))
@@ -1076,7 +1182,9 @@ var SeparateBillingPage = (function() {
 
     // Right Box
     var recVal = parseFloat(bill.receivedAmount) || 0;
-    var netPay = amtVal > 0 ? Math.max(0, amtVal - recVal) : 0;
+    var payments = bill.payments && bill.payments.length > 0 ? bill.payments : (recVal > 0 ? [{ date: bill.receivedDate, amount: recVal, notes: 'Received' }] : []);
+    var totalRec = payments.reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
+    var netPay = amtVal > 0 ? Math.max(0, amtVal - totalRec) : 0;
 
     html += '<div class="summary-box">';
     html += '<div class="summary-box-header">Pricing Summary</div>';
@@ -1084,13 +1192,23 @@ var SeparateBillingPage = (function() {
     html += '<div class="summary-row"><span>Rate per Sq Ft</span><span>' + (rateVal > 0 ? '₹ ' + rateVal.toFixed(2) : '—') + '</span></div>';
     html += '<div class="summary-row bold-total"><span>Net Area</span><span>' + net.toFixed(2) + ' Sq Ft</span></div>';
     html += '<div class="summary-row"><span>Total Amount</span><span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span></div>';
-    if (recVal > 0) {
-      var recDateStr = bill.receivedDate ? ' (on ' + formatDate(bill.receivedDate) + ')' : '';
-      html += '<div class="summary-row" style="color:#059669; font-weight:600;"><span>Less: Money Received' + recDateStr + '</span><span>- ₹ ' + recVal.toFixed(2) + '</span></div>';
+
+    if (payments.length > 0) {
+      payments.forEach(function(p) {
+        var pAmt = parseFloat(p.amount) || 0;
+        if (pAmt > 0) {
+          var recDateStr = p.date ? ' (on ' + formatDate(p.date) + ')' : '';
+          var noteStr = p.notes ? ' - ' + p.notes : '';
+          html += '<div class="summary-row" style="color:#059669; font-weight:600;"><span>Less: Money Received' + recDateStr + noteStr + '</span><span>- ₹ ' + pAmt.toFixed(2) + '</span></div>';
+        }
+      });
+      if (payments.length > 1) {
+        html += '<div class="summary-row" style="color:#047857; font-weight:700; border-top:1px dashed #cbd5e1; padding-top:4px;"><span>Total Money Received</span><span>- ₹ ' + totalRec.toFixed(2) + '</span></div>';
+      }
     }
     html += '</div>';
     html += '<div class="grand-total-banner">';
-    html += '<span>' + (recVal > 0 ? 'NET PAYABLE' : 'GRAND TOTAL') + '</span>';
+    html += '<span>' + (totalRec > 0 ? 'NET PAYABLE' : 'GRAND TOTAL') + '</span>';
     html += '<span>' + (amtVal > 0 ? '₹ ' + netPay.toFixed(2) : '—') + '</span>';
     html += '</div>'; // closes grand-total-banner
     html += '</div>'; // closes summary-box

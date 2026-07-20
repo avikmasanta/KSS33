@@ -40,6 +40,11 @@ const schemas = {
     lintelDate: String,
     receivedDate: String,
     receivedAmount: { type: Number, default: 0 },
+    payments: [{
+      date: String,
+      amount: Number,
+      notes: String
+    }],
     ratePerSqFt: { type: Number, default: null },
     items: [{
       type: { type: String, default: 'Slab' },
