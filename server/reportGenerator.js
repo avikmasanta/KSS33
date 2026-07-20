@@ -14,8 +14,9 @@ async function generateDailyWarehouseSummary({ date, models }) {
   const SiteReturns = models.SiteReturns;
   const RentalSite = models.RentalSite;
   const Site       = models.Site;
-  const SiteUsage  = models.SiteUsage;
-  const SiteDamaged = models.SiteDamaged;
+  const Labour     = models.Labour;
+  const LabourLog  = models.LabourLog;
+  const SeparateBilling = models.SeparateBilling;
 
   // 1. Fetch data
   const materials   = await Material.find({ status: { $ne: 'Archived' } });
@@ -177,7 +178,7 @@ async function generateDailyWarehouseSummary({ date, models }) {
   const totalIn  = incomingMovements.reduce((s, m) => s + m.quantity, 0);
   const totalOut = outgoingMovements.reduce((s, m) => s + m.quantity, 0);
 
-  // ── Warehouse rows (only items with stock > 0, sorted by name) ─────
+  // ── Warehouse rows ─────────────────────────────────────────────────
   const warehouseRows = materials.map(m => {
     const mId = String(m._id || m.id);
     return { name: m.name, unit: m.unit || 'Nos', qty: currentStockMap[mId] || 0 };
@@ -191,24 +192,28 @@ async function generateDailyWarehouseSummary({ date, models }) {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
   });
 
-  // ── Pre-fetch LabourLog and SeparateBilling for summary sections ─────
+  // ── Pre-fetch Labour & SeparateBilling ─────────────────────────────
   let dayLogs = [];
-  if (models.LabourLog) {
+  const laboursMap = {};
+  if (LabourLog) {
     try {
-      dayLogs = await models.LabourLog.find({ date });
+      dayLogs = await LabourLog.find({ date });
+      if (Labour) {
+        const labours = await Labour.find({});
+        labours.forEach(l => { laboursMap[String(l._id || l.id)] = l; });
+      }
     } catch (e) {}
   }
 
   let allBills = [];
-  if (models.SeparateBilling) {
+  if (SeparateBilling) {
     try {
-      allBills = await models.SeparateBilling.find({});
+      allBills = await SeparateBilling.find({});
     } catch (e) {}
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // PDF Generation — Mobile-first large-font layout
-  // Page size: A4 portrait
+  // PDF Generation — Dynamic Flow (No Forced Blank Pages)
   // ═══════════════════════════════════════════════════════════════════
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({ size: 'A4', margin: 30, bufferPages: true });
@@ -219,361 +224,421 @@ async function generateDailyWarehouseSummary({ date, models }) {
 
     // ── COLORS ──────────────────────────────────────────────────────
     const C_DARK    = '#0f172a';
-    const C_BLUE    = '#1e3a8a';
+    const C_BLUE    = '#0f3c7a';
     const C_ACCENT  = '#2563eb';
     const C_GREEN   = '#15803d';
     const C_RED     = '#b91c1c';
+    const C_PURPLE  = '#6b21a8';
     const C_GRAY    = '#64748b';
-    const C_LIGHT   = '#f1f5f9';
+    const C_LIGHT   = '#f8fafc';
     const C_WHITE   = '#ffffff';
     const C_BORDER  = '#cbd5e1';
 
     const PW = 535; // usable page width (595 - 2*30)
 
     // ── HELPERS ─────────────────────────────────────────────────────
-    function sectionTitle(text, y, color = C_BLUE) {
-      doc.fillColor(color).rect(30, y, PW, 32).fill();
-      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(14);
-      doc.text(text, 42, y + 9, { width: PW - 24 });
-      return y + 32;
+    function checkSpace(neededHeight) {
+      if (y + neededHeight > 760) {
+        doc.addPage();
+        y = 30;
+      }
     }
 
-    function bigCard(x, y, w, h, label, value, bg, valColor) {
-      doc.fillColor(bg).rect(x, y, w, h).fill();
-      doc.strokeColor(C_BORDER).lineWidth(1).rect(x, y, w, h).stroke();
-      doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(9);
-      doc.text(label.toUpperCase(), x + 8, y + 8, { width: w - 16 });
-      doc.fillColor(valColor).font('Helvetica-Bold').fontSize(18);
-      doc.text(value, x + 8, y + 22, { width: w - 16 });
+    function sectionTitle(text, color = C_BLUE) {
+      checkSpace(40);
+      doc.fillColor(color).rect(30, y, PW, 28).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(12);
+      doc.text(text, 40, y + 7, { width: PW - 20 });
+      y += 28;
     }
 
-    // ── PAGE 1: HEADER + WAREHOUSE STOCK ────────────────────────────
+    function bigCard(x, yPos, w, h, label, value, bg, valColor) {
+      doc.fillColor(bg).rect(x, yPos, w, h).fill();
+      doc.strokeColor(C_BORDER).lineWidth(1).rect(x, yPos, w, h).stroke();
+      doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(8);
+      doc.text(label.toUpperCase(), x + 6, yPos + 6, { width: w - 12 });
+      doc.fillColor(valColor).font('Helvetica-Bold').fontSize(16);
+      doc.text(value, x + 6, yPos + 20, { width: w - 12 });
+    }
+
+    // ── PAGE 1: HEADER & OVERVIEW ────────────────────────────────────
     let y = 30;
 
-    // ── Brand strip
-    doc.fillColor(C_BLUE).rect(30, y, PW, 52).fill();
-    doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(20);
-    doc.text('KSS Construction Materials', 44, y + 8, { width: PW - 20 });
-    doc.fillColor('#93c5fd').font('Helvetica').fontSize(11);
-    doc.text('Daily Warehouse & Operations Summary', 44, y + 32, { width: PW - 20 });
-    y += 58;
+    // Brand strip
+    doc.fillColor(C_BLUE).rect(30, y, PW, 46).fill();
+    doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(18);
+    doc.text('KSS Construction Materials', 42, y + 6, { width: PW - 20 });
+    doc.fillColor('#93c5fd').font('Helvetica').fontSize(10);
+    doc.text('Daily Operations & Inventory Backup Statement', 42, y + 27, { width: PW - 20 });
+    y += 50;
 
-    // ── Date banner
-    doc.fillColor(C_LIGHT).rect(30, y, PW, 28).fill();
-    doc.strokeColor(C_BORDER).lineWidth(1).rect(30, y, PW, 28).stroke();
-    doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(13);
-    doc.text(dateFormatted, 42, y + 8, { width: PW - 20 });
-    y += 36;
+    // Date banner
+    doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
+    doc.strokeColor(C_BORDER).lineWidth(1).rect(30, y, PW, 24).stroke();
+    doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
+    doc.text(dateFormatted, 40, y + 6, { width: PW - 20 });
+    y += 30;
 
-    // ── Summary cards (2 rows x 3 cols)
+    // Summary cards
     const cardW = Math.floor(PW / 3) - 4;
-    const cardH = 50;
+    const cardH = 46;
     const cardGap = 6;
 
     bigCard(30,                  y, cardW, cardH, 'Today Received', `+${totalIn}`,  '#f0fdf4', C_GREEN);
     bigCard(30 + cardW + cardGap, y, cardW, cardH, 'Today Dispatched', `-${totalOut}`, '#fef2f2', C_RED);
-    bigCard(30 + (cardW + cardGap) * 2, y, cardW, cardH, 'Net Change', `${totalIn - totalOut >= 0 ? '+' : ''}${totalIn - totalOut}`, '#f0f9ff', C_ACCENT);
-    y += cardH + 10;
+    bigCard(30 + (cardW + cardGap) * 2, y, cardW, cardH, 'Net Stock Change', `${totalIn - totalOut >= 0 ? '+' : ''}${totalIn - totalOut}`, '#f0f9ff', C_ACCENT);
+    y += cardH + 12;
 
     // ── Warehouse Stock Section ──────────────────────────────────────
-    y = sectionTitle('🏢  Current Warehouse Stock', y);
-    y += 6;
+    sectionTitle('🏢  Current Warehouse Stock', C_BLUE);
+    y += 4;
 
     if (warehouseRows.length === 0) {
-      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
-      doc.text('No stock currently in warehouse.', 42, y + 12);
-      y += 40;
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No stock currently in warehouse.', 40, y + 4);
+      y += 24;
     } else {
-      // Table header
-      doc.fillColor(C_DARK).rect(30, y, PW, 26).fill();
-      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(12);
-      doc.text('Material Name', 42, y + 7, { width: 280 });
-      doc.text('Unit', 322, y + 7, { width: 70, align: 'center' });
-      doc.text('Qty', 392, y + 7, { width: 140, align: 'right' });
-      y += 26;
+      // Header
+      doc.fillColor(C_DARK).rect(30, y, PW, 22).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(10);
+      doc.text('Material Name', 40, y + 6, { width: 280 });
+      doc.text('Unit', 320, y + 6, { width: 70, align: 'center' });
+      doc.text('Qty in Stock', 390, y + 6, { width: 165, align: 'right' });
+      y += 22;
 
       warehouseRows.forEach((row, idx) => {
-        // Page break
-        if (y > 740) {
-          doc.addPage();
-          y = 30;
-          // Repeat header
-          doc.fillColor(C_DARK).rect(30, y, PW, 26).fill();
-          doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(12);
-          doc.text('Material Name', 42, y + 7, { width: 280 });
-          doc.text('Unit', 322, y + 7, { width: 70, align: 'center' });
-          doc.text('Qty', 392, y + 7, { width: 140, align: 'right' });
-          y += 26;
-        }
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : C_LIGHT;
+        doc.fillColor(bg).rect(30, y, PW, 22).fill();
 
-        const rowH = 30;
-        const bg   = idx % 2 === 0 ? C_WHITE : C_LIGHT;
-        doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+        doc.text(row.name, 40, y + 5, { width: 278, lineBreak: false });
 
-        // Material name — large & bold
-        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
-        doc.text(row.name, 42, y + 9, { width: 278, lineBreak: false });
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(10);
+        doc.text(row.unit, 320, y + 6, { width: 68, align: 'center', lineBreak: false });
 
-        // Unit — medium gray
-        doc.fillColor(C_GRAY).font('Helvetica').fontSize(11);
-        doc.text(row.unit, 322, y + 10, { width: 68, align: 'center', lineBreak: false });
-
-        // Quantity — large bold coloured number
         const qtyColor = row.qty <= 0 ? C_RED : (row.qty < 10 ? '#d97706' : C_GREEN);
-        doc.fillColor(qtyColor).font('Helvetica-Bold').fontSize(14);
-        doc.text(row.qty.toLocaleString('en-IN'), 392, y + 8, { width: 138, align: 'right', lineBreak: false });
+        doc.fillColor(qtyColor).font('Helvetica-Bold').fontSize(12);
+        doc.text(row.qty.toLocaleString('en-IN'), 390, y + 4, { width: 165, align: 'right', lineBreak: false });
 
-        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
-        y += rowH;
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 22).lineTo(565, y + 22).stroke();
+        y += 22;
       });
     }
 
-    // ── PAGE 2: ACTIVE SITES STOCK ───────────────────────────────────
-    doc.addPage();
-    y = 30;
-    y = sectionTitle('📍  Active Sites Inventory', y, C_ACCENT);
-    y += 6;
+    y += 12;
+
+    // ── Active Sites Stock Section ───────────────────────────────────
+    sectionTitle('📍  Active Sites Inventory', C_ACCENT);
+    y += 4;
 
     if (activeSitesData.length === 0) {
-      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
-      doc.text('No materials currently deployed at active sites.', 42, y + 12);
-      y += 40;
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No materials currently deployed at active sites.', 40, y + 4);
+      y += 24;
     } else {
       activeSitesData.forEach(site => {
-        if (y > 700) {
-          doc.addPage();
-          y = 30;
-        }
-
+        checkSpace(40);
         const custStr = site.customer ? ` (${site.customer})` : '';
-        doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
-        doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
-        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-        doc.text(`${site.name}${custStr}`, 38, y + 6, { width: PW - 16 });
-        y += 24;
+        doc.fillColor('#eff6ff').rect(30, y, PW, 20).fill();
+        doc.strokeColor('#bfdbfe').lineWidth(0.5).rect(30, y, PW, 20).stroke();
+        doc.fillColor('#1e40af').font('Helvetica-Bold').fontSize(10);
+        doc.text(`${site.name}${custStr}`, 36, y + 5, { width: PW - 12 });
+        y += 20;
 
         site.items.forEach((item, idx) => {
-          if (y > 750) {
-            doc.addPage();
-            y = 30;
-            // Redraw site header on new page
-            doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
-            doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
-            doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-            doc.text(`${site.name}${custStr} (Cont.)`, 38, y + 6, { width: PW - 16 });
-            y += 24;
-          }
-
-          const rowH = 26;
+          checkSpace(22);
           const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
-          doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+          doc.fillColor(bg).rect(30, y, PW, 22).fill();
 
-          doc.fillColor(C_DARK).font('Helvetica').fontSize(11);
-          doc.text(item.name, 42, y + 7, { width: 300 });
+          doc.fillColor(C_DARK).font('Helvetica').fontSize(10);
+          doc.text(item.name, 40, y + 5, { width: 300 });
 
-          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
-          doc.text(`${item.qty.toLocaleString('en-IN')} ${item.unit}`, 392, y + 7, { width: 138, align: 'right' });
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+          doc.text(`${item.qty.toLocaleString('en-IN')} ${item.unit}`, 390, y + 5, { width: 165, align: 'right' });
 
-          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
-          y += rowH;
+          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 22).lineTo(565, y + 22).stroke();
+          y += 22;
         });
-        y += 10; // spacing between sites
+        y += 6;
       });
     }
 
-    // ── PAGE 3: ACTIVE RENTALS ───────────────────────────────────────
-    doc.addPage();
-    y = 30;
-    y = sectionTitle('🔑  Active Rental Materials', y, C_BLUE);
-    y += 6;
+    y += 12;
+
+    // ── Active Rentals Section ───────────────────────────────────────
+    sectionTitle('🔑  Active Rental Materials', C_BLUE);
+    y += 4;
 
     if (activeRentalsData.length === 0) {
-      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
-      doc.text('No active rentals currently deployed.', 42, y + 12);
-      y += 40;
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No active rentals currently deployed.', 40, y + 4);
+      y += 24;
     } else {
       activeRentalsData.forEach(rental => {
-        if (y > 700) {
-          doc.addPage();
-          y = 30;
-        }
-
+        checkSpace(40);
         const custStr = rental.customer ? ` (${rental.customer})` : '';
-        doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
-        doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
-        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-        doc.text(`${rental.name}${custStr}`, 38, y + 6, { width: PW - 16 });
-        y += 24;
+        doc.fillColor('#f5f3ff').rect(30, y, PW, 20).fill();
+        doc.strokeColor('#ddd6fe').lineWidth(0.5).rect(30, y, PW, 20).stroke();
+        doc.fillColor('#6d28d9').font('Helvetica-Bold').fontSize(10);
+        doc.text(`${rental.name}${custStr}`, 36, y + 5, { width: PW - 12 });
+        y += 20;
 
         rental.items.forEach((item, idx) => {
-          if (y > 750) {
-            doc.addPage();
-            y = 30;
-            // Redraw header
-            doc.fillColor(C_LIGHT).rect(30, y, PW, 24).fill();
-            doc.strokeColor(C_BORDER).lineWidth(0.5).rect(30, y, PW, 24).stroke();
-            doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-            doc.text(`${rental.name}${custStr} (Cont.)`, 38, y + 6, { width: PW - 16 });
-            y += 24;
-          }
-
-          const rowH = 26;
+          checkSpace(22);
           const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
-          doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+          doc.fillColor(bg).rect(30, y, PW, 22).fill();
 
-          doc.fillColor(C_DARK).font('Helvetica').fontSize(11);
-          doc.text(item.name, 42, y + 7, { width: 300 });
+          doc.fillColor(C_DARK).font('Helvetica').fontSize(10);
+          doc.text(item.name, 40, y + 5, { width: 300 });
 
-          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
-          doc.text(`${item.qty.toLocaleString('en-IN')} ${item.unit}`, 392, y + 7, { width: 138, align: 'right' });
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+          doc.text(`${item.qty.toLocaleString('en-IN')} ${item.unit}`, 390, y + 5, { width: 165, align: 'right' });
 
-          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
-          y += rowH;
+          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 22).lineTo(565, y + 22).stroke();
+          y += 22;
         });
-        y += 10;
+        y += 6;
       });
     }
 
-    // ── PAGE 4: TODAY'S MOVEMENTS ────────────────────────────────────
-    doc.addPage();
-    y = 30;
+    y += 12;
 
-    // ── Incoming movements
-    y = sectionTitle('📥  Today\'s Received Materials', y, C_GREEN);
-    y += 6;
+    // ── Today's Material Movements ───────────────────────────────────
+    sectionTitle('📥  Today\'s Received Materials', C_GREEN);
+    y += 4;
 
     if (incomingMovements.length === 0) {
-      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
-      doc.text('Nothing received today.', 42, y + 10);
-      y += 36;
-    } else {
-      // header row
-      doc.fillColor(C_GREEN).rect(30, y, PW, 24).fill();
-      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(11);
-      doc.text('Material', 42, y + 6, { width: 240 });
-      doc.text('Qty', 282, y + 6, { width: 80, align: 'right' });
-      doc.text('Source', 372, y + 6, { width: 163 });
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('Nothing received today.', 40, y + 4);
       y += 24;
+    } else {
+      doc.fillColor(C_GREEN).rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(10);
+      doc.text('Material Name', 40, y + 5, { width: 240 });
+      doc.text('Qty', 280, y + 5, { width: 80, align: 'right' });
+      doc.text('Source', 370, y + 5, { width: 185 });
+      y += 20;
 
       incomingMovements.forEach((row, idx) => {
-        if (y > 750) { doc.addPage(); y = 30; }
-        const rowH = 30;
+        checkSpace(24);
         const bg = idx % 2 === 0 ? C_WHITE : '#f0fdf4';
-        doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
 
-        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
-        doc.text(row.materialName, 42, y + 9, { width: 238, lineBreak: false });
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(row.materialName, 40, y + 6, { width: 238, lineBreak: false });
 
-        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(14);
-        doc.text(`+${row.quantity}`, 282, y + 7, { width: 80, align: 'right', lineBreak: false });
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(11);
+        doc.text(`+${row.quantity}`, 280, y + 5, { width: 80, align: 'right', lineBreak: false });
 
-        doc.fillColor(C_GRAY).font('Helvetica').fontSize(11);
-        doc.text(row.source, 372, y + 9, { width: 163, lineBreak: false });
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(10);
+        doc.text(row.source, 370, y + 6, { width: 185, lineBreak: false });
 
-        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
-        y += rowH;
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
       });
     }
 
-    y += 14;
+    y += 12;
 
-    // ── Outgoing movements
-    if (y > 680) { doc.addPage(); y = 30; }
-    y = sectionTitle('📤  Today\'s Dispatched Materials', y, C_RED);
-    y += 6;
+    sectionTitle('📤  Today\'s Dispatched Materials', C_RED);
+    y += 4;
 
     if (outgoingMovements.length === 0) {
-      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(13);
-      doc.text('Nothing dispatched today.', 42, y + 10);
-      y += 36;
-    } else {
-      // header
-      doc.fillColor(C_RED).rect(30, y, PW, 24).fill();
-      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(11);
-      doc.text('Material', 42, y + 6, { width: 200 });
-      doc.text('Qty', 242, y + 6, { width: 70, align: 'right' });
-      doc.text('Site', 322, y + 6, { width: 163 });
-      doc.text('Challan', 485, y + 6, { width: 80, align: 'right' });
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('Nothing dispatched today.', 40, y + 4);
       y += 24;
+    } else {
+      doc.fillColor(C_RED).rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(10);
+      doc.text('Material Name', 40, y + 5, { width: 200 });
+      doc.text('Qty', 240, y + 5, { width: 70, align: 'right' });
+      doc.text('Destination Site', 320, y + 5, { width: 160 });
+      doc.text('Challan', 485, y + 5, { width: 70, align: 'right' });
+      y += 20;
 
       outgoingMovements.forEach((row, idx) => {
-        if (y > 750) { doc.addPage(); y = 30; }
-        const rowH = 30;
+        checkSpace(24);
         const bg = idx % 2 === 0 ? C_WHITE : '#fef2f2';
-        doc.fillColor(bg).rect(30, y, PW, rowH).fill();
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
 
-        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(12);
-        doc.text(row.materialName, 42, y + 9, { width: 198, lineBreak: false });
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(row.materialName, 40, y + 6, { width: 198, lineBreak: false });
 
-        doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(14);
-        doc.text(`-${row.quantity}`, 242, y + 7, { width: 70, align: 'right', lineBreak: false });
+        doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(11);
+        doc.text(`-${row.quantity}`, 240, y + 5, { width: 70, align: 'right', lineBreak: false });
 
-        doc.fillColor(C_GRAY).font('Helvetica').fontSize(11);
-        doc.text(row.destination, 322, y + 9, { width: 161, lineBreak: false });
-        doc.text(row.challan, 485, y + 9, { width: 80, align: 'right', lineBreak: false });
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(10);
+        doc.text(row.destination, 320, y + 6, { width: 158, lineBreak: false });
+        doc.text(row.challan, 485, y + 6, { width: 70, align: 'right', lineBreak: false });
 
-        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + rowH).lineTo(565, y + rowH).stroke();
-        y += rowH;
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
       });
     }
 
-    // ── Labour & Payroll Summary
-    if (dayLogs.length > 0) {
-      if (y > 680) { doc.addPage(); y = 30; }
-      y = sectionTitle('👷  Labour & Daily Payroll Summary', y, '#4338ca');
-      y += 6;
+    y += 12;
 
-      const presentCount = dayLogs.filter(l => l.attendance === 'Present').length;
-      const halfCount = dayLogs.filter(l => l.attendance === 'Half Day').length;
-      const absentCount = dayLogs.filter(l => l.attendance === 'Absent').length;
+    // ── Detailed Labour Payroll Logs Section ─────────────────────────
+    sectionTitle('👷  Labour Attendance & Payroll Log', C_PURPLE);
+    y += 4;
 
-      let totalOtHours = 0;
-      let totalOtPay = 0;
-      let totalMoneyGiven = 0;
+    if (dayLogs.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No labour attendance logged for today.', 40, y + 4);
+      y += 24;
+    } else {
+      let presentCount = 0, halfCount = 0, absentCount = 0;
+      let totalOtHours = 0, totalOtPay = 0, totalMoneyGiven = 0;
+
       dayLogs.forEach(l => {
+        if (l.attendance === 'Present') presentCount++;
+        else if (l.attendance === 'Half Day') halfCount++;
+        else if (l.attendance === 'Absent') absentCount++;
+
         const otH = parseFloat(l.overtimeHours) || 0;
-        const dw = parseFloat(l.dailyWage) || 0;
+        const dw  = parseFloat(l.dailyWage) || 0;
         totalOtHours += otH;
         totalOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
         totalMoneyGiven += parseFloat(l.moneyGiven) || 0;
       });
 
-      doc.fillColor(C_LIGHT).rect(30, y, PW, 40).fill();
-      doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-      doc.text(`Attendance: ${presentCount} Present, ${halfCount} Half Day, ${absentCount} Absent`, 42, y + 8);
-      doc.text(`Overtime: ${totalOtHours} hrs (Rs. ${Math.round(totalOtPay)})  |  Money Paid: Rs. ${Math.round(totalMoneyGiven)}`, 42, y + 22);
-      y += 46;
+      // Overview banner
+      doc.fillColor('#f3e8ff').rect(30, y, PW, 22).fill();
+      doc.fillColor(C_PURPLE).font('Helvetica-Bold').fontSize(10);
+      doc.text(`Present: ${presentCount} | Half Day: ${halfCount} | Absent: ${absentCount} | OT: ${totalOtHours}h (Rs. ${Math.round(totalOtPay)}) | Money Paid: Rs. ${Math.round(totalMoneyGiven)}`, 36, y + 5, { width: PW - 12 });
+      y += 22;
+
+      // Table Header
+      doc.fillColor(C_PURPLE).rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Worker Name', 40, y + 5, { width: 140 });
+      doc.text('Status', 180, y + 5, { width: 65, align: 'center' });
+      doc.text('Wage', 245, y + 5, { width: 55, align: 'right' });
+      doc.text('Overtime (Slot)', 305, y + 5, { width: 115 });
+      doc.text('OT Pay', 420, y + 5, { width: 55, align: 'right' });
+      doc.text('Money Paid', 480, y + 5, { width: 75, align: 'right' });
+      y += 20;
+
+      dayLogs.forEach((l, idx) => {
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : '#faf5ff';
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
+
+        const lab = laboursMap[String(l.labourId)] || {};
+        const wName = lab.name || 'Worker';
+        const nick  = lab.nickname ? ` (${lab.nickname})` : '';
+        const dw    = parseFloat(l.dailyWage) || parseFloat(lab.defaultWage) || 0;
+        const otH   = parseFloat(l.overtimeHours) || 0;
+        const otTime = l.overtimeTime ? ` (${l.overtimeTime})` : '';
+        const otStr  = otH > 0 ? `${otH}h${otTime}` : '-';
+        const otPay  = otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        const mg     = parseFloat(l.moneyGiven) || 0;
+        const mgNote = l.notes ? ` (${l.notes})` : '';
+
+        // Name
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(`${wName}${nick}`, 40, y + 6, { width: 138, lineBreak: false });
+
+        // Status
+        const statusColor = l.attendance === 'Present' ? C_GREEN : (l.attendance === 'Half Day' ? '#d97706' : C_RED);
+        doc.fillColor(statusColor).font('Helvetica-Bold').fontSize(9);
+        doc.text(l.attendance || 'Present', 180, y + 6, { width: 65, align: 'center', lineBreak: false });
+
+        // Wage
+        doc.fillColor(C_DARK).font('Helvetica').fontSize(10);
+        doc.text(`Rs.${Math.round(dw)}`, 245, y + 6, { width: 55, align: 'right', lineBreak: false });
+
+        // Overtime
+        doc.fillColor(C_PURPLE).font('Helvetica').fontSize(9);
+        doc.text(otStr, 305, y + 6, { width: 113, lineBreak: false });
+
+        // OT Pay
+        doc.fillColor(C_PURPLE).font('Helvetica-Bold').fontSize(10);
+        doc.text(otPay > 0 ? `Rs.${Math.round(otPay)}` : '-', 420, y + 6, { width: 55, align: 'right', lineBreak: false });
+
+        // Money Paid
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
+        doc.text(mg > 0 ? `Rs.${Math.round(mg)}${mgNote}` : '-', 480, y + 6, { width: 75, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
+      });
     }
 
-    // ── Measurement & Separate Bills Summary
-    if (allBills.length > 0) {
-      if (y > 680) { doc.addPage(); y = 30; }
-      y = sectionTitle('📐  Measurement Bills Summary', y, '#0f3c7a');
-      y += 6;
+    y += 12;
 
-      let totalNetArea = 0;
-      let totalBillAmt = 0;
-      let totalReceivedAmt = 0;
+    // ── Detailed Measurement Bills Statement Section ──────────────────
+    sectionTitle('📐  Separate Measurement Bills Statement', '#0f3c7a');
+    y += 4;
+
+    if (allBills.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No measurement bills recorded.', 40, y + 4);
+      y += 24;
+    } else {
+      let totalNetArea = 0, totalBillAmt = 0, totalReceivedAmt = 0;
       allBills.forEach(b => {
         totalNetArea += parseFloat(b.netArea || b.totalArea) || 0;
         totalBillAmt += parseFloat(b.totalAmount) || 0;
         totalReceivedAmt += parseFloat(b.receivedAmount) || 0;
       });
 
-      doc.fillColor(C_LIGHT).rect(30, y, PW, 40).fill();
-      doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
-      doc.text(`Total Bills: ${allBills.length}  |  Total Net Area: ${Math.round(totalNetArea)} Sq Ft`, 42, y + 8);
-      doc.text(`Total Amount: Rs. ${Math.round(totalBillAmt)}  |  Total Received: Rs. ${Math.round(totalReceivedAmt)}`, 42, y + 22);
-      y += 46;
+      // Overview banner
+      doc.fillColor('#f0f9ff').rect(30, y, PW, 22).fill();
+      doc.fillColor('#0369a1').font('Helvetica-Bold').fontSize(10);
+      doc.text(`Total Bills: ${allBills.length} | Net Area: ${Math.round(totalNetArea)} Sq Ft | Amount: Rs. ${Math.round(totalBillAmt)} | Received: Rs. ${Math.round(totalReceivedAmt)}`, 36, y + 5, { width: PW - 12 });
+      y += 22;
+
+      // Table Header
+      doc.fillColor('#0f3c7a').rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Site / Bill Name', 40, y + 5, { width: 140 });
+      doc.text('Contractor & Owner', 180, y + 5, { width: 130 });
+      doc.text('Net Area', 310, y + 5, { width: 75, align: 'right' });
+      doc.text('Total Amount', 385, y + 5, { width: 80, align: 'right' });
+      doc.text('Received Payments', 465, y + 5, { width: 90, align: 'right' });
+      y += 20;
+
+      allBills.forEach((b, idx) => {
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
+
+        const sName  = b.siteName || 'Bill';
+        const cName  = b.contractorName || 'Contractor';
+        const oName  = b.ownerName ? ` (${b.ownerName})` : '';
+        const netA   = parseFloat(b.netArea || b.totalArea) || 0;
+        const totA   = parseFloat(b.totalAmount) || 0;
+        const recA   = parseFloat(b.receivedAmount) || 0;
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(sName, 40, y + 6, { width: 138, lineBreak: false });
+
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
+        doc.text(`${cName}${oName}`, 180, y + 6, { width: 128, lineBreak: false });
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(`${Math.round(netA)} Sq Ft`, 310, y + 6, { width: 75, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(totA > 0 ? `Rs.${Math.round(totA)}` : '-', 385, y + 6, { width: 80, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
+        doc.text(recA > 0 ? `Rs.${Math.round(recA)}` : '-', 465, y + 6, { width: 90, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
+      });
     }
 
-    // ── PAGE FOOTER ──────────────────────────────────────────────────
+    // ── DYNAMIC PAGE FOOTERS ──────────────────────────────────────────
     const range = doc.bufferedPageRange();
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(i);
       doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, 815).lineTo(565, 815).stroke();
       doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
-      doc.text('KSS Inventory Management System — Operations Report', 30, 820, { width: 350 });
+      doc.text('KSS Inventory & Operations Backup Statement', 30, 820, { width: 350 });
       doc.text(`Page ${i + 1} of ${range.count}`, 380, 820, { width: 185, align: 'right' });
     }
 
