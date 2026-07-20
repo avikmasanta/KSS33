@@ -220,6 +220,8 @@ const SeparateBillingSchema = new mongoose.Schema({
   slabArea: { type: Number, default: 0 },
   beamArea: { type: Number, default: 0 },
   openArea: { type: Number, default: 0 },
+  miscAddArea: { type: Number, default: 0 },
+  miscDeductArea: { type: Number, default: 0 },
   grossArea: { type: Number, default: 0 },
   netArea: { type: Number, default: 0 },
   totalArea: { type: Number, default: 0 },
