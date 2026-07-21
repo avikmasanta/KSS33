@@ -759,7 +759,9 @@ var ReportsPage = {
     const selectEl = document.getElementById('site-cost-selector');
     if (!selectEl) return;
     const siteId = selectEl.value;
-    if (siteId && siteId !== 'all') {
+    if (siteId === 'all') {
+      SitesPage.exportAllPDF();
+    } else if (siteId) {
       SiteDetailsPage.siteId = siteId;
       SiteDetailsPage.exportPDF();
     }
@@ -769,7 +771,7 @@ var ReportsPage = {
     const container = document.getElementById('site-cost-report-body');
     const pdfBtn = document.getElementById('site-cost-pdf-btn');
     if (pdfBtn) {
-      pdfBtn.style.display = (siteId === 'all') ? 'none' : 'inline-flex';
+      pdfBtn.style.display = 'inline-flex';
     }
     const materials = Store.Materials.getAll();
     const allSites = Store.Sites.getAll();
@@ -791,12 +793,32 @@ var ReportsPage = {
       return rows;
     };
 
+    const getSiteLabourSummary = (siteId) => {
+      if (!Store.LabourLogs) return null;
+      const logs = Store.LabourLogs.getAll().filter(l => String(l.siteId) === String(siteId));
+      if (logs.length === 0) return null;
+      let present = 0, halfDay = 0, absent = 0, otHours = 0, otPay = 0, moneyPaid = 0;
+      logs.forEach(l => {
+        if (l.attendance === 'Present') present++;
+        else if (l.attendance === 'Half Day') halfDay++;
+        else if (l.attendance === 'Absent') absent++;
+        const otH = parseFloat(l.overtimeHours) || 0;
+        const dw = parseFloat(l.dailyWage) || 0;
+        otHours += otH;
+        otPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        moneyPaid += parseFloat(l.moneyGiven) || 0;
+      });
+      return { totalLogs: logs.length, present, halfDay, absent, otHours, otPay, moneyPaid };
+    };
+
     const siteBlock = (site) => {
       const rows = getSiteRows(site);
       const tIss = rows.reduce((s, r) => s + r.issued, 0);
       const tRet = rows.reduce((s, r) => s + r.returned, 0);
       const tNet = tIss - tRet;
       const sc = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
+      const labour = getSiteLabourSummary(site.id);
+
       const trs = rows.length === 0
         ? `<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-tertiary)">No materials recorded at this site.</td></tr>`
         : rows.map((r, i) => `
@@ -811,12 +833,23 @@ var ReportsPage = {
       const foot = rows.length === 0 ? '' : `
         <tfoot style="background:var(--surface-raised,#f8fafc)">
           <tr style="font-weight:800;border-top:2px solid var(--border)">
-            <td colspan="2" style="padding:14px 16px;color:var(--text-secondary)">TOTAL</td>
+            <td colspan="2" style="padding:14px 16px;color:var(--text-secondary)">TOTAL MATERIALS</td>
             <td style="text-align:center;padding:14px 16px">${fmt(tIss)}</td>
             <td style="text-align:center;padding:14px 16px;color:#10b981">${fmt(tRet)}</td>
             <td style="text-align:center;padding:14px 16px;font-size:1.1rem">${fmt(tNet)}</td>
           </tr>
         </tfoot>`;
+
+      const labourHtml = labour ? `
+        <div style="background:var(--surface-raised,#f8fafc);padding:12px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:0.85rem;">
+          <div><strong style="color:var(--primary)">👷 Site Labour Summary:</strong> ${labour.present} Present | ${labour.halfDay} Half Day | ${labour.absent} Absent</div>
+          <div style="display:flex;gap:16px;">
+            <span>OT: <strong>${labour.otHours}h</strong> (₹${fmt(labour.otPay)})</span>
+            <span>Money Paid: <strong style="color:#10b981">₹${fmt(labour.moneyPaid)}</strong></span>
+          </div>
+        </div>
+      ` : '';
+
       return `
         <div style="border:1px solid var(--border);border-radius:14px;margin:20px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)">
           <div style="background:linear-gradient(135deg,#1e293b,#334155);color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
@@ -840,34 +873,115 @@ var ReportsPage = {
               ${foot}
             </table>
           </div>
+          ${labourHtml}
         </div>`;
     };
 
-    const allView = () => {
-      const sorted = allSites.slice().sort((a, b) => a.name.localeCompare(b.name));
-      const cards = sorted.map(site => {
+    const overallSummaryBlock = () => {
+      const activeSites = allSites.filter(s => s.status !== 'Archived');
+      let grandIssued = 0, grandReturned = 0;
+      const matTotals = {};
+
+      activeSites.forEach(site => {
         const rows = getSiteRows(site);
-        const tIss = rows.reduce((s, r) => s + r.issued, 0);
-        const tRet = rows.reduce((s, r) => s + r.returned, 0);
-        const tNet = tIss - tRet;
-        const sc = site.status === 'Completed' ? '#10b981' : site.status === 'On Hold' ? '#f59e0b' : '#3b82f6';
-        return `
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;transition:box-shadow .2s;cursor:pointer" onclick="document.getElementById('site-cost-selector').value='${site.id}';ReportsPage.renderSiteCostReport('${site.id}')" onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,.1)'" onmouseout="this.style.boxShadow='none'">
-            <div>
-              <div style="font-weight:700;font-size:1rem;color:var(--text-primary)">${site.name}</div>
-              <div style="font-size:.8rem;color:var(--text-tertiary);margin-top:2px">${site.customerName || 'No customer'} &bull; <span style="color:${sc};font-weight:600">${site.status || 'Active'}</span> &bull; ${rows.length} material${rows.length !== 1 ? 's' : ''}</div>
-            </div>
-            <div style="display:flex;gap:20px;flex-wrap:wrap;text-align:center">
-              <div><div style="font-size:.7rem;color:var(--text-tertiary);text-transform:uppercase">Issued</div><div style="font-weight:700;font-size:1.1rem;color:#3b82f6">${fmt(tIss)}</div></div>
-              <div><div style="font-size:.7rem;color:var(--text-tertiary);text-transform:uppercase">Returned</div><div style="font-weight:700;font-size:1.1rem;color:#10b981">${fmt(tRet)}</div></div>
-              <div style="background:#f0fdf4;border-radius:8px;padding:6px 14px"><div style="font-size:.7rem;color:#166534;text-transform:uppercase">Net at Site</div><div style="font-weight:800;font-size:1.1rem;color:#166534">${fmt(tNet)}</div></div>
-            </div>
-          </div>`
-      }).join('');
+        rows.forEach(r => {
+          grandIssued += r.issued;
+          grandReturned += r.returned;
+          if (!matTotals[r.name]) {
+            matTotals[r.name] = { name: r.name, unit: r.unit, issued: 0, returned: 0 };
+          }
+          matTotals[r.name].issued += r.issued;
+          matTotals[r.name].returned += r.returned;
+        });
+      });
+
+      const grandNet = grandIssued - grandReturned;
+      const matSummaryRows = Object.values(matTotals).map((m, i) => `
+        <tr>
+          <td style="color:var(--text-tertiary);font-weight:600">${i + 1}</td>
+          <td><strong>${m.name}</strong> <span style="font-size:11px;color:var(--text-tertiary)">(${m.unit})</span></td>
+          <td style="text-align:center;font-weight:700">${fmt(m.issued)}</td>
+          <td style="text-align:center;color:#10b981;font-weight:700">${fmt(m.returned)}</td>
+          <td style="text-align:center;font-weight:800;color:var(--primary)">${fmt(m.issued - m.returned)}</td>
+        </tr>
+      `).join('');
+
+      let totalLabourPresent = 0, totalLabourHalf = 0, totalLabourAbsent = 0;
+      let totalLabourOtHours = 0, totalLabourOtPay = 0, totalLabourPaid = 0;
+
+      if (Store.LabourLogs) {
+        Store.LabourLogs.getAll().forEach(l => {
+          if (l.attendance === 'Present') totalLabourPresent++;
+          else if (l.attendance === 'Half Day') totalLabourHalf++;
+          else if (l.attendance === 'Absent') totalLabourAbsent++;
+          const otH = parseFloat(l.overtimeHours) || 0;
+          const dw = parseFloat(l.dailyWage) || 0;
+          totalLabourOtHours += otH;
+          totalLabourOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+          totalLabourPaid += parseFloat(l.moneyGiven) || 0;
+        });
+      }
+
       return `
-        <div style="padding:20px">
-          <p style="margin-bottom:14px;color:var(--text-tertiary);font-size:.9rem">Showing all ${sorted.length} site(s). Select a site above to see the full material breakdown.</p>
-          <div style="display:flex;flex-direction:column;gap:10px">${sorted.length === 0 ? '<div style="text-align:center;color:var(--text-tertiary);padding:40px">No sites found.</div>' : cards}</div>
+        <div style="border:2px solid var(--primary);border-radius:16px;margin:30px 20px 20px;overflow:hidden;box-shadow:0 4px 16px rgba(37,99,235,.15)">
+          <div style="background:linear-gradient(135deg,#0f172a,#1e3a8a);color:white;padding:20px 24px;">
+            <h3 style="margin:0;font-size:1.4rem;letter-spacing:0.5px;">📊 COMBINED OVERALL SUMMARY (ALL SITES & LABOUR)</h3>
+            <p style="margin:4px 0 0;font-size:0.85rem;color:rgba(255,255,255,.7)">Total consolidated materials and labour metrics across ${activeSites.length} site(s)</p>
+          </div>
+
+          <div style="padding:20px;background:var(--surface);">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+              <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px;text-align:center;">
+                <div style="font-size:0.75rem;color:#1e40af;text-transform:uppercase;font-weight:700;">Total Material Issued</div>
+                <div style="font-size:2rem;font-weight:900;color:#1d4ed8;margin-top:4px;">${fmt(grandIssued)}</div>
+              </div>
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:16px;text-align:center;">
+                <div style="font-size:0.75rem;color:#166534;text-transform:uppercase;font-weight:700;">Total Material Returned</div>
+                <div style="font-size:2rem;font-weight:900;color:#15803d;margin-top:4px;">${fmt(grandReturned)}</div>
+              </div>
+              <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:12px;padding:16px;text-align:center;">
+                <div style="font-size:0.75rem;color:#92400e;text-transform:uppercase;font-weight:700;">Net Material at Sites</div>
+                <div style="font-size:2rem;font-weight:900;color:#b45309;margin-top:4px;">${fmt(grandNet)}</div>
+              </div>
+              <div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:16px;text-align:center;">
+                <div style="font-size:0.75rem;color:#6b21a8;text-transform:uppercase;font-weight:700;">Total Labour Paid</div>
+                <div style="font-size:2rem;font-weight:900;color:#7e22ce;margin-top:4px;">₹${fmt(totalLabourPaid)}</div>
+              </div>
+            </div>
+
+            <h4 style="margin:16px 0 10px;color:var(--text-primary);">Overall Material Summary</h4>
+            <div style="overflow-x:auto;border:1px solid var(--border);border-radius:10px;">
+              <table class="data-table" style="margin:0;">
+                <thead>
+                  <tr><th>#</th><th>Material</th><th style="text-align:center">Total Issued</th><th style="text-align:center;color:#10b981">Total Returned</th><th style="text-align:center">Total Net Balance</th></tr>
+                </thead>
+                <tbody>
+                  ${matSummaryRows || '<tr><td colspan="5" style="text-align:center;padding:20px;">No material data available.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+
+            <h4 style="margin:24px 0 10px;color:var(--text-primary);">Overall Labour & Payroll Summary</h4>
+            <div style="background:var(--surface-raised,#f8fafc);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+              <div><strong>Attendance:</strong> ${totalLabourPresent} Present | ${totalLabourHalf} Half Day | ${totalLabourAbsent} Absent</div>
+              <div><strong>Overtime:</strong> ${totalLabourOtHours} hrs (₹${fmt(totalLabourOtPay)})</div>
+              <div><strong>Total Payments Disbursed:</strong> <span style="color:#10b981;font-weight:800;font-size:1.1rem;">₹${fmt(totalLabourPaid)}</span></div>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    const allView = () => {
+      const sorted = allSites.filter(s => s.status !== 'Archived').slice().sort((a, b) => a.name.localeCompare(b.name));
+      if (sorted.length === 0) {
+        return '<div style="text-align:center;color:var(--text-tertiary);padding:40px">No active sites found.</div>';
+      }
+      return `
+        <div style="padding:10px 0">
+          <div style="padding:0 20px;margin-bottom:10px;color:var(--text-tertiary);font-size:.9rem">Displaying full un-summarized reports for all ${sorted.length} site(s).</div>
+          ${sorted.map(s => siteBlock(s)).join('')}
+          ${overallSummaryBlock()}
         </div>`;
     };
 

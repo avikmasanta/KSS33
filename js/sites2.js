@@ -615,108 +615,319 @@ var SitesPage = {
 
     const materials = Store.Materials.getAll();
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: '2-digit' });
-    const fmtDate = d => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const fmtDate = d => {
+      if (!d) return '-';
+      const parts = d.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      return new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
 
-    const buildSitePage = (site) => {
-      // Build cross-tab maps
+    const _resolveMatId = (matRef) => {
+      if (!matRef) return '';
+      if (typeof matRef === 'object') return String(matRef._id || matRef.id || '');
+      return String(matRef);
+    };
+
+    const buildSitePages = (site) => {
+      const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
+      const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
+      const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
+
       const dispatchMap = {};
-      const returnMap   = {};
+      const returnMap = {};
       const dispatchedMatIds = new Set();
-      const returnedMatIds   = new Set();
+      const returnedMatIds = new Set();
 
-      Store.Outgoing.getAll().filter(r => r.siteId === site.id).forEach(record => {
+      allOutgoing.forEach((record, index) => {
         (record.items || []).forEach(item => {
-          const matId = typeof item.materialId === 'object' ? String(item.materialId._id || item.materialId.id || '') : String(item.materialId || '');
+          const matId = _resolveMatId(item.materialId);
           if (!matId || !Store.Materials.getById(matId)) return;
           dispatchedMatIds.add(matId);
-          dispatchMap[record.date] = dispatchMap[record.date] || {};
-          dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
+          const rowKey = record.id || (record.date + '-out-' + index);
+          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || '-' };
+          dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
         });
       });
 
-      Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(record => {
+      allIncomingDirect.forEach((record, index) => {
         (record.items || []).forEach(item => {
-          const matId = typeof item.materialId === 'object' ? String(item.materialId._id || item.materialId.id || '') : String(item.materialId || '');
+          const matId = _resolveMatId(item.materialId);
           if (!matId || !Store.Materials.getById(matId)) return;
           dispatchedMatIds.add(matId);
-          dispatchMap[record.date] = dispatchMap[record.date] || {};
-          dispatchMap[record.date][matId] = (dispatchMap[record.date][matId] || 0) + (parseFloat(item.quantity) || 0);
+          const rowKey = record.id || (record.date + '-inc-' + index);
+          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.invoiceNo || 'Direct' };
+          dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
         });
       });
 
-      Store.SiteReturns.getAll().filter(r => r.siteId === site.id).forEach(record => {
-        const matId = typeof record.materialId === 'object' ? String(record.materialId._id || record.materialId.id || '') : String(record.materialId || '');
+      siteReturns.forEach((record, index) => {
+        const matId = _resolveMatId(record.materialId);
         if (!matId || !Store.Materials.getById(matId)) return;
         returnedMatIds.add(matId);
-        returnMap[record.date] = returnMap[record.date] || {};
-        returnMap[record.date][matId] = (returnMap[record.date][matId] || 0) + (parseFloat(record.quantity) || 0);
+        const rowKey = record.id || (record.date + '-ret-' + index);
+        returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
+        returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
       });
 
-      const dispatchMats  = [...dispatchedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
-      const returnMats    = [...returnedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
-      const dispatchDates = Object.keys(dispatchMap).sort();
-      const returnDates   = Object.keys(returnMap).sort();
+      const dispatchMats = [...dispatchedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
+      const returnMats   = [...returnedMatIds].map(id => Store.Materials.getById(id)).filter(Boolean);
 
-      const hdr = cols => cols.map(m =>
-        `<th style="border:1px solid #333;padding:4px 3px;font-size:10px;text-align:center;background:#e8edf2;min-width:44px;word-break:break-word;">${m.name}<br><span style="font-weight:400;font-size:9px;color:#555;">${m.unit}</span></th>`
+      const dispatchRowKeys = Object.keys(dispatchMap).sort((a, b) => new Date(dispatchMap[a].date) - new Date(dispatchMap[b].date));
+      const returnRowKeys = Object.keys(returnMap).sort((a, b) => new Date(returnMap[a].date) - new Date(returnMap[b].date));
+
+      // Inventory summary for site
+      const summaryMats = materials.filter(m => {
+        const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+        const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+        return sent > 0 || returned > 0;
+      });
+
+      const summaryTableHtml = `
+        <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+          <thead>
+            <tr style="background:#e8edf2;">
+              <th style="border:1px solid #333;padding:8px 10px;text-align:left;font-size:12px;">Material Name</th>
+              <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:150px;">Total Received (In)</th>
+              <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:150px;">Total Returned (Out)</th>
+              <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:180px;font-weight:bold;background:#dcfce7;color:#15803d;">Net Balance at Site</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summaryMats.map(m => {
+              const sent = Store.Inventory.getSiteTotalSent(m.id, site.id);
+              const returned = Store.Inventory.getSiteReturns(m.id, site.id);
+              const net = sent - returned;
+              return `
+                <tr>
+                  <td style="border:1px solid #333;padding:8px 10px;font-size:12px;font-weight:bold;">${m.name}</td>
+                  <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;">${sent.toLocaleString('en-IN')} ${m.unit}</td>
+                  <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;color:red;">${returned > 0 ? '-' + returned.toLocaleString('en-IN') : '0'} ${m.unit}</td>
+                  <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:13px;font-weight:bold;background:#f0fdf4;color:#166534;">
+                    ${net.toLocaleString('en-IN')} ${m.unit}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+            ${summaryMats.length === 0 ? `<tr><td colspan="4" style="border:1px solid #333;text-align:center;padding:15px;color:#888;font-style:italic;">No material transaction records found.</td></tr>` : ''}
+          </tbody>
+        </table>
+      `;
+
+      // Labour summary for site if LabourLogs available
+      let siteLabourHtml = '';
+      if (Store.LabourLogs) {
+        const logs = Store.LabourLogs.getAll().filter(l => String(l.siteId) === String(site.id));
+        if (logs.length > 0) {
+          let p = 0, h = 0, a = 0, otH = 0, otP = 0, mg = 0;
+          logs.forEach(l => {
+            if (l.attendance === 'Present') p++;
+            else if (l.attendance === 'Half Day') h++;
+            else if (l.attendance === 'Absent') a++;
+            const oH = parseFloat(l.overtimeHours) || 0;
+            const dw = parseFloat(l.dailyWage) || 0;
+            otH += oH;
+            otP += oH > 0 ? (dw / 8) * oH : (parseFloat(l.overtime) || 0);
+            mg += parseFloat(l.moneyGiven) || 0;
+          });
+          siteLabourHtml = `
+            <div style="margin-top:15px;border:1px solid #333;padding:10px;background:#f8fafc;font-size:11px;">
+              <strong>👷 Site Labour Log Summary:</strong> ${p} Present, ${h} Half Day, ${a} Absent | Overtime: ${otH} hrs (₹${otP.toLocaleString('en-IN')}) | Total Disbursed: ₹${mg.toLocaleString('en-IN')}
+            </div>
+          `;
+        }
+      }
+
+      const buildHeader = matList => matList.map(m =>
+        `<th style="border:1px solid #333;padding:5px 3px;font-size:10px;text-align:center;background:#e8edf2;min-width:46px;max-width:70px;word-break:break-word;">${m.name}<br><span style="font-weight:400;font-size:9px;color:#555;">${m.unit}</span></th>`
       ).join('');
 
-      const rows = (dates, cols, map) => {
-        if (!dates.length) return `<tr><td colspan="99" style="text-align:center;padding:8px;color:#888;font-style:italic;font-size:11px;">No records</td></tr>`;
-        return dates.map(date => {
-          const d = map[date] || {};
+      const buildRows = (rowKeys, matList, dataMap) => {
+        if (!rowKeys.length) return `<tr><td colspan="99" style="text-align:center;padding:12px;color:#888;font-style:italic;">No records</td></tr>`;
+        return rowKeys.map(key => {
+          const rowData = dataMap[key] || {};
+          const cells = matList.map(m => {
+            const qty = rowData[m.id] || 0;
+            return `<td style="text-align:center;border:1px solid #333;padding:5px 3px;font-size:12px;">${qty > 0 ? qty : ''}</td>`;
+          }).join('');
+          const refText = rowData.ref && rowData.ref !== '-' ? `<br><span style="font-size:10px;color:#666;">Ref: ${rowData.ref}</span>` : '';
           return `<tr>
-            <td style="border:1px solid #333;padding:4px 5px;font-size:11px;white-space:nowrap;">${fmtDate(date)}</td>
-            ${cols.map(m => { const q = d[m.id] || 0; return `<td style="border:1px solid #333;padding:4px 3px;font-size:11px;text-align:center;">${q > 0 ? q : ''}</td>`; }).join('')}
-            <td style="border:1px solid #333;padding:4px;width:50px;"></td>
+            <td style="border:1px solid #333;padding:5px 6px;font-size:12px;white-space:nowrap;">
+              ${fmtDate(rowData.date)}${refText}
+            </td>
+            ${cells}
+            <td style="border:1px solid #333;padding:5px;width:55px;"></td>
           </tr>`;
         }).join('');
       };
 
-      const filler = (n, cols) => n <= 0 ? '' : Array.from({length: n}, () =>
-        `<tr>${'<td style="border:1px solid #333;height:20px;"></td>'.repeat(cols + 2)}</tr>`
+      const fillerRows = (n, cols) => n <= 0 ? '' : Array.from({length: n}, () =>
+        `<tr>${'<td style="border:1px solid #333;height:24px;"></td>'.repeat(cols + 2)}</tr>`
       ).join('');
 
-      const table = (cols, dates, map, label) => `
-        <div style="font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid #333;padding-bottom:2px;margin:10px 0 4px;">${label}</div>
-        ${!cols.length
-          ? '<p style="color:#888;font-size:11px;font-style:italic;padding:4px 0;">No records.</p>'
-          : `<table style="width:100%;border-collapse:collapse;">
-              <thead><tr>
-                <th style="border:1px solid #333;padding:4px 5px;text-align:left;background:#e8edf2;min-width:75px;font-size:10px;">Date</th>
-                ${hdr(cols)}
-                <th style="border:1px solid #333;padding:4px;width:50px;background:#e8edf2;font-size:10px;">Sign.</th>
-              </tr></thead>
-              <tbody>
-                ${rows(dates, cols, map)}
-                ${filler(Math.max(0, 4 - dates.length), cols.length)}
-              </tbody>
-            </table>`
-        }`;
-
-      const headerHtml = `
-        <div style="text-align:center;font-size:14px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;">KSS — Material Delivery Challan</div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
-          <span>No. <span style="border-bottom:1px solid #333;display:inline-block;min-width:120px;padding:0 3px;">${site.tokenNumber || '-'}</span></span>
-          <span>Dated <span style="border-bottom:1px solid #333;display:inline-block;min-width:100px;padding:0 3px;">${today}</span></span>
-        </div>
-        <div style="font-size:12px;margin-bottom:3px;">To Owner / Contractor <span style="border-bottom:1px solid #333;display:inline-block;min-width:220px;padding:0 3px;">${site.customerName || '-'}</span></div>
-        <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px;">
-          <span>Site <span style="border-bottom:1px solid #333;display:inline-block;min-width:180px;padding:0 3px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
-          <span>Driver <span style="border-bottom:1px solid #333;display:inline-block;min-width:130px;"></span></span>
-        </div>`;
+      const challanTable = (matList, rowKeys, dataMap) => {
+        if (!matList.length) return '<p style="color:#888;font-style:italic;font-size:12px;padding:6px 0;">No records.</p>';
+        return `
+          <table style="width:100%;border-collapse:collapse;margin-top:6px;">
+            <thead>
+              <tr>
+                <th style="border:1px solid #333;padding:5px 6px;text-align:left;background:#e8edf2;min-width:80px;font-size:11px;">Date / Ref</th>
+                ${buildHeader(matList)}
+                <th style="border:1px solid #333;padding:5px;width:55px;background:#e8edf2;font-size:11px;">Sign.</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${buildRows(rowKeys, matList, dataMap)}
+              ${fillerRows(Math.max(0, 5 - rowKeys.length), matList.length)}
+            </tbody>
+          </table>`;
+      };
 
       return `
-        <div class="site-page page-break">
-          ${headerHtml}
-          ${table(dispatchMats, dispatchDates, dispatchMap, 'Material Received at Site')}
-          <div style="text-align:center;font-size:12px;font-weight:bold;margin-top:12px;border-top:2px solid #333;padding-top:6px;letter-spacing:2px;">CHALLAN (IN)</div>
+        <!-- PAGE 1: RECEIVED -->
+        <div class="page page-break">
+          <div class="company">KSS — Material Delivery Challan</div>
+          <div class="info-row">
+            <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
+          </div>
+          <div class="info-row">
+            <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+          </div>
+          <div class="info-row">
+            <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? fmtDate(site.lintelDate) : '&nbsp;'}</span></span>
+            <span>Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
+          </div>
+          <div class="section-label">Material Received at Site</div>
+          ${challanTable(dispatchMats, dispatchRowKeys, dispatchMap)}
+          <div class="footer">CHALLAN (IN)</div>
         </div>
-        <div class="site-page page-break">
-          ${headerHtml}
-          ${table(returnMats, returnDates, returnMap, 'Material Returned from Site')}
-          <div style="text-align:center;font-size:12px;font-weight:bold;margin-top:12px;border-top:2px solid #333;padding-top:6px;letter-spacing:2px;">CHALLAN (IN)</div>
-        </div>`;
+
+        <!-- PAGE 2: RETURNED -->
+        <div class="page page-break">
+          <div class="company">KSS — Material Delivery Challan</div>
+          <div class="info-row">
+            <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
+          </div>
+          <div class="info-row">
+            <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+          </div>
+          <div class="info-row">
+            <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? fmtDate(site.lintelDate) : '&nbsp;'}</span></span>
+            <span>Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
+          </div>
+          <div class="section-label">Material Returned from Site</div>
+          ${challanTable(returnMats, returnRowKeys, returnMap)}
+          <div class="footer">CHALLAN (RETURN)</div>
+        </div>
+
+        <!-- PAGE 3: SUMMARY / NET BALANCE -->
+        <div class="page page-break">
+          <div class="company">KSS — Material Delivery Challan</div>
+          <div class="info-row">
+            <span>No. <span class="ul">${site.tokenNumber || '-'}</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
+          </div>
+          <div class="info-row">
+            <span>To Owner / Contractor <span class="ul" style="min-width:240px;">${site.customerName || '-'}</span></span>
+          </div>
+          <div class="info-row">
+            <span>Site <span class="ul" style="min-width:200px;">${site.name}${site.address ? ', ' + site.address : ''}</span></span>
+            <span>Lintel Date <span class="ul" style="min-width:120px;">${site.lintelDate ? fmtDate(site.lintelDate) : '&nbsp;'}</span></span>
+            <span style="opacity:0; pointer-events:none;">Driver <span class="ul" style="min-width:120px;">&nbsp;</span></span>
+          </div>
+          <div class="section-label">Material Inventory Summary (Net Balance at Site)</div>
+          ${summaryTableHtml}
+          ${siteLabourHtml}
+          <div class="footer">INVENTORY SUMMARY</div>
+        </div>
+      `;
+    };
+
+    // Overall summary page HTML
+    const buildFinalSummaryPage = () => {
+      let totalIssued = 0, totalReturned = 0;
+      const matTotals = {};
+      allSites.forEach(s => {
+        materials.forEach(m => {
+          const sent = Store.Inventory.getSiteTotalSent(m.id, s.id);
+          const returned = Store.Inventory.getSiteReturns(m.id, s.id);
+          if (sent > 0 || returned > 0) {
+            if (!matTotals[m.id]) {
+              matTotals[m.id] = { name: m.name, unit: m.unit, sent: 0, returned: 0 };
+            }
+            matTotals[m.id].sent += sent;
+            matTotals[m.id].returned += returned;
+            totalIssued += sent;
+            totalReturned += returned;
+          }
+        });
+      });
+
+      let totalLabourPresent = 0, totalLabourHalf = 0, totalLabourAbsent = 0;
+      let totalLabourOtHours = 0, totalLabourOtPay = 0, totalLabourPaid = 0;
+
+      if (Store.LabourLogs) {
+        Store.LabourLogs.getAll().forEach(l => {
+          if (l.attendance === 'Present') totalLabourPresent++;
+          else if (l.attendance === 'Half Day') totalLabourHalf++;
+          else if (l.attendance === 'Absent') totalLabourAbsent++;
+          const otH = parseFloat(l.overtimeHours) || 0;
+          const dw = parseFloat(l.dailyWage) || 0;
+          totalLabourOtHours += otH;
+          totalLabourOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+          totalLabourPaid += parseFloat(l.moneyGiven) || 0;
+        });
+      }
+
+      const rowsHtml = Object.values(matTotals).map(m => `
+        <tr>
+          <td style="border:1px solid #333;padding:8px 10px;font-size:12px;font-weight:bold;">${m.name}</td>
+          <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;">${m.sent.toLocaleString('en-IN')} ${m.unit}</td>
+          <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;color:red;">${m.returned > 0 ? '-' + m.returned.toLocaleString('en-IN') : '0'} ${m.unit}</td>
+          <td style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:13px;font-weight:bold;background:#f0fdf4;color:#166534;">
+            ${(m.sent - m.returned).toLocaleString('en-IN')} ${m.unit}
+          </td>
+        </tr>
+      `).join('');
+
+      return `
+        <div class="page">
+          <div class="company">KSS — Consolidated Report Summary</div>
+          <div class="info-row">
+            <span>Report Type: <span class="ul" style="min-width:200px;">All Sites Combined Summary</span></span>
+            <span>Dated <span class="ul">${today}</span></span>
+          </div>
+          <div class="section-label">Overall Material Inventory Summary Across All Sites</div>
+          <table style="width:100%;border-collapse:collapse;margin-top:10px;">
+            <thead>
+              <tr style="background:#e8edf2;">
+                <th style="border:1px solid #333;padding:8px 10px;text-align:left;font-size:12px;">Material Name</th>
+                <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:150px;">Total Issued Across Sites</th>
+                <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:12px;width:150px;">Total Returned Across Sites</th>
+                <th style="border:1px solid #333;padding:8px 10px;text-align:right;font-size:13px;font-weight:bold;background:#dcfce7;color:#15803d;">Net Balance at All Sites</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml || '<tr><td colspan="4" style="border:1px solid #333;text-align:center;padding:15px;color:#888;font-style:italic;">No records found.</td></tr>'}
+            </tbody>
+          </table>
+
+          <div class="section-label" style="margin-top:20px;">Overall Labour Attendance & Payroll Summary</div>
+          <div style="border:1px solid #333;padding:12px;background:#f8fafc;font-size:12px;line-height:1.6;">
+            <div><strong>Total Labour Log Entries:</strong> ${totalLabourPresent + totalLabourHalf + totalLabourAbsent}</div>
+            <div><strong>Attendance Breakdown:</strong> ${totalLabourPresent} Present | ${totalLabourHalf} Half Day | ${totalLabourAbsent} Absent</div>
+            <div><strong>Total Overtime Worked:</strong> ${totalLabourOtHours} hrs (Total OT Value: ₹${totalLabourOtPay.toLocaleString('en-IN')})</div>
+            <div><strong>Total Payments Disbursed to Labour:</strong> <strong style="color:#15803d;font-size:13px;">₹${totalLabourPaid.toLocaleString('en-IN')}</strong></div>
+          </div>
+
+          <div class="footer">ALL SITES OVERALL SUMMARY</div>
+        </div>
+      `;
     };
 
     const printWindow = window.open('', '_blank');
@@ -724,15 +935,21 @@ var SitesPage = {
       <html><head>
         <title>All Sites Report - ${new Date().toLocaleDateString('en-IN')}</title>
         <style>
-          @page { size: A4 landscape; margin: 8mm 10mm; }
+          @page { size: A4 landscape; margin: 10mm 12mm; }
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body { font-family: Arial, Helvetica, sans-serif; color: #111; background: #fff; }
-          .site-page { width: 100%; padding-bottom: 8px; }
+          .company { text-align:center; font-size:15px; font-weight:bold; letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+          .info-row { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px; font-size:13px; }
+          .ul { border-bottom:1px solid #333; display:inline-block; padding:0 4px; min-width:140px; }
+          .section-label { font-size:12px; font-weight:bold; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #333; padding-bottom:2px; margin:14px 0 4px; }
+          .footer { text-align:center; font-size:14px; font-weight:bold; margin-top:16px; border-top:2px solid #333; padding-top:8px; letter-spacing:3px; }
+          .page { width: 100%; }
           .page-break { page-break-after: always; }
           @media print { button { display: none; } }
         </style>
       </head><body>
-        ${allSites.map(site => buildSitePage(site)).join('')}
+        ${allSites.map(site => buildSitePages(site)).join('')}
+        ${buildFinalSummaryPage()}
         <script>window.onload = function(){ window.print(); };<\/script>
       </body></html>`);
     printWindow.document.close();
