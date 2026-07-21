@@ -33,17 +33,6 @@ async function generateDailyWarehouseSummary({ date, models }) {
   const sitesMap = {};
   sites.forEach(s => { sitesMap[String(s._id || s.id)] = s; });
 
-  // ── Low stock rows ─────────────────────────────────────────────────
-  const lowStockRows = materials.map(m => {
-    const mId = String(m._id || m.id);
-    const stock = currentStockMap[mId] || 0;
-    const reorder = m.reorderLevel || 50;
-    if (stock < reorder) {
-      return { name: m.name, stock, reorder, deficit: reorder - stock, unit: m.unit || 'Nos', price: m.unitPrice || 0 };
-    }
-    return null;
-  }).filter(Boolean);
-
   // ── Pre-fetch Expenses, Payments, Labour & SeparateBilling ──────────
   let allExpenses = [];
   if (SiteExpenses) {
@@ -84,6 +73,17 @@ async function generateDailyWarehouseSummary({ date, models }) {
     });
     currentStockMap[mId] = (purchased + returned) - sent - rented;
   });
+
+  // ── Low stock rows ─────────────────────────────────────────────────
+  const lowStockRows = materials.map(m => {
+    const mId = String(m._id || m.id);
+    const stock = currentStockMap[mId] || 0;
+    const reorder = m.reorderLevel || 50;
+    if (stock < reorder) {
+      return { name: m.name, stock, reorder, deficit: reorder - stock, unit: m.unit || 'Nos', price: m.unitPrice || 0 };
+    }
+    return null;
+  }).filter(Boolean);
 
   // ── Filter today's movements ────────────────────────────────────────
   const incomingMovements = [];
