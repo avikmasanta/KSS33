@@ -199,7 +199,18 @@ const Store = (() => {
           }
         });
       }
-      // Database is patched. No need to run auto-patch on startup anymore to prevent resetting custom orders
+      // Database is patched. Auto-refresh current page after cloud sync completes
+      const currentHash = window.location.hash.replace('#', '') || 'dashboard';
+      const moduleMap = {
+        dashboard: 'DashboardPage', sites: 'SitesPage', labour: 'LabourPage',
+        materials: 'MaterialsPage', incoming: 'IncomingPage', outgoing: 'OutgoingPage',
+        reports: 'ReportsPage', ledger: 'LedgerPage', 'site-details': 'SiteDetailsPage',
+        'site-returns': 'ReturnsPage', rentals: 'RentalsPage', 'separate-billing': 'SeparateBillingPage'
+      };
+      const moduleName = moduleMap[currentHash];
+      if (window[moduleName] && typeof window[moduleName].refresh === 'function') {
+        window[moduleName].refresh();
+      }
     }); // Fire and forget
   }
 
@@ -221,6 +232,12 @@ const Store = (() => {
     return {
       getAll: () => cache[cacheKey] || [],
       getById: (id) => cache[cacheKey].find(x => x.id === id) || null,
+      setAll: (data) => {
+        if (Array.isArray(data)) {
+          cache[cacheKey] = data;
+          persistLocal(lsKey, data);
+        }
+      },
 
       add: (data) => {
         // Generate a unique temporary ID (preserve data.id if present)

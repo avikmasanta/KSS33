@@ -39,6 +39,11 @@ var LabourPage = {
     this.reportStartDate = window.localDateStr(new Date(new Date().setDate(new Date().getDate() - 30)));
     this.reportEndDate = window.localDateStr();
     await this.fetchData();
+    const container = document.getElementById('page-container');
+    if (container && window.location.hash === '#labour') {
+      container.innerHTML = this.render();
+      this.bindEvents();
+    }
   },
 
   async refresh() {
@@ -54,18 +59,39 @@ var LabourPage = {
 
   async fetchData() {
     try {
-      // Fetch summary from backend which uses MongoDB aggregations
+      const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+        ? 'http://localhost:5000/api'
+        : '/api';
+
+      try {
+        const [laboursRes, logsRes] = await Promise.all([
+          fetch(`${API_URL}/labours`),
+          fetch(`${API_URL}/labourLogs`)
+        ]);
+        if (laboursRes.ok) {
+          const lData = await laboursRes.json();
+          if (Array.isArray(lData) && Store.Labours.setAll) {
+            Store.Labours.setAll(lData);
+          }
+        }
+        if (logsRes.ok) {
+          const logsData = await logsRes.json();
+          if (Array.isArray(logsData) && Store.LabourLogs.setAll) {
+            Store.LabourLogs.setAll(logsData);
+          }
+        }
+      } catch (e) {}
+
       let query = `?startDate=${this.reportStartDate}&endDate=${this.reportEndDate}`;
       if (this.reportSiteId) query += `&siteId=${this.reportSiteId}`;
       if (this.reportLabourId) query += `&labourId=${this.reportLabourId}`;
       if (this.reportAttendance) query += `&attendance=${this.reportAttendance}`;
 
-      const res = await fetch(`/api/labours-summary${query}`);
+      const res = await fetch(`${API_URL}/labours-summary${query}`);
       if (res.ok) {
         this.summaryData = await res.json();
       }
 
-      // Prefill logs from local Store cache to ensure instant reactivity and sync
       const allLogs = Store.LabourLogs.getAll();
       this.dailyLogsData = {};
       allLogs.forEach(log => {
@@ -772,8 +798,9 @@ var LabourPage = {
     this.logDate = e.target.value;
     this.fetchData().then(() => {
       const container = document.getElementById('page-container');
-      if (container) {
+      if (container && window.location.hash === '#labour') {
         container.innerHTML = this.render();
+        if (typeof this.bindEvents === 'function') this.bindEvents();
       }
     });
   },
