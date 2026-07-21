@@ -13,6 +13,7 @@ var LabourPage = {
   logDate: window.localDateStr(),
   globalSiteId: '',
   dailyLogsData: {}, // key: labourId -> log object
+  isDirty: false,
 
   // Report state
   reportStartDate: window.localDateStr(new Date(new Date().setDate(new Date().getDate() - 30))),
@@ -762,7 +763,7 @@ var LabourPage = {
                       </div>
                     </td>
                     <td>
-                      <select class="form-control log-site" style="height:36px; padding:0 8px;">
+                      <select class="form-control log-site" style="height:36px; padding:0 8px;" onchange="LabourPage.markDirty()">
                         <option value="">-- Select --</option>
                         ${sites.map(s => `<option value="${s.id}" ${siteId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                       </select>
@@ -778,10 +779,10 @@ var LabourPage = {
                       </div>
                     </td>
                     <td>
-                      <input type="number" class="form-control log-money" value="${money}" style="height:36px; text-align:right; font-weight:600;" min="0" placeholder="0">
+                      <input type="number" class="form-control log-money" value="${money}" style="height:36px; text-align:right; font-weight:600;" min="0" placeholder="0" oninput="LabourPage.markDirty()">
                     </td>
                     <td>
-                      <input type="text" class="form-control log-notes" value="${note}" placeholder="Optional notes" style="height:36px;">
+                      <input type="text" class="form-control log-notes" value="${note}" placeholder="Optional notes" style="height:36px;" oninput="LabourPage.markDirty()">
                     </td>
                   </tr>
                 `;
@@ -795,6 +796,7 @@ var LabourPage = {
   },
 
   onLogDateChange(e) {
+    this.isDirty = false;
     this.logDate = e.target.value;
     this.fetchData().then(() => {
       const container = document.getElementById('page-container');
@@ -806,6 +808,7 @@ var LabourPage = {
   },
 
   onGlobalSiteChange(e) {
+    this.isDirty = true;
     this.globalSiteId = e.target.value;
     // Update all dropdowns that don't have overrides
     document.querySelectorAll('tr[data-labour-id]').forEach(tr => {
@@ -816,7 +819,12 @@ var LabourPage = {
     });
   },
 
+  markDirty() {
+    this.isDirty = true;
+  },
+
   setAttStatus(button, status) {
+    this.isDirty = true;
     const parent = button.parentElement;
     parent.querySelectorAll('.att-btn').forEach(btn => {
       btn.classList.remove('btn-success', 'btn-warning', 'btn-danger');
@@ -840,6 +848,7 @@ var LabourPage = {
   },
 
   updateOtDisplay(inputElement) {
+    this.isDirty = true;
     const tr = inputElement.closest('tr');
     if (!tr) return;
     const wageInput = tr.querySelector('.log-wage');
@@ -915,6 +924,7 @@ var LabourPage = {
     }
 
     alert(`Saved logs for ${count} labours successfully!`);
+    this.isDirty = false;
     this.fetchData().then(() => {
       const container = document.getElementById('page-container');
       if (container) {

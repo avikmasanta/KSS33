@@ -28,6 +28,9 @@ var App = (() => {
   }
 
   function isPageDirty() {
+    if (window.LabourPage && window.LabourPage.isDirty) {
+      return true;
+    }
     // 1. Check if user is currently focusing/editing any input, textarea, select
     const activeEl = document.activeElement;
     if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
