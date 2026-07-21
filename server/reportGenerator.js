@@ -45,14 +45,15 @@ async function generateDailyWarehouseSummary({ date, models }) {
 
   let dayLogs = [];
   let allLabourLogs = [];
+  let allLabours = [];
   const laboursMap = {};
   if (LabourLog) {
     try {
       allLabourLogs = await LabourLog.find({});
       dayLogs = allLabourLogs.filter(l => l.date === date);
       if (Labour) {
-        const labours = await Labour.find({});
-        labours.forEach(l => { laboursMap[String(l._id || l.id)] = l; });
+        allLabours = await Labour.find({ status: { $ne: 'Archived' } });
+        allLabours.forEach(l => { laboursMap[String(l._id || l.id)] = l; });
       }
     } catch (e) {}
   }
@@ -548,6 +549,98 @@ async function generateDailyWarehouseSummary({ date, models }) {
 
         doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
         doc.text(mg > 0 ? `Rs.${Math.round(mg)}${mgNote}` : '-', 480, y + 6, { width: 75, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
+      });
+    }
+
+    y += 12;
+
+    // ── Master Workforce Payroll Ledger ──────────────────────────────
+    sectionTitle('📋  Master Workforce Payroll Ledger', C_PURPLE);
+    y += 4;
+
+    if (allLabours.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No workers registered in Labour Master.', 40, y + 4);
+      y += 24;
+    } else {
+      let grandEarned = 0, grandPaid = 0;
+      const workerRows = allLabours.map(lab => {
+        const id = String(lab._id || lab.id);
+        const wLogs = allLabourLogs.filter(l => String(l.labourId) === id);
+        let pDays = 0, hDays = 0, gross = 0, otP = 0, paid = 0;
+
+        wLogs.forEach(l => {
+          const att = l.attendance === 'Present' ? 1 : (l.attendance === 'Half Day' ? 0.5 : 0);
+          if (l.attendance === 'Present') pDays++;
+          else if (l.attendance === 'Half Day') hDays++;
+          const dw = parseFloat(l.dailyWage) || parseFloat(lab.defaultWage) || 0;
+          gross += dw * att;
+
+          const oH = parseFloat(l.overtimeHours) || 0;
+          otP += oH > 0 ? (dw / 8) * oH : (parseFloat(l.overtime) || 0);
+          paid += parseFloat(l.moneyGiven) || 0;
+        });
+
+        const earned = gross + otP;
+        const bal = earned - paid;
+        grandEarned += earned;
+        grandPaid += paid;
+
+        return {
+          name: lab.name,
+          nickname: lab.nickname ? ` (${lab.nickname})` : '',
+          wage: lab.defaultWage || 500,
+          daysStr: `${pDays}P ${hDays > 0 ? hDays + 'H' : ''}`,
+          earned,
+          paid,
+          bal
+        };
+      });
+
+      // Overview banner
+      doc.fillColor('#f3e8ff').rect(30, y, PW, 22).fill();
+      doc.fillColor(C_PURPLE).font('Helvetica-Bold').fontSize(10);
+      doc.text(`Total Workers: ${allLabours.length} | Total Cumulative Earnings: Rs. ${Math.round(grandEarned)} | Total Money Paid: Rs. ${Math.round(grandPaid)} | Net Balance: Rs. ${Math.round(grandEarned - grandPaid)}`, 36, y + 5, { width: PW - 12 });
+      y += 22;
+
+      // Table Header
+      doc.fillColor(C_PURPLE).rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Worker Name', 40, y + 5, { width: 160 });
+      doc.text('Wage Rate', 200, y + 5, { width: 65, align: 'right' });
+      doc.text('Days Worked', 270, y + 5, { width: 75, align: 'center' });
+      doc.text('Total Earned', 350, y + 5, { width: 75, align: 'right' });
+      doc.text('Money Paid', 430, y + 5, { width: 65, align: 'right' });
+      doc.text('Net Balance', 500, y + 5, { width: 55, align: 'right' });
+      y += 20;
+
+      workerRows.forEach((row, idx) => {
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : '#faf5ff';
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(`${row.name}${row.nickname}`, 40, y + 6, { width: 158, lineBreak: false });
+
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
+        doc.text(`Rs.${row.wage}`, 200, y + 6, { width: 65, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_DARK).font('Helvetica').fontSize(9);
+        doc.text(row.daysStr, 270, y + 6, { width: 75, align: 'center', lineBreak: false });
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(`Rs.${Math.round(row.earned)}`, 350, y + 6, { width: 75, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
+        doc.text(`Rs.${Math.round(row.paid)}`, 430, y + 6, { width: 65, align: 'right', lineBreak: false });
+
+        const balColor = row.bal >= 0 ? C_RED : C_GREEN;
+        const balLabel = row.bal >= 0 ? `Rs.${Math.round(row.bal)} Pay` : `Rs.${Math.round(Math.abs(row.bal))} Adv`;
+        doc.fillColor(balColor).font('Helvetica-Bold').fontSize(9);
+        doc.text(balLabel, 500, y + 6, { width: 55, align: 'right', lineBreak: false });
 
         doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
         y += 24;
