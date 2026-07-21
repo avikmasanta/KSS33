@@ -272,6 +272,210 @@ async function generateDailyWarehouseSummary({ date, models }) {
       });
     }
 
+    y += 12;
+
+    // ── Detailed Labour Payroll Logs Section ─────────────────────────
+    sectionTitle('👷  Labour Attendance & Payroll Log', C_PURPLE);
+    y += 4;
+
+    if (dayLogs.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No labour attendance logged for today.', 40, y + 4);
+      y += 24;
+    } else {
+      let presentCount = 0, halfCount = 0, absentCount = 0;
+      let totalOtHours = 0, totalOtPay = 0, totalMoneyGiven = 0;
+
+      dayLogs.forEach(l => {
+        if (l.attendance === 'Present') presentCount++;
+        else if (l.attendance === 'Half Day') halfCount++;
+        else if (l.attendance === 'Absent') absentCount++;
+
+        const otH = parseFloat(l.overtimeHours) || 0;
+        const dw  = parseFloat(l.dailyWage) || 0;
+        totalOtHours += otH;
+        totalOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        totalMoneyGiven += parseFloat(l.moneyGiven) || 0;
+      });
+
+      // Overview banner
+      doc.fillColor('#f3e8ff').rect(30, y, PW, 22).fill();
+      doc.fillColor(C_PURPLE).font('Helvetica-Bold').fontSize(10);
+      doc.text(`Present: ${presentCount} | Half Day: ${halfCount} | Absent: ${absentCount} | OT: ${totalOtHours}h (Rs. ${Math.round(totalOtPay)}) | Money Paid: Rs. ${Math.round(totalMoneyGiven)}`, 36, y + 5, { width: PW - 12 });
+      y += 22;
+
+      // Table Header
+      doc.fillColor(C_PURPLE).rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Worker Name', 40, y + 5, { width: 140 });
+      doc.text('Status', 180, y + 5, { width: 65, align: 'center' });
+      doc.text('Wage', 245, y + 5, { width: 55, align: 'right' });
+      doc.text('Overtime (Slot)', 305, y + 5, { width: 115 });
+      doc.text('OT Pay', 420, y + 5, { width: 55, align: 'right' });
+      doc.text('Money Paid', 480, y + 5, { width: 75, align: 'right' });
+      y += 20;
+
+      dayLogs.forEach((l, idx) => {
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : '#faf5ff';
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
+
+        const lab = laboursMap[String(l.labourId)] || {};
+        const wName = lab.name || 'Worker';
+        const nick  = lab.nickname ? ` (${lab.nickname})` : '';
+        const dw    = parseFloat(l.dailyWage) || parseFloat(lab.defaultWage) || 0;
+        const otH   = parseFloat(l.overtimeHours) || 0;
+        const otTime = l.overtimeTime ? ` (${l.overtimeTime})` : '';
+        const otStr  = otH > 0 ? `${otH}h${otTime}` : '-';
+        const otPay  = otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        const mg     = parseFloat(l.moneyGiven) || 0;
+        const mgNote = l.notes ? ` (${l.notes})` : '';
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(`${wName}${nick}`, 40, y + 6, { width: 138, lineBreak: false });
+
+        const statusColor = l.attendance === 'Present' ? C_GREEN : (l.attendance === 'Half Day' ? '#d97706' : C_RED);
+        doc.fillColor(statusColor).font('Helvetica-Bold').fontSize(9);
+        doc.text(l.attendance || 'Present', 180, y + 6, { width: 65, align: 'center', lineBreak: false });
+
+        doc.fillColor(C_DARK).font('Helvetica').fontSize(10);
+        doc.text(`Rs.${Math.round(dw)}`, 245, y + 6, { width: 55, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_PURPLE).font('Helvetica').fontSize(9);
+        doc.text(otStr, 305, y + 6, { width: 113, lineBreak: false });
+
+        doc.fillColor(C_PURPLE).font('Helvetica-Bold').fontSize(10);
+        doc.text(otPay > 0 ? `Rs.${Math.round(otPay)}` : '-', 420, y + 6, { width: 55, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
+        doc.text(mg > 0 ? `Rs.${Math.round(mg)}${mgNote}` : '-', 480, y + 6, { width: 75, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
+      });
+    }
+
+    y += 12;
+
+    // ── Detailed Measurement Bills Statement Section ──────────────────
+    sectionTitle('📐  Separate Measurement Bills Statement', '#0f3c7a');
+    y += 4;
+
+    if (allBills.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No measurement bills recorded.', 40, y + 4);
+      y += 24;
+    } else {
+      let totalNetArea = 0, totalBillAmt = 0, totalReceivedAmt = 0;
+      allBills.forEach(b => {
+        totalNetArea += parseFloat(b.netArea || b.totalArea) || 0;
+        totalBillAmt += parseFloat(b.totalAmount) || 0;
+        totalReceivedAmt += parseFloat(b.receivedAmount) || 0;
+      });
+
+      doc.fillColor('#f0f9ff').rect(30, y, PW, 22).fill();
+      doc.fillColor('#0369a1').font('Helvetica-Bold').fontSize(10);
+      doc.text(`Total Bills: ${allBills.length} | Net Area: ${Math.round(totalNetArea)} Sq Ft | Amount: Rs. ${Math.round(totalBillAmt)} | Received: Rs. ${Math.round(totalReceivedAmt)}`, 36, y + 5, { width: PW - 12 });
+      y += 22;
+
+      doc.fillColor('#0f3c7a').rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Site / Bill Name', 40, y + 5, { width: 140 });
+      doc.text('Contractor & Owner', 180, y + 5, { width: 130 });
+      doc.text('Net Area', 310, y + 5, { width: 75, align: 'right' });
+      doc.text('Total Amount', 385, y + 5, { width: 80, align: 'right' });
+      doc.text('Received Payments', 465, y + 5, { width: 90, align: 'right' });
+      y += 20;
+
+      allBills.forEach((b, idx) => {
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
+
+        const sName  = b.siteName || 'Bill';
+        const cName  = b.contractorName || 'Contractor';
+        const oName  = b.ownerName ? ` (${b.ownerName})` : '';
+        const netA   = parseFloat(b.netArea || b.totalArea) || 0;
+        const totA   = parseFloat(b.totalAmount) || 0;
+        const recA   = parseFloat(b.receivedAmount) || 0;
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(sName, 40, y + 6, { width: 138, lineBreak: false });
+
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
+        doc.text(`${cName}${oName}`, 180, y + 6, { width: 128, lineBreak: false });
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(`${Math.round(netA)} Sq Ft`, 310, y + 6, { width: 75, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(totA > 0 ? `Rs.${Math.round(totA)}` : '-', 385, y + 6, { width: 80, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
+        doc.text(recA > 0 ? `Rs.${Math.round(recA)}` : '-', 465, y + 6, { width: 90, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
+      });
+    }
+
+    y += 12;
+
+    // ── Detailed Site Financial Expenses & Payments Section ─────────────
+    sectionTitle('💰  Site Expenses & Financial Statement', '#15803d');
+    y += 4;
+
+    if (sites.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No active sites recorded.', 40, y + 4);
+      y += 24;
+    } else {
+      let grandExp = 0, grandPay = 0;
+      sites.forEach(s => {
+        const sId = String(s._id || s.id);
+        allExpenses.filter(e => String(e.siteId) === sId).forEach(e => { grandExp += parseFloat(e.amount) || 0; });
+        allPayments.filter(p => String(p.siteId) === sId).forEach(p => { grandPay += parseFloat(p.amount) || 0; });
+      });
+
+      doc.fillColor('#f0fdf4').rect(30, y, PW, 22).fill();
+      doc.fillColor('#15803d').font('Helvetica-Bold').fontSize(10);
+      doc.text(`Active Sites: ${sites.length} | Total Expenses: Rs. ${Math.round(grandExp)} | Total Payments Received: Rs. ${Math.round(grandPay)}`, 36, y + 5, { width: PW - 12 });
+      y += 22;
+
+      doc.fillColor('#15803d').rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Site Name', 40, y + 5, { width: 180 });
+      doc.text('Customer', 220, y + 5, { width: 140 });
+      doc.text('Total Expenses', 360, y + 5, { width: 95, align: 'right' });
+      doc.text('Payments Recd.', 460, y + 5, { width: 95, align: 'right' });
+      y += 20;
+
+      sites.forEach((s, idx) => {
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
+
+        const sId = String(s._id || s.id);
+        const sExp = allExpenses.filter(e => String(e.siteId) === sId).reduce((tot, e) => tot + (parseFloat(e.amount) || 0), 0);
+        const sPay = allPayments.filter(p => String(p.siteId) === sId).reduce((tot, p) => tot + (parseFloat(p.amount) || 0), 0);
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(s.name, 40, y + 6, { width: 178, lineBreak: false });
+
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
+        doc.text(s.customerName || '-', 220, y + 6, { width: 138, lineBreak: false });
+
+        doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(10);
+        doc.text(sExp > 0 ? `Rs.${Math.round(sExp)}` : '-', 360, y + 6, { width: 95, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
+        doc.text(sPay > 0 ? `Rs.${Math.round(sPay)}` : '-', 460, y + 6, { width: 95, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
+      });
+    }
+
     // ═══════════════════════════════════════════════════════════════════
     // LANDSCAPE PAGES FOR EVERY ACTIVE SITE (3 PAGES PER SITE)
     // ═══════════════════════════════════════════════════════════════════
