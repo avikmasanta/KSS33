@@ -106,15 +106,75 @@ async function generateDailyWarehouseSummary({ date, models }) {
     return null;
   }).filter(Boolean);
 
-  // ── Filter today's movements ────────────────────────────────────────
+  // ── Movements for report date ───────────────────────────────────────
   let totalIn = 0, totalOut = 0;
+  const incomingMovements = [];
+  const outgoingMovements = [];
+
   allIncoming.filter(r => r.destinationType === 'warehouse' && r.date === date).forEach(r => {
-    (r.items || []).forEach(i => totalIn += parseFloat(i.quantity) || 0);
+    (r.items || []).forEach(i => {
+      const qty = parseFloat(i.quantity) || 0;
+      totalIn += qty;
+      const mat = materialsMap[String(i.materialId)];
+      incomingMovements.push({
+        materialName: mat ? mat.name : 'Unknown',
+        quantity: qty,
+        unit: mat ? mat.unit || 'Nos' : 'Nos',
+        source: r.supplier || 'Purchase'
+      });
+    });
   });
-  allReturns.filter(r => r.date === date).forEach(r => totalIn += parseFloat(r.quantity) || 0);
+
+  allReturns.filter(r => r.date === date).forEach(r => {
+    const qty = parseFloat(r.quantity) || 0;
+    totalIn += qty;
+    const mat  = materialsMap[String(r.materialId)];
+    const site = sitesMap[String(r.siteId)];
+    incomingMovements.push({
+      materialName: mat ? mat.name : 'Unknown',
+      quantity: qty,
+      unit: mat ? mat.unit || 'Nos' : 'Nos',
+      source: site ? `Return - ${site.name}` : 'Site Return'
+    });
+  });
+
   allOutgoing.filter(r => r.date === date).forEach(r => {
-    (r.items || []).forEach(i => totalOut += parseFloat(i.quantity) || 0);
+    (r.items || []).forEach(i => {
+      const qty = parseFloat(i.quantity) || 0;
+      totalOut += qty;
+      const mat  = materialsMap[String(i.materialId)];
+      const site = sitesMap[String(r.siteId)];
+      outgoingMovements.push({
+        materialName: mat ? mat.name : 'Unknown',
+        quantity: qty,
+        unit: mat ? mat.unit || 'Nos' : 'Nos',
+        destination: site ? site.name : 'Site Dispatch',
+        challan: r.referenceNo || r.ticketNo || '-'
+      });
+    });
   });
+
+  // ── Material Utilization Rows ─────────────────────────────────────
+  const utilizationRows = materials.map(m => {
+    const mId = String(m._id || m.id);
+    let totalSent = 0, totalRet = 0;
+
+    allOutgoing.forEach(r => {
+      (r.items || []).forEach(i => { if (String(i.materialId) === mId) totalSent += parseFloat(i.quantity) || 0; });
+    });
+    allIncoming.filter(r => r.destinationType === 'site').forEach(r => {
+      (r.items || []).forEach(i => { if (String(i.materialId) === mId) totalSent += parseFloat(i.quantity) || 0; });
+    });
+    allReturns.forEach(r => {
+      if (String(r.materialId) === mId) totalRet += parseFloat(r.quantity) || 0;
+    });
+
+    const activeBalance = totalSent - totalRet;
+    if (totalSent > 0 || totalRet > 0) {
+      return { name: m.name, unit: m.unit || 'Nos', sent: totalSent, returned: totalRet, active: activeBalance };
+    }
+    return null;
+  }).filter(Boolean);
 
   const warehouseRows = materials.map(m => {
     const mId = String(m._id || m.id);
@@ -330,6 +390,88 @@ async function generateDailyWarehouseSummary({ date, models }) {
     }
 
     y += 12;
+
+    // ── Stock Movement Section (Today's Transactions) ───────────────
+    sectionTitle('🔄  Stock Movement Report (Today\'s Transactions)', C_GREEN);
+    y += 4;
+
+    if (incomingMovements.length === 0 && outgoingMovements.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No stock movements recorded for this date.', 40, y + 4);
+      y += 24;
+    } else {
+      // Received
+      if (incomingMovements.length > 0) {
+        checkSpace(30);
+        doc.fillColor('#f0fdf4').rect(30, y, PW, 18).fill();
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(9);
+        doc.text('📥 INCOMING STOCK MOVEMENTS', 36, y + 4);
+        y += 18;
+
+        incomingMovements.forEach((row, idx) => {
+          checkSpace(22);
+          const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+          doc.fillColor(bg).rect(30, y, PW, 22).fill();
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10).text(row.materialName, 40, y + 5, { width: 220 });
+          doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10).text(`+${row.quantity} ${row.unit}`, 270, y + 5, { width: 90, align: 'right' });
+          doc.fillColor(C_GRAY).font('Helvetica').fontSize(9).text(row.source, 370, y + 5, { width: 185 });
+          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 22).lineTo(565, y + 22).stroke();
+          y += 22;
+        });
+      }
+
+      // Dispatched
+      if (outgoingMovements.length > 0) {
+        checkSpace(30);
+        doc.fillColor('#fef2f2').rect(30, y, PW, 18).fill();
+        doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(9);
+        doc.text('📤 OUTGOING STOCK MOVEMENTS', 36, y + 4);
+        y += 18;
+
+        outgoingMovements.forEach((row, idx) => {
+          checkSpace(22);
+          const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+          doc.fillColor(bg).rect(30, y, PW, 22).fill();
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10).text(row.materialName, 40, y + 5, { width: 220 });
+          doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(10).text(`-${row.quantity} ${row.unit}`, 270, y + 5, { width: 90, align: 'right' });
+          doc.fillColor(C_GRAY).font('Helvetica').fontSize(9).text(`${row.destination}${row.challan !== '-' ? ' (Challan: ' + row.challan + ')' : ''}`, 370, y + 5, { width: 185 });
+          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 22).lineTo(565, y + 22).stroke();
+          y += 22;
+        });
+      }
+    }
+
+    y += 12;
+
+    // ── Material Utilization & Deployed Stock Section ────────────────
+    sectionTitle('📊  Material Utilization & Site Deployments', '#0284c7');
+    y += 4;
+
+    if (utilizationRows.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No material deployments recorded across sites.', 40, y + 4);
+      y += 24;
+    } else {
+      doc.fillColor('#0284c7').rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Material Name', 40, y + 5, { width: 200 });
+      doc.text('Total Sent', 240, y + 5, { width: 90, align: 'right' });
+      doc.text('Total Returned', 330, y + 5, { width: 95, align: 'right' });
+      doc.text('Active at Sites', 425, y + 5, { width: 130, align: 'right' });
+      y += 20;
+
+      utilizationRows.forEach((row, idx) => {
+        checkSpace(22);
+        const bg = idx % 2 === 0 ? C_WHITE : '#f0f9ff';
+        doc.fillColor(bg).rect(30, y, PW, 22).fill();
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10).text(row.name, 40, y + 5, { width: 198, lineBreak: false });
+        doc.fillColor(C_DARK).font('Helvetica').fontSize(10).text(`${row.sent.toLocaleString('en-IN')} ${row.unit}`, 240, y + 5, { width: 90, align: 'right', lineBreak: false });
+        doc.fillColor(row.returned > 0 ? C_RED : C_GRAY).font('Helvetica').fontSize(10).text(`${row.returned.toLocaleString('en-IN')} ${row.unit}`, 330, y + 5, { width: 95, align: 'right', lineBreak: false });
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10).text(`${row.active.toLocaleString('en-IN')} ${row.unit}`, 425, y + 5, { width: 130, align: 'right', lineBreak: false });
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 22).lineTo(565, y + 22).stroke();
+        y += 22;
+      });
+    }
 
     // ── Detailed Labour Payroll Logs Section ─────────────────────────
     sectionTitle('👷  Labour Attendance & Payroll Log', C_PURPLE);
