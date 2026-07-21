@@ -17,6 +17,8 @@ async function generateDailyWarehouseSummary({ date, models }) {
   const Labour     = models.Labour;
   const LabourLog  = models.LabourLog;
   const SeparateBilling = models.SeparateBilling;
+  const SiteExpenses = models.SiteExpenses;
+  const SitePayments = models.SitePayments;
 
   // 1. Fetch data
   const materials   = await Material.find({ status: { $ne: 'Archived' } });
@@ -30,6 +32,27 @@ async function generateDailyWarehouseSummary({ date, models }) {
   materials.forEach(m => { materialsMap[String(m._id || m.id)] = m; });
   const sitesMap = {};
   sites.forEach(s => { sitesMap[String(s._id || s.id)] = s; });
+
+  // ── Low stock rows ─────────────────────────────────────────────────
+  const lowStockRows = materials.map(m => {
+    const mId = String(m._id || m.id);
+    const stock = currentStockMap[mId] || 0;
+    const reorder = m.reorderLevel || 50;
+    if (stock < reorder) {
+      return { name: m.name, stock, reorder, deficit: reorder - stock, unit: m.unit || 'Nos', price: m.unitPrice || 0 };
+    }
+    return null;
+  }).filter(Boolean);
+
+  // ── Pre-fetch Expenses, Payments, Labour & SeparateBilling ──────────
+  let allExpenses = [];
+  if (SiteExpenses) {
+    try { allExpenses = await SiteExpenses.find({}); } catch (e) {}
+  }
+  let allPayments = [];
+  if (SitePayments) {
+    try { allPayments = await SitePayments.find({}); } catch (e) {}
+  }
 
   // ── Calculate current warehouse stock ──────────────────────────────
   const currentStockMap = {};
@@ -626,6 +649,65 @@ async function generateDailyWarehouseSummary({ date, models }) {
 
         doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
         doc.text(recA > 0 ? `Rs.${Math.round(recA)}` : '-', 465, y + 6, { width: 90, align: 'right', lineBreak: false });
+
+        doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
+        y += 24;
+      });
+    }
+
+    y += 12;
+
+    // ── Detailed Site Financial Expenses & Payments Section ─────────────
+    sectionTitle('💰  Site Expenses & Financial Statement', '#15803d');
+    y += 4;
+
+    if (sites.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No active sites recorded.', 40, y + 4);
+      y += 24;
+    } else {
+      let grandExp = 0, grandPay = 0;
+      sites.forEach(s => {
+        const sId = String(s._id || s.id);
+        allExpenses.filter(e => String(e.siteId) === sId).forEach(e => { grandExp += parseFloat(e.amount) || 0; });
+        allPayments.filter(p => String(p.siteId) === sId).forEach(p => { grandPay += parseFloat(p.amount) || 0; });
+      });
+
+      // Overview banner
+      doc.fillColor('#f0fdf4').rect(30, y, PW, 22).fill();
+      doc.fillColor('#15803d').font('Helvetica-Bold').fontSize(10);
+      doc.text(`Active Sites: ${sites.length} | Total Expenses: Rs. ${Math.round(grandExp)} | Total Payments Received: Rs. ${Math.round(grandPay)}`, 36, y + 5, { width: PW - 12 });
+      y += 22;
+
+      // Table Header
+      doc.fillColor('#15803d').rect(30, y, PW, 20).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
+      doc.text('Site Name', 40, y + 5, { width: 180 });
+      doc.text('Customer', 220, y + 5, { width: 140 });
+      doc.text('Total Expenses', 360, y + 5, { width: 95, align: 'right' });
+      doc.text('Payments Recd.', 460, y + 5, { width: 95, align: 'right' });
+      y += 20;
+
+      sites.forEach((s, idx) => {
+        checkSpace(24);
+        const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+        doc.fillColor(bg).rect(30, y, PW, 24).fill();
+
+        const sId = String(s._id || s.id);
+        const sExp = allExpenses.filter(e => String(e.siteId) === sId).reduce((tot, e) => tot + (parseFloat(e.amount) || 0), 0);
+        const sPay = allPayments.filter(p => String(p.siteId) === sId).reduce((tot, p) => tot + (parseFloat(p.amount) || 0), 0);
+
+        doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
+        doc.text(s.name, 40, y + 6, { width: 178, lineBreak: false });
+
+        doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
+        doc.text(s.customerName || '-', 220, y + 6, { width: 138, lineBreak: false });
+
+        doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(10);
+        doc.text(sExp > 0 ? `Rs.${Math.round(sExp)}` : '-', 360, y + 6, { width: 95, align: 'right', lineBreak: false });
+
+        doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(10);
+        doc.text(sPay > 0 ? `Rs.${Math.round(sPay)}` : '-', 460, y + 6, { width: 95, align: 'right', lineBreak: false });
 
         doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
         y += 24;

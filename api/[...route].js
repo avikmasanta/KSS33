@@ -143,7 +143,9 @@ module.exports = async function handler(req, res) {
       SiteDamaged: getModel('siteDamaged'),
       Labour: getModel('labours'),
       LabourLog: getModel('labourLogs'),
-      SeparateBilling: getModel('separateBillings')
+      SeparateBilling: getModel('separateBillings'),
+      SiteExpenses: getModel('siteExpenses'),
+      SitePayments: getModel('sitePayments')
     };
 
     if (id === 'preview') {

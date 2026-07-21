@@ -155,7 +155,9 @@ router.get('/telegram-report/preview', async (req, res) => {
     SiteDamaged: models.SiteDamaged,
     Labour: models.Labour,
     LabourLog: models.LabourLog,
-    SeparateBilling: models.SeparateBilling
+    SeparateBilling: models.SeparateBilling,
+    SiteExpenses: models.SiteExpenses,
+    SitePayments: models.SitePayments
   };
 
   try {
