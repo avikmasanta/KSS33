@@ -932,7 +932,7 @@ async function generateDailyWarehouseSummary({ date, models }) {
       }
     }
 
-    // Loop over every site and render complete 3-page landscape report
+    // Loop over every site and render landscape reports ONLY for sites with actual data
     sites.forEach(site => {
       const sId = String(site._id || site.id);
       const siteOutgoing = allOutgoing.filter(r => String(r.siteId) === sId);
@@ -990,23 +990,35 @@ async function generateDailyWarehouseSummary({ date, models }) {
         return sent > 0 || ret > 0;
       });
 
-      // PAGE 1: RECEIVED (CHALLAN IN)
-      doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
-      drawSiteHeader(site, 'Material Received at Site');
-      drawChallanTable(dispatchMats, dispatchRowKeys, dispatchMap);
-      doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (IN)', 700, 545, { width: 121, align: 'right' });
+      // SKIP completely empty sites without any transactions or active materials
+      const sLogs = allLabourLogs.filter(l => String(l.siteId) === sId);
+      if (dispatchRowKeys.length === 0 && returnRowKeys.length === 0 && summaryMats.length === 0 && sLogs.length === 0) {
+        return;
+      }
 
-      // PAGE 2: RETURNED (CHALLAN RETURN)
-      doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
-      drawSiteHeader(site, 'Material Returned from Site');
-      drawChallanTable(returnMats, returnRowKeys, returnMap);
-      doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (RETURN)', 700, 545, { width: 121, align: 'right' });
+      // PAGE 1: RECEIVED (CHALLAN IN) — only render if there are received dispatches
+      if (dispatchRowKeys.length > 0 || dispatchMats.length > 0) {
+        doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
+        drawSiteHeader(site, 'Material Received at Site');
+        drawChallanTable(dispatchMats, dispatchRowKeys, dispatchMap);
+        doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (IN)', 700, 545, { width: 121, align: 'right' });
+      }
 
-      // PAGE 3: INVENTORY SUMMARY (NET BALANCE)
-      doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
-      drawSiteHeader(site, 'Material Inventory Summary (Net Balance at Site)');
-      drawSiteInventorySummaryTable(summaryMats, site);
-      doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('INVENTORY SUMMARY', 700, 545, { width: 121, align: 'right' });
+      // PAGE 2: RETURNED (CHALLAN RETURN) — only render if site actually has returned items!
+      if (returnRowKeys.length > 0 || returnMats.length > 0) {
+        doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
+        drawSiteHeader(site, 'Material Returned from Site');
+        drawChallanTable(returnMats, returnRowKeys, returnMap);
+        doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (RETURN)', 700, 545, { width: 121, align: 'right' });
+      }
+
+      // PAGE 3: INVENTORY SUMMARY (NET BALANCE) — render if site has summary materials or site labour logs
+      if (summaryMats.length > 0 || sLogs.length > 0) {
+        doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
+        drawSiteHeader(site, 'Material Inventory Summary (Net Balance at Site)');
+        drawSiteInventorySummaryTable(summaryMats, site);
+        doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('INVENTORY SUMMARY', 700, 545, { width: 121, align: 'right' });
+      }
     });
 
     // ── DYNAMIC PAGE FOOTERS ──────────────────────────────────────────
