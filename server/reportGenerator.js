@@ -272,6 +272,63 @@ async function generateDailyWarehouseSummary({ date, models }) {
       });
     }
 
+    // ── Calculate Active Rentals Data ─────────────────────────────────
+    const activeRentalsData = [];
+    allRentals.filter(r => r.status === 'Active').forEach(r => {
+      const rentalItems = [];
+      (r.items || []).forEach(i => {
+        const qty = parseFloat(i.quantity) || 0;
+        if (qty > 0) {
+          const mat = materialsMap[String(i.materialId)];
+          if (mat) {
+            rentalItems.push({ name: mat.name, qty, unit: mat.unit || 'Nos' });
+          }
+        }
+      });
+      if (rentalItems.length > 0) {
+        activeRentalsData.push({ name: r.siteName, customer: r.customerName, goingDate: r.goingDate, items: rentalItems });
+      }
+    });
+
+    y += 12;
+
+    // ── Active Rental Sites & Materials Section ───────────────────────
+    sectionTitle('🔑  Active Rental Sites & Materials', C_BLUE);
+    y += 4;
+
+    if (activeRentalsData.length === 0) {
+      doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
+      doc.text('No active rentals currently deployed.', 40, y + 4);
+      y += 24;
+    } else {
+      activeRentalsData.forEach(rental => {
+        checkSpace(40);
+        const custStr = rental.customer ? ` (${rental.customer})` : '';
+        const dateStr = rental.goingDate ? ` — Rented: ${fmtDate(rental.goingDate)}` : '';
+        doc.fillColor('#f5f3ff').rect(30, y, PW, 20).fill();
+        doc.strokeColor('#ddd6fe').lineWidth(0.5).rect(30, y, PW, 20).stroke();
+        doc.fillColor('#6d28d9').font('Helvetica-Bold').fontSize(10);
+        doc.text(`${rental.name}${custStr}${dateStr}`, 36, y + 5, { width: PW - 12 });
+        y += 20;
+
+        rental.items.forEach((item, idx) => {
+          checkSpace(22);
+          const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
+          doc.fillColor(bg).rect(30, y, PW, 22).fill();
+
+          doc.fillColor(C_DARK).font('Helvetica').fontSize(10);
+          doc.text(item.name, 40, y + 5, { width: 300 });
+
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(11);
+          doc.text(`${item.qty.toLocaleString('en-IN')} ${item.unit}`, 390, y + 5, { width: 165, align: 'right' });
+
+          doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 22).lineTo(565, y + 22).stroke();
+          y += 22;
+        });
+        y += 6;
+      });
+    }
+
     y += 12;
 
     // ── Detailed Labour Payroll Logs Section ─────────────────────────
