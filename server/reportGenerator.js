@@ -7,7 +7,7 @@ const PDFDocument = require('pdfkit');
  * @param {string} params.date - The date of the report (YYYY-MM-DD)
  * @param {Object} params.models - The DB models dictionary
  */
-async function generateDailyWarehouseSummary({ date, models, includeSiteChallans = false }) {
+async function generateDailyWarehouseSummary({ date, models, includeSiteChallans = true }) {
   const Material   = models.Material;
   const Incoming   = models.Incoming;
   const Outgoing   = models.Outgoing;

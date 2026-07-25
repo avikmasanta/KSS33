@@ -151,7 +151,7 @@ module.exports = async function handler(req, res) {
     if (id === 'preview') {
       try {
         const { generateDailyWarehouseSummary } = require('../server/reportGenerator');
-        const includeSiteChallans = req.query.includeSiteChallans === 'true';
+        const includeSiteChallans = req.query.includeSiteChallans !== 'false';
         const pdfBuffer = await generateDailyWarehouseSummary({ date: reportDate, models: reportModels, includeSiteChallans });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename="KSS_Warehouse_Summary_${reportDate}.pdf"`);
