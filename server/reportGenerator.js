@@ -351,11 +351,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       }
     });
 
-    y += 12;
-
     // ── Active Rental Sites & Materials Section ───────────────────────
-    sectionTitle('Active Rental Sites & Materials', C_BLUE);
-    y += 4;
+    addSectionPage('Active Rental Sites & Materials', C_BLUE);
 
     if (activeRentalsData.length === 0) {
       doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
@@ -390,11 +387,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       });
     }
 
-    y += 12;
-
     // ── Stock Movement Section (Today's Transactions) ───────────────
-    sectionTitle('Stock Movement Report (Today\'s Transactions)', C_GREEN);
-    y += 4;
+    addSectionPage('Stock Movement Report (Today\'s Transactions)', C_GREEN);
 
     if (incomingMovements.length === 0 && outgoingMovements.length === 0) {
       doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
@@ -442,11 +436,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       }
     }
 
-    y += 12;
-
     // ── Material Utilization & Deployed Stock Section ────────────────
-    sectionTitle('Material Utilization & Site Deployments', '#0284c7');
-    y += 4;
+    addSectionPage('Material Utilization & Site Deployments', '#0284c7');
 
     if (utilizationRows.length === 0) {
       doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
@@ -475,8 +466,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     }
 
     // ── Detailed Labour Payroll Logs Section ─────────────────────────
-    sectionTitle('Labour Attendance & Payroll Log', C_PURPLE);
-    y += 4;
+    addSectionPage('Labour Attendance & Payroll Log', C_PURPLE);
 
     if (dayLogs.length === 0) {
       doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
@@ -559,11 +549,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       });
     }
 
-    y += 12;
-
     // ── Master Workforce Payroll Ledger ──────────────────────────────
-    sectionTitle('Master Workforce Payroll Ledger', C_PURPLE);
-    y += 4;
+    addSectionPage('Master Workforce Payroll Ledger', C_PURPLE);
 
     if (allLabours.length === 0) {
       doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
@@ -653,11 +640,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       });
     }
 
-    y += 12;
-
     // ── Detailed Measurement Bills Statement Section ──────────────────
-    sectionTitle('Separate Measurement Bills Statement', '#0f3c7a');
-    y += 4;
+    addSectionPage('Separate Measurement Bills Statement', '#0f3c7a');
 
     if (allBills.length === 0) {
       doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
@@ -750,11 +734,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       });
     }
 
-    y += 12;
-
     // ── Detailed Site Financial Expenses & Payments Section ─────────────
-    sectionTitle('Site Expenses & Financial Statement', '#15803d');
-    y += 4;
+    addSectionPage('Site Expenses & Financial Statement', '#15803d');
 
     if (sites.length === 0) {
       doc.fillColor(C_GRAY).font('Helvetica-Oblique').fontSize(11);
