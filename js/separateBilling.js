@@ -34,11 +34,11 @@ var SeparateBillingPage = (function() {
       // GST & Tax Invoice fields
       taxInvoiceNo: invNo,
       taxInvoiceDate: today,
-      supplierName: 'KSS Construction Materials',
-      supplierAddress: 'Main Road, Kolkata, West Bengal 700001',
-      supplierGstin: '19AAACK1234F1Z5',
-      supplierState: 'West Bengal',
-      supplierStateCode: '19',
+      supplierName: localStorage.getItem('bm_supplierName') || 'KSS Construction Materials',
+      supplierAddress: localStorage.getItem('bm_supplierAddr') || 'Main Road, Kolkata, West Bengal 700001',
+      supplierGstin: localStorage.getItem('bm_supplierGstin') || '',
+      supplierState: localStorage.getItem('bm_supplierState') || 'West Bengal',
+      supplierStateCode: localStorage.getItem('bm_supplierStateCode') || '19',
       clientGstin: '',
       clientAddress: '',
       clientState: 'West Bengal',
@@ -508,12 +508,12 @@ var SeparateBillingPage = (function() {
     html += '<div class="sb-full-span" style="font-weight:700; font-size:12px; color:#0f3c7a; text-transform:uppercase; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-top:8px;">1. Supplier (Your Business) Details</div>';
 
     html += '<div class="sb-form-group">';
-    html += '<label class="sb-label">Supplier Full Name</label>';
-    html += '<input type="text" class="sb-input" id="sb-supplierName" placeholder="Business Name" value="' + (state.formData.supplierName || 'KSS Construction Materials') + '" oninput="SeparateBillingPage.onFormChange(\'supplierName\',this.value)">';
+    html += '<label class="sb-label">Supplier Full Name / Company Name</label>';
+    html += '<input type="text" class="sb-input" id="sb-supplierName" placeholder="e.g. KSS Construction Materials" value="' + (state.formData.supplierName || '') + '" oninput="SeparateBillingPage.onFormChange(\'supplierName\',this.value)">';
     html += '</div>';
     html += '<div class="sb-form-group">';
-    html += '<label class="sb-label">Supplier GSTIN</label>';
-    html += '<input type="text" class="sb-input" id="sb-supplierGstin" placeholder="15-digit GSTIN" value="' + (state.formData.supplierGstin || '19AAACK1234F1Z5') + '" oninput="SeparateBillingPage.onFormChange(\'supplierGstin\',this.value)">';
+    html += '<label class="sb-label">Supplier GSTIN (Optional)</label>';
+    html += '<input type="text" class="sb-input" id="sb-supplierGstin" placeholder="15-digit GSTIN" value="' + (state.formData.supplierGstin || '') + '" oninput="SeparateBillingPage.onFormChange(\'supplierGstin\',this.value)">';
     html += '</div>';
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Supplier State & Code</label>';
@@ -1107,6 +1107,12 @@ var SeparateBillingPage = (function() {
     var totals = calcTotals(items, validPayments);
     var rate   = parseFloat(state.formData.ratePerSqFt) || null;
 
+    if (state.formData.supplierName)    localStorage.setItem('bm_supplierName', state.formData.supplierName);
+    if (state.formData.supplierAddress) localStorage.setItem('bm_supplierAddr', state.formData.supplierAddress);
+    if (state.formData.supplierGstin)   localStorage.setItem('bm_supplierGstin', state.formData.supplierGstin);
+    if (state.formData.supplierState)   localStorage.setItem('bm_supplierState', state.formData.supplierState);
+    if (state.formData.supplierStateCode) localStorage.setItem('bm_supplierStateCode', state.formData.supplierStateCode);
+
     var record = {
       siteName:       state.formData.siteName.trim(),
       contractorName: state.formData.contractorName.trim(),
@@ -1132,7 +1138,7 @@ var SeparateBillingPage = (function() {
       // Save GST & Tax Invoice fields
       taxInvoiceNo:    state.formData.taxInvoiceNo || '',
       taxInvoiceDate:  state.formData.taxInvoiceDate || '',
-      supplierName:    state.formData.supplierName || 'KSS Construction Materials',
+      supplierName:    state.formData.supplierName || '',
       supplierAddress: state.formData.supplierAddress || '',
       supplierGstin:   state.formData.supplierGstin || '',
       supplierState:   state.formData.supplierState || 'West Bengal',
@@ -1271,22 +1277,29 @@ var SeparateBillingPage = (function() {
     html += '</style></head><body>';
     html += '<div class="invoice-container">';
 
+    var suppName = bill.supplierName || localStorage.getItem('bm_supplierName') || 'KSS Construction Materials';
+    var suppParts = suppName.split(' ');
+    var mainBrand = suppParts[0] || 'KSS';
+    var subBrand = suppParts.slice(1).join(' ') || 'Construction Materials';
+
     // Header
     html += '<div class="invoice-header">';
     html += '<div class="logo-container">';
-    html += '<div><div class="logo-text-title">KSS</div><div class="logo-text-sub">Construction Materials</div></div>';
+    html += '<div><div class="logo-text-title">' + mainBrand + '</div><div class="logo-text-sub">' + subBrand + '</div></div>';
     html += '</div>';
     html += '<div class="bill-title-container">';
     html += '<div class="bill-title-main">MEASUREMENT BILL</div>';
     html += '<div class="bill-title-sub">Estimation Statement</div>';
     html += '</div>';
     html += '<div class="business-details">';
-    html += '<div class="business-name">' + (bill.supplierName || 'KSS Construction Materials') + '</div>';
+    html += '<div class="business-name">' + suppName + '</div>';
+    if (bill.supplierAddress) {
+      html += '<div>' + bill.supplierAddress + '</div>';
+    }
     if (bill.supplierGstin) {
       html += '<div style="font-weight:700; color:#0f3c7a; margin-bottom:2px;">GSTIN: ' + bill.supplierGstin + '</div>';
     }
     html += '<div>Slab & Shuttering Services</div>';
-    html += '<div>Phone: +91 98765 43210</div>';
     html += '</div>';
     html += '</div>';
 
@@ -1463,11 +1476,10 @@ var SeparateBillingPage = (function() {
 
     var invNum = bill.taxInvoiceNo || ("TAX-INV-" + (bill.id || bill._id || "001").slice(-6).toUpperCase());
     var invDate = formatDate(bill.taxInvoiceDate || bill.createdAt || new Date());
-    var sacCode = bill.sacCode || "995411";
-    var supplierName = bill.supplierName || "KSS Construction Materials";
-    var supplierGstin = bill.supplierGstin || "19AAACK1234F1Z5";
-    var supplierAddr = bill.supplierAddress || "Main Road, Kolkata, West Bengal 700001";
-    var supplierState = (bill.supplierState || "West Bengal") + " (Code: " + (bill.supplierStateCode || "19") + ")";
+    var supplierName = bill.supplierName || localStorage.getItem('bm_supplierName') || "KSS Construction Materials";
+    var supplierGstin = bill.supplierGstin || localStorage.getItem('bm_supplierGstin') || "Unregistered / Not Provided";
+    var supplierAddr = bill.supplierAddress || localStorage.getItem('bm_supplierAddr') || "";
+    var supplierState = (bill.supplierState || localStorage.getItem('bm_supplierState') || "West Bengal") + (bill.supplierStateCode ? " (Code: " + bill.supplierStateCode + ")" : "");
 
     var clientName = bill.contractorName || bill.ownerName || bill.siteName || "Client";
     var clientGstin = bill.clientGstin || "Unregistered / B2C";
