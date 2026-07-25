@@ -688,7 +688,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
         const cName  = b.contractorName || 'Contractor';
         const oName  = b.ownerName ? ` (${b.ownerName})` : '';
         const netA   = parseFloat(b.netArea || b.totalArea) || 0;
-        const totA   = parseFloat(b.totalAmount) || 0;
+        const totA   = parseFloat(b.grandTotal || b.totalAmount) || 0;
         const recA   = parseFloat(b.receivedAmount) || 0;
 
         doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(10);
