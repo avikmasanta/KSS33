@@ -1518,12 +1518,30 @@ var SeparateBillingPage = (function() {
 
   // ---- GST TAX INVOICE PAGE GENERATOR (SINGLE PAGE) ----
   function buildSingleTaxInvoicePage(bill, copyLabel) {
-    var items     = bill.items || [];
-    var gross     = parseFloat(bill.grossArea || bill.totalArea) || 0;
-    var openA     = parseFloat(bill.openArea) || 0;
-    var net       = parseFloat(bill.netArea  || bill.totalArea) || 0;
-    var rateVal   = parseFloat(bill.ratePerSqFt) || 0;
-    var baseVal   = parseFloat(bill.totalAmount) || (net * rateVal) || 0;
+    var calc = calcTotals(bill.items, bill.payments, bill);
+
+    var items       = bill.items || [];
+    var gross       = calc.grossArea;
+    var openA       = calc.totalDeductions;
+    var net         = calc.netArea;
+    var rateVal     = parseFloat(bill.ratePerSqFt) || 0;
+    var baseVal     = calc.baseVal || 0;
+    var totalTax    = calc.totalTax || 0;
+    var grandTotal  = calc.grandTotal || 0;
+    var gstRate     = calc.gstRate;
+    var isInclusive = calc.isInclusive;
+
+    var isInterstate = calc.isInterstate;
+    var cgstRate    = calc.cgstRate;
+    var sgstRate    = calc.sgstRate;
+    var igstRate    = calc.igstRate;
+
+    var cgstAmt     = calc.cgstAmount;
+    var sgstAmt     = calc.sgstAmount;
+    var igstAmt     = calc.igstAmount;
+
+    var totalRec    = calc.totalReceived;
+    var netPayable  = calc.netPayable !== null ? calc.netPayable : 0;
 
     function formatDate(dStr) {
       if (!dStr) return '-';
@@ -1551,49 +1569,19 @@ var SeparateBillingPage = (function() {
     var placeOfSupply = bill.placeOfSupply || ((bill.clientState || "West Bengal") + " (" + (bill.clientStateCode || "19") + ")");
     var sacCode = bill.sacCode || "995411";
 
-    var rawCustomTax = bill.customTaxAmount !== undefined ? bill.customTaxAmount : '';
-    var customTax = parseFloat(rawCustomTax);
-    var gstRate = parseFloat(bill.gstRate);
-    if (isNaN(gstRate)) gstRate = 18;
-
-    var totalTax = 0;
-    if (!isNaN(customTax) && customTax >= 0 && rawCustomTax !== '' && rawCustomTax !== null) {
-      totalTax = customTax;
-      if (baseVal > 0) {
-        gstRate = parseFloat(((customTax / baseVal) * 100).toFixed(2));
-      }
-    } else {
-      totalTax = parseFloat((baseVal * (gstRate / 100)).toFixed(2));
-    }
-
-    var isInterstate = bill.isInterstate || false;
-
-    var cgstRate = isInterstate ? 0 : (gstRate / 2);
-    var sgstRate = isInterstate ? 0 : (gstRate / 2);
-    var igstRate = isInterstate ? gstRate : 0;
-
-    var cgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
-    var sgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
-    var igstAmt = isInterstate ? totalTax : 0;
-    var grandTotal = parseFloat((baseVal + totalTax).toFixed(2));
-
-    var recVal = parseFloat(bill.receivedAmount) || 0;
-    var payments = bill.payments && bill.payments.length > 0 ? bill.payments : (recVal > 0 ? [{ date: bill.receivedDate, amount: recVal, notes: 'Received' }] : []);
-    var totalRec = payments.reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-    var netPayable = Math.max(0, parseFloat((grandTotal - totalRec).toFixed(2)));
-
     // Service line item row
+    var rateText = rateVal > 0 ? ('₹ ' + rateVal.toFixed(2) + (isInclusive ? ' (Incl. GST)' : '')) : '—';
     var serviceRows = '';
     serviceRows += '<tr>';
     serviceRows += '<td style="text-align:center;">1</td>';
     serviceRows += '<td style="text-align:left;">';
     serviceRows += '<strong>Shuttering & Construction Material Measurement Services</strong>';
     serviceRows += '<div style="font-size:10px; color:#475569; margin-top:2px;">Site: ' + (bill.siteName || '-') + ' | Lintel Date: ' + formatDate(bill.lintelDate) + '</div>';
-    serviceRows += '<div style="font-size:10px; color:#64748b;">(Gross Area: ' + gross.toFixed(2) + ' Sq Ft, Open Deduction: ' + openA.toFixed(2) + ' Sq Ft)</div>';
+    serviceRows += '<div style="font-size:10px; color:#64748b;">(Gross Area: ' + gross.toFixed(2) + ' Sq Ft, Open Deduction: ' + openA.toFixed(2) + ' Sq Ft' + (isInclusive ? ' | Tax Mode: Inclusive' : ' | Tax Mode: Extra') + ')</div>';
     serviceRows += '</td>';
     serviceRows += '<td style="text-align:center; font-weight:700;">' + sacCode + '</td>';
     serviceRows += '<td style="text-align:center;">' + net.toFixed(2) + ' Sq Ft</td>';
-    serviceRows += '<td style="text-align:right;">' + (rateVal > 0 ? '₹ ' + rateVal.toFixed(2) : '—') + '</td>';
+    serviceRows += '<td style="text-align:right;">' + rateText + '</td>';
     serviceRows += '<td style="text-align:right; font-weight:700;">₹ ' + baseVal.toFixed(2) + '</td>';
     serviceRows += '</tr>';
 
