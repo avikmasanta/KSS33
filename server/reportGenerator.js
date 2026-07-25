@@ -475,7 +475,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     }
 
     // ── Detailed Labour Payroll Logs Section ─────────────────────────
-    sectionTitle('👷  Labour Attendance & Payroll Log', C_PURPLE);
+    sectionTitle('Labour Attendance & Payroll Log', C_PURPLE);
     y += 4;
 
     if (dayLogs.length === 0) {
@@ -558,7 +558,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     y += 12;
 
     // ── Master Workforce Payroll Ledger ──────────────────────────────
-    sectionTitle('📋  Master Workforce Payroll Ledger', C_PURPLE);
+    sectionTitle('Master Workforce Payroll Ledger', C_PURPLE);
     y += 4;
 
     if (allLabours.length === 0) {
@@ -650,7 +650,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     y += 12;
 
     // ── Detailed Measurement Bills Statement Section ──────────────────
-    sectionTitle('📐  Separate Measurement Bills Statement', '#0f3c7a');
+    sectionTitle('Separate Measurement Bills Statement', '#0f3c7a');
     y += 4;
 
     if (allBills.length === 0) {
@@ -747,7 +747,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     y += 12;
 
     // ── Detailed Site Financial Expenses & Payments Section ─────────────
-    sectionTitle('💰  Site Expenses & Financial Statement', '#15803d');
+    sectionTitle('Site Expenses & Financial Statement', '#15803d');
     y += 4;
 
     if (sites.length === 0) {
@@ -1061,14 +1061,14 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     for (let i = 0; i < range.count; i++) {
       doc.switchToPage(i);
       const isLandscape = doc.page.layout === 'landscape';
-      const footerY = isLandscape ? 565 : 815;
+      const footerY = isLandscape ? 545 : 780;
       const footerW = isLandscape ? 801.89 : 535;
       const marginX = isLandscape ? 20 : 30;
 
       doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(marginX, footerY).lineTo(marginX + footerW, footerY).stroke();
-      doc.fillColor(C_GRAY).font('Helvetica').fontSize(9);
-      doc.text('KSS Inventory & Operations Backup Statement', marginX, footerY + 5, { width: 350 });
-      doc.text(`Page ${i + 1} of ${range.count}`, marginX + footerW - 185, footerY + 5, { width: 185, align: 'right' });
+      doc.fillColor(C_GRAY).font('Helvetica').fontSize(8);
+      doc.text('KSS Construction Materials - Daily Master Operations Statement', marginX, footerY + 4, { width: 350, lineBreak: false });
+      doc.text(`Page ${i + 1} of ${range.count}`, marginX + footerW - 150, footerY + 4, { width: 150, align: 'right', lineBreak: false });
     }
 
     doc.end();
