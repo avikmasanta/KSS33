@@ -300,9 +300,41 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(reg => console.log('[PWA] ServiceWorker registered:', reg.scope))
       .catch(err => console.warn('[PWA] ServiceWorker registration failed:', err));
   }
+
+  // Check iOS installation prompt
+  checkIosInstallPrompt();
 });
 
-// PWA Deferred Install Prompt Listener
+// iOS Safari PWA Installation Guidance Banner
+function checkIosInstallPrompt() {
+  const isIos = /iPhone|iPad|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+  const hasDismissed = localStorage.getItem('iosPwaBannerDismissed');
+
+  if (isIos && !isStandalone && !hasDismissed && !document.getElementById('ios-install-banner')) {
+    const banner = document.createElement('div');
+    banner.id = 'ios-install-banner';
+    banner.style.cssText = 'position:fixed;bottom:20px;left:20px;right:20px;z-index:99999;background:var(--card-bg);border:1px solid var(--primary-500);border-radius:14px;padding:14px 18px;box-shadow:0 10px 30px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--text-primary);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);';
+    banner.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;background:rgba(37,99,235,0.15);color:var(--primary-500);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;">📱</div>
+        <div>
+          <div style="font-weight:700;font-size:0.9rem;">Install KSS App on iPhone</div>
+          <div style="font-size:0.78rem;color:var(--text-tertiary);margin-top:2px;">Tap <span style="font-weight:700;color:var(--primary-500);">Share ⎋</span> then select <span style="font-weight:700;color:var(--text-primary);">"Add to Home Screen"</span></div>
+        </div>
+      </div>
+      <button id="ios-close-btn" style="border:none;background:rgba(255,255,255,0.1);color:var(--text-secondary);cursor:pointer;padding:6px 10px;border-radius:8px;font-size:0.85rem;font-weight:600;">Got it</button>
+    `;
+    document.body.appendChild(banner);
+
+    document.getElementById('ios-close-btn')?.addEventListener('click', () => {
+      localStorage.setItem('iosPwaBannerDismissed', 'true');
+      banner.remove();
+    });
+  }
+}
+
+// PWA Deferred Install Prompt Listener (Android / Desktop)
 let deferredInstallPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
