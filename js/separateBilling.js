@@ -46,6 +46,7 @@ var SeparateBillingPage = (function() {
       placeOfSupply: 'West Bengal (19)',
       sacCode: '995411',
       gstRate: '18',
+      customTaxAmount: '',
       isInterstate: false,
       rcmApplicable: 'No',
       termsConditions: '1. Payment is due within 15 days of invoice date.\n2. Interest @ 18% p.a. charged on delayed payments.\n3. Goods/Services once rendered are non-refundable.\n4. All disputes subject to local jurisdiction.'
@@ -120,16 +121,29 @@ var SeparateBillingPage = (function() {
 
     // GST Taxes calculation
     var baseVal = totalAmount || 0;
-    var gstRate = parseFloat(state.formData.gstRate) || 18;
+    var rawCustomTax = state.formData.customTaxAmount !== undefined ? state.formData.customTaxAmount : '';
+    var customTax = parseFloat(rawCustomTax);
+    var gstRate = parseFloat(state.formData.gstRate);
+    if (isNaN(gstRate)) gstRate = 18;
+
+    var totalTax = 0;
+    if (!isNaN(customTax) && customTax >= 0 && rawCustomTax !== '' && rawCustomTax !== null) {
+      totalTax = customTax;
+      if (baseVal > 0) {
+        gstRate = parseFloat(((customTax / baseVal) * 100).toFixed(2));
+      }
+    } else {
+      totalTax = parseFloat((baseVal * (gstRate / 100)).toFixed(2));
+    }
+
     var isInterstate = !!state.formData.isInterstate;
     var cgstRate = isInterstate ? 0 : (gstRate / 2);
     var sgstRate = isInterstate ? 0 : (gstRate / 2);
     var igstRate = isInterstate ? gstRate : 0;
 
-    var cgstAmount = isInterstate ? 0 : parseFloat((baseVal * (cgstRate / 100)).toFixed(2));
-    var sgstAmount = isInterstate ? 0 : parseFloat((baseVal * (sgstRate / 100)).toFixed(2));
-    var igstAmount = isInterstate ? parseFloat((baseVal * (igstRate / 100)).toFixed(2)) : 0;
-    var totalTax   = parseFloat((cgstAmount + sgstAmount + igstAmount).toFixed(2));
+    var cgstAmount = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
+    var sgstAmount = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
+    var igstAmount = isInterstate ? totalTax : 0;
     var grandTotal = totalAmount !== null ? parseFloat((baseVal + totalTax).toFixed(2)) : null;
 
     var netPayable = grandTotal !== null ? Math.max(0, parseFloat((grandTotal - totalReceived).toFixed(2))) : null;
@@ -548,8 +562,14 @@ var SeparateBillingPage = (function() {
     html += '<option value="18"' + (state.formData.gstRate == '18' ? ' selected' : '') + '>18% (CGST 9% + SGST 9%)</option>';
     html += '<option value="12"' + (state.formData.gstRate == '12' ? ' selected' : '') + '>12% (CGST 6% + SGST 6%)</option>';
     html += '<option value="5"'  + (state.formData.gstRate == '5'  ? ' selected' : '') + '>5% (CGST 2.5% + SGST 2.5%)</option>';
+    html += '<option value="28"' + (state.formData.gstRate == '28' ? ' selected' : '') + '>28% (CGST 14% + SGST 14%)</option>';
     html += '<option value="0"'  + (state.formData.gstRate == '0'  ? ' selected' : '') + '>0% (Exempt / Nil Rated)</option>';
     html += '</select></div>';
+
+    html += '<div class="sb-form-group">';
+    html += '<label class="sb-label">Or Custom Tax Amount (₹) <span style="font-weight:400;color:#64748b;">(Manual Tax Override)</span></label>';
+    html += '<input type="number" step="0.01" min="0" class="sb-input" id="sb-customTaxAmount" placeholder="e.g. 28728 (Leave blank for auto % calculation)" value="' + (state.formData.customTaxAmount || '') + '" oninput="SeparateBillingPage.onFormChange(\'customTaxAmount\',this.value);SeparateBillingPage.refreshTotals()">';
+    html += '</div>';
 
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Supply Type</label>';
@@ -1003,7 +1023,7 @@ var SeparateBillingPage = (function() {
       'siteName','contractorName','ownerName','location','lintelDate','ratePerSqFt',
       'taxInvoiceNo','taxInvoiceDate','supplierName','supplierAddress','supplierGstin',
       'supplierState','supplierStateCode','clientGstin','clientAddress','clientState',
-      'clientStateCode','placeOfSupply','sacCode','gstRate','rcmApplicable','termsConditions'
+      'clientStateCode','placeOfSupply','sacCode','gstRate','customTaxAmount','rcmApplicable','termsConditions'
     ];
     fields.forEach(function(f) {
       var el = document.getElementById('sb-' + f);
@@ -1123,6 +1143,7 @@ var SeparateBillingPage = (function() {
       placeOfSupply:   state.formData.placeOfSupply || '',
       sacCode:         state.formData.sacCode || '995411',
       gstRate:         parseFloat(state.formData.gstRate) || 18,
+      customTaxAmount: state.formData.customTaxAmount || '',
       isInterstate:    !!state.formData.isInterstate,
       rcmApplicable:   state.formData.rcmApplicable || 'No',
       termsConditions: state.formData.termsConditions || '',
@@ -1440,17 +1461,30 @@ var SeparateBillingPage = (function() {
     var clientState = (bill.clientState || "West Bengal") + " (Code: " + (bill.clientStateCode || "19") + ")";
     var placeOfSupply = bill.placeOfSupply || ((bill.clientState || "West Bengal") + " (" + (bill.clientStateCode || "19") + ")");
 
-    var gstRate = parseFloat(bill.gstRate) || 18;
+    var rawCustomTax = bill.customTaxAmount !== undefined ? bill.customTaxAmount : '';
+    var customTax = parseFloat(rawCustomTax);
+    var gstRate = parseFloat(bill.gstRate);
+    if (isNaN(gstRate)) gstRate = 18;
+
+    var totalTax = 0;
+    if (!isNaN(customTax) && customTax >= 0 && rawCustomTax !== '' && rawCustomTax !== null) {
+      totalTax = customTax;
+      if (baseVal > 0) {
+        gstRate = parseFloat(((customTax / baseVal) * 100).toFixed(2));
+      }
+    } else {
+      totalTax = parseFloat((baseVal * (gstRate / 100)).toFixed(2));
+    }
+
     var isInterstate = bill.isInterstate || false;
 
     var cgstRate = isInterstate ? 0 : (gstRate / 2);
     var sgstRate = isInterstate ? 0 : (gstRate / 2);
     var igstRate = isInterstate ? gstRate : 0;
 
-    var cgstAmt = isInterstate ? 0 : parseFloat((baseVal * (cgstRate / 100)).toFixed(2));
-    var sgstAmt = isInterstate ? 0 : parseFloat((baseVal * (sgstRate / 100)).toFixed(2));
-    var igstAmt = isInterstate ? parseFloat((baseVal * (igstRate / 100)).toFixed(2)) : 0;
-    var totalTax = cgstAmt + sgstAmt + igstAmt;
+    var cgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
+    var sgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
+    var igstAmt = isInterstate ? totalTax : 0;
     var grandTotal = parseFloat((baseVal + totalTax).toFixed(2));
 
     var recVal = parseFloat(bill.receivedAmount) || 0;
