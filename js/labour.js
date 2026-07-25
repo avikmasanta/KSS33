@@ -109,9 +109,9 @@ var LabourPage = {
     const activeTabClass = (tab) => this.activeTab === tab ? 'active' : '';
 
     return `
-      <div class="page-header" style="background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%); padding: 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+      <div class="page-header" style="background: var(--card-bg); padding: 24px; border-radius: var(--card-radius); margin-bottom: 24px; border: 1px solid var(--card-border); box-shadow: var(--card-shadow); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div class="page-header-title" style="display: flex; align-items: center; gap: 16px;">
-          <div style="width: 48px; height: 48px; background: rgba(37, 99, 235, 0.1); color: var(--primary-500); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+          <div style="width: 48px; height: 48px; background: rgba(37, 99, 235, 0.15); color: var(--primary-500); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
             ${Icons.users}
           </div>
           <div>
@@ -225,46 +225,46 @@ var LabourPage = {
 
     return `
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 24px;">
-        <div class="card" style="padding: 20px; background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%); border-left: 5px solid var(--primary-500); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow);">
+        <div class="card" style="padding: 20px; background: var(--card-bg); border: 1px solid var(--card-border); border-left: 5px solid var(--primary-500); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow); border-radius: var(--card-radius);">
           <div>
             <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Total Labour (Active)</div>
             <h2 style="margin: 8px 0 0 0; font-size: 2rem; color: var(--text-primary); font-family: var(--font-family-heading);">${s.totalLabour || 0}</h2>
           </div>
-          <div style="color: var(--primary-500); opacity: 0.8;">${Icons.users}</div>
+          <div style="color: var(--primary-500); opacity: 0.9;">${Icons.users}</div>
         </div>
-        <div class="card" style="padding: 20px; background: linear-gradient(135deg, #ecfdf5 0%, #ffffff 100%); border-left: 5px solid var(--success); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow);">
+        <div class="card" style="padding: 20px; background: var(--card-bg); border: 1px solid var(--card-border); border-left: 5px solid var(--success); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow); border-radius: var(--card-radius);">
           <div>
             <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Present Today</div>
             <h2 style="margin: 8px 0 0 0; font-size: 2rem; color: var(--success); font-family: var(--font-family-heading);">${s.presentToday || 0}</h2>
           </div>
-          <div style="color: var(--success); opacity: 0.8;">${Icons.check}</div>
+          <div style="color: var(--success); opacity: 0.9;">${Icons.check}</div>
         </div>
-        <div class="card" style="padding: 20px; background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%); border-left: 5px solid var(--warning); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow);">
+        <div class="card" style="padding: 20px; background: var(--card-bg); border: 1px solid var(--card-border); border-left: 5px solid var(--warning); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow); border-radius: var(--card-radius);">
           <div>
             <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Half Day Today</div>
             <h2 style="margin: 8px 0 0 0; font-size: 2rem; color: var(--warning); font-family: var(--font-family-heading);">${s.halfDayToday || 0}</h2>
           </div>
-          <div style="color: var(--warning); opacity: 0.8;">${Icons.activity}</div>
+          <div style="color: var(--warning); opacity: 0.9;">${Icons.activity}</div>
         </div>
-        <div class="card" style="padding: 20px; background: linear-gradient(135deg, #fef2f2 0%, #ffffff 100%); border-left: 5px solid var(--danger); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow);">
+        <div class="card" style="padding: 20px; background: var(--card-bg); border: 1px solid var(--card-border); border-left: 5px solid var(--danger); display:flex; align-items:center; justify-content:space-between; box-shadow: var(--card-shadow); border-radius: var(--card-radius);">
           <div>
             <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Absent Today</div>
             <h2 style="margin: 8px 0 0 0; font-size: 2rem; color: var(--danger); font-family: var(--font-family-heading);">${s.absentToday || 0}</h2>
           </div>
-          <div style="color: var(--danger); opacity: 0.8;">${Icons.x}</div>
+          <div style="color: var(--danger); opacity: 0.9;">${Icons.x}</div>
         </div>
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 24px;">
-        <div class="card" style="padding: 24px; background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%); border: 1px solid var(--border-color); border-radius: var(--card-radius);">
-          <h4 style="margin:0 0 8px 0; color: var(--text-secondary); font-weight:500;">Total Payable Wages</h4>
+        <div class="card" style="padding: 24px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--card-radius); box-shadow: var(--card-shadow);">
+          <h4 style="margin:0 0 8px 0; color: var(--text-secondary); font-weight:600;">Total Payable Wages</h4>
           <h2 style="margin:0; font-size: 2.25rem; color: var(--text-primary); font-weight:700;">${formatCurrency(s.totalPayable || 0)}</h2>
-          <p style="margin: 8px 0 0 0; font-size: 0.8rem; color: var(--text-tertiary);">Outstanding wages due for payment</p>
+          <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: var(--text-tertiary);">Outstanding wages due for payment</p>
         </div>
-        <div class="card" style="padding: 24px; background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%); border: 1px solid var(--border-color); border-radius: var(--card-radius);">
-          <h4 style="margin:0 0 8px 0; color: var(--text-secondary); font-weight:500;">Total Advance Paid</h4>
+        <div class="card" style="padding: 24px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: var(--card-radius); box-shadow: var(--card-shadow);">
+          <h4 style="margin:0 0 8px 0; color: var(--text-secondary); font-weight:600;">Total Advance Paid</h4>
           <h2 style="margin:0; font-size: 2.25rem; color: var(--success); font-weight:700;">${formatCurrency(s.totalAdvancePaid || 0)}</h2>
-          <p style="margin: 8px 0 0 0; font-size: 0.8rem; color: var(--text-tertiary);">Advance salary/balances given to labour</p>
+          <p style="margin: 8px 0 0 0; font-size: 0.85rem; color: var(--text-tertiary);">Advance salary/balances given to labour</p>
         </div>
       </div>
 
@@ -291,11 +291,11 @@ var LabourPage = {
               ${this.summaryData.labours.slice(0, 8).map(l => {
                 let balBadge = '';
                 if (l.payableAmount > 0) {
-                  balBadge = `<span class="badge badge-warning" style="background:#fef3c7;color:#d97706">Payable: ₹${l.payableAmount}</span>`;
+                  balBadge = `<span class="badge badge-warning">Payable: ₹${l.payableAmount}</span>`;
                 } else if (l.advanceBalance > 0) {
-                  balBadge = `<span class="badge badge-success" style="background:#d1fae5;color:#059669">Advance: ₹${l.advanceBalance}</span>`;
+                  balBadge = `<span class="badge badge-success">Advance: ₹${l.advanceBalance}</span>`;
                 } else {
-                  balBadge = `<span class="badge badge-success" style="background:var(--border-light);color:var(--text-secondary)">Clear</span>`;
+                  balBadge = `<span class="badge" style="background:var(--border-light);color:var(--text-secondary)">Clear</span>`;
                 }
                 return `
                   <tr>
@@ -1019,7 +1019,7 @@ var LabourPage = {
             const advance = Math.round(l.advanceBalance || 0);
 
             return `
-              <div style="border:1px solid var(--border-color); border-radius:14px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background:#ffffff;">
+              <div style="border:1px solid var(--border-color); border-radius:14px; overflow:hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.04); background:var(--card-bg);">
                 <!-- Header row -->
                 <div style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:white; padding:16px 22px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
                   <div>

@@ -126,6 +126,9 @@
   --z-modal: 210;
   --z-dropdown: 150;
   --z-tooltip: 300;
+  /* ---- Aliases for theme compatibility ---- */
+  --bg-card: var(--card-bg);
+  --bg-body: var(--page-bg);
 }
 
 /* ============================================
@@ -145,6 +148,9 @@
   --card-border: rgba(51, 65, 85, 0.8);
   --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.3);
 
+  --bg-card: var(--card-bg);
+  --bg-body: var(--page-bg);
+
   --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-tertiary: #94a3b8;
@@ -158,10 +164,14 @@
   --input-border: #475569;
   --input-placeholder: #64748b;
   
-  --success-light: #064e3b;
-  --warning-light: #78350f;
-  --danger-light: #7f1d1d;
-  --info-light: #1e3a8a;
+  --success-light: rgba(6, 78, 59, 0.6);
+  --success-dark: #6ee7b7;
+  --warning-light: rgba(120, 53, 15, 0.6);
+  --warning-dark: #fcd34d;
+  --danger-light: rgba(127, 29, 29, 0.6);
+  --danger-dark: #fca5a5;
+  --info-light: rgba(30, 58, 138, 0.6);
+  --info-dark: #93c5fd;
 
   /* ---- Table Header & Row Hover ---- */
   --table-header-bg: rgba(30, 41, 59, 0.85);
