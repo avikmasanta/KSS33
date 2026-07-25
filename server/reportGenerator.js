@@ -491,10 +491,13 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
         else if (l.attendance === 'Half Day') halfCount++;
         else if (l.attendance === 'Absent') absentCount++;
 
+        const lab = laboursMap[String(l.labourId)] || {};
         const otH = parseFloat(l.overtimeHours) || 0;
-        const dw  = parseFloat(l.dailyWage) || 0;
+        const dw  = parseFloat(l.dailyWage) || parseFloat(lab.defaultWage) || 0;
+        const otDirect = parseFloat(l.overtime) || 0;
+        const otPay = Math.max(otH > 0 && dw > 0 ? (dw / 8) * otH : 0, otDirect);
         totalOtHours += otH;
-        totalOtPay += otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        totalOtPay += otPay;
         totalMoneyGiven += parseFloat(l.moneyGiven) || 0;
       });
 
@@ -525,9 +528,10 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
         const nick  = lab.nickname ? ` (${lab.nickname})` : '';
         const dw    = parseFloat(l.dailyWage) || parseFloat(lab.defaultWage) || 0;
         const otH   = parseFloat(l.overtimeHours) || 0;
+        const otDirect = parseFloat(l.overtime) || 0;
         const otTime = l.overtimeTime ? ` (${l.overtimeTime})` : '';
-        const otStr  = otH > 0 ? `${otH}h${otTime}` : '-';
-        const otPay  = otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+        const otStr  = otH > 0 ? `${otH}h${otTime}` : (otDirect > 0 ? `Rs.${otDirect}` : '-');
+        const otPay  = Math.max(otH > 0 && dw > 0 ? (dw / 8) * otH : 0, otDirect);
         const mg     = parseFloat(l.moneyGiven) || 0;
         const mgNote = l.notes ? ` (${l.notes})` : '';
 
@@ -580,7 +584,9 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
           gross += dw * att;
 
           const oH = parseFloat(l.overtimeHours) || 0;
-          otP += oH > 0 ? (dw / 8) * oH : (parseFloat(l.overtime) || 0);
+          const otDirect = parseFloat(l.overtime) || 0;
+          const otPayVal = Math.max(oH > 0 && dw > 0 ? (dw / 8) * oH : 0, otDirect);
+          otP += otPayVal;
           paid += parseFloat(l.moneyGiven) || 0;
         });
 
