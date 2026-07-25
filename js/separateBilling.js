@@ -648,17 +648,32 @@ var SeparateBillingPage = (function() {
     html += '<div class="sb-total-sep">x</div>';
     html += '<div class="sb-rate-group"><div class="sb-total-label">Rate / Sq Ft (Optional)</div><div class="sb-rate-input-wrap"><span class="sb-rate-prefix">Rs.</span><input type="number" class="sb-input sb-rate-input" id="sb-ratePerSqFt" min="0" step="0.01" placeholder="Rate" value="' + state.formData.ratePerSqFt + '" oninput="SeparateBillingPage.onFormChange(\'ratePerSqFt\',this.value);SeparateBillingPage.refreshTotals()"></div></div>';
     html += '<div class="sb-total-sep">=</div>';
-    html += '<div class="sb-total-item"><div class="sb-total-label">Taxable Base Amount</div><div class="sb-total-value sb-total-amount" id="sb-total-amount">' + (t.totalAmount !== null ? 'Rs.' + fNum(t.totalAmount) : '-') + '</div></div>';
+    html += '<div class="sb-total-item"><div class="sb-total-label">' + (t.isInclusive ? 'Total Billing Amount' : 'Taxable Subtotal Amount') + '</div><div class="sb-total-value sb-total-amount" id="sb-total-amount">' + (t.totalAmount !== null ? 'Rs.' + fNum(t.totalAmount) : '-') + '</div></div>';
+    html += '</div>';
+
+    // Tax Include vs Exclude Toggle Radio Bar
+    html += '<div style="margin-top:10px; background:#f1f5f9; padding:8px 14px; border-radius:8px; border:1px solid #cbd5e1; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">';
+    html += '<span style="font-size:12px; font-weight:700; color:#334155;">GST Rate Mode:</span>';
+    html += '<div style="display:flex; gap:16px; font-size:12px; align-items:center;">';
+    html += '<label style="font-weight:700; cursor:pointer; color:' + (!t.isInclusive ? '#0f3c7a' : '#64748b') + '; display:flex; align-items:center; gap:5px;">';
+    html += '<input type="radio" name="gstModeRadio" value="false"' + (!t.isInclusive ? ' checked' : '') + ' onchange="SeparateBillingPage.onFormChange(\'gstInclusive\', false); SeparateBillingPage.refreshTotals()"> ➕ Tax Extra (Add GST on top of rate)';
+    html += '</label>';
+    html += '<label style="font-weight:700; cursor:pointer; color:' + (t.isInclusive ? '#059669' : '#64748b') + '; display:flex; align-items:center; gap:5px;">';
+    html += '<input type="radio" name="gstModeRadio" value="true"' + (t.isInclusive ? ' checked' : '') + ' onchange="SeparateBillingPage.onFormChange(\'gstInclusive\', true); SeparateBillingPage.refreshTotals()"> 🔒 Tax Inclusive (Rate includes GST)';
+    html += '</label>';
+    html += '</div>';
     html += '</div>';
     
     // Tax Breakdown Row
-    html += '<div id="sb-tax-breakdown-display" style="margin-top:16px; background:#f8fafc; padding:12px 16px; border-radius:8px; border:1px solid #cbd5e1; font-size:12px;">';
+    html += '<div id="sb-tax-breakdown-display" style="margin-top:12px; background:#f8fafc; padding:12px 16px; border-radius:8px; border:1px solid #cbd5e1; font-size:12px;">';
     if (t.totalAmount > 0) {
+      html += '<div style="font-size:11px; font-weight:700; color:' + (t.isInclusive ? '#059669' : '#0f3c7a') + '; margin-bottom:6px; text-transform:uppercase;">MODE: ' + (t.isInclusive ? 'TAX INCLUSIVE (Rate includes CGST + SGST)' : 'TAX EXCLUSIVE (GST added extra on top)') + '</div>';
+      html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>Taxable Subtotal (Base Value):</span><strong>Rs. ' + fNum(t.baseVal) + '</strong></div>';
       if (t.isInterstate) {
-        html += '<div style="display:flex; justify-style:space-between; margin-bottom:4px;"><span>IGST (' + t.igstRate + '%):</span><strong>Rs. ' + fNum(t.igstAmount) + '</strong></div>';
+        html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px; color:#2563eb;"><span>IGST (' + t.igstRate + '%' + (t.isInclusive ? ' Included' : '') + '):</span><strong>' + (t.isInclusive ? '' : '+ ') + 'Rs. ' + fNum(t.igstAmount) + '</strong></div>';
       } else {
-        html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>CGST (' + t.cgstRate + '%):</span><strong>Rs. ' + fNum(t.cgstAmount) + '</strong></div>';
-        html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>SGST (' + t.sgstRate + '%):</span><strong>Rs. ' + fNum(t.sgstAmount) + '</strong></div>';
+        html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px; color:#2563eb;"><span>CGST (' + t.cgstRate + '%' + (t.isInclusive ? ' Included' : '') + '):</span><strong>' + (t.isInclusive ? '' : '+ ') + 'Rs. ' + fNum(t.cgstAmount) + '</strong></div>';
+        html += '<div style="display:flex; justify-content:space-between; margin-bottom:4px; color:#2563eb;"><span>SGST (' + t.sgstRate + '%' + (t.isInclusive ? ' Included' : '') + '):</span><strong>' + (t.isInclusive ? '' : '+ ') + 'Rs. ' + fNum(t.sgstAmount) + '</strong></div>';
       }
       html += '<div style="display:flex; justify-content:space-between; border-top:1px solid #e2e8f0; padding-top:6px; font-size:13px; color:#0f3c7a;"><strong>INVOICE GRAND TOTAL (INCL. GST):</strong><strong>Rs. ' + fNum(t.grandTotal) + '</strong></div>';
     } else {
