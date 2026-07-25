@@ -1261,6 +1261,7 @@ select.form-control {
 .sb-icon-edit:hover  { background: var(--warning-light); border-color: var(--warning); color: var(--warning); }
 .sb-icon-copy:hover  { background: var(--primary-50);    border-color: var(--primary-500); color: var(--primary-500); }
 .sb-icon-print:hover { background: rgba(124,58,237,0.1); border-color: #7c3aed; color: #7c3aed; }
+.sb-icon-tax:hover   { background: rgba(15,60,122,0.1);   border-color: #0f3c7a; color: #0f3c7a; }
 .sb-icon-delete:hover{ background: var(--danger-light);  border-color: var(--danger); color: var(--danger); }
 
 /* ---- Empty State ---- */
