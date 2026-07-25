@@ -291,5 +291,47 @@ var App = (() => {
   return { init, navigate, eventsBound: false };
 })();
 
-// Boot
-document.addEventListener('DOMContentLoaded', () => App.init());
+// Boot & PWA ServiceWorker Registration
+document.addEventListener('DOMContentLoaded', () => {
+  App.init();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('[PWA] ServiceWorker registered:', reg.scope))
+      .catch(err => console.warn('[PWA] ServiceWorker registration failed:', err));
+  }
+});
+
+// PWA Deferred Install Prompt Listener
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  if (!document.getElementById('pwa-install-banner')) {
+    const banner = document.createElement('div');
+    banner.id = 'pwa-install-banner';
+    banner.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;background:var(--card-bg);border:1px solid var(--primary-500);border-radius:12px;padding:12px 18px;box-shadow:0 10px 25px rgba(0,0,0,0.3);display:flex;align-items:center;gap:12px;color:var(--text-primary);';
+    banner.innerHTML = `
+      <div style="width:36px;height:36px;background:rgba(37,99,235,0.15);color:var(--primary-500);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;">📲</div>
+      <div>
+        <div style="font-weight:600;font-size:0.9rem;">Install KSS App</div>
+        <div style="font-size:0.75rem;color:var(--text-tertiary);">Fast access on mobile & desktop</div>
+      </div>
+      <button id="pwa-install-btn" class="btn btn-sm btn-primary" style="margin-left:8px;">Install</button>
+      <button id="pwa-close-btn" style="border:none;background:transparent;color:var(--text-tertiary);cursor:pointer;padding:4px;font-size:1.1rem;">×</button>
+    `;
+    document.body.appendChild(banner);
+
+    document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+      if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        const choice = await deferredInstallPrompt.userChoice;
+        console.log('[PWA] User choice:', choice);
+        deferredInstallPrompt = null;
+        banner.remove();
+      }
+    });
+
+    document.getElementById('pwa-close-btn')?.addEventListener('click', () => banner.remove());
+  }
+});
