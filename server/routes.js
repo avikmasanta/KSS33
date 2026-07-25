@@ -162,7 +162,8 @@ router.get('/telegram-report/preview', async (req, res) => {
 
   try {
     const { generateDailyWarehouseSummary } = require('./reportGenerator');
-    const pdfBuffer = await generateDailyWarehouseSummary({ date: reportDate, models: reportModels });
+    const includeSiteChallans = req.query.includeSiteChallans === 'true';
+    const pdfBuffer = await generateDailyWarehouseSummary({ date: reportDate, models: reportModels, includeSiteChallans });
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `inline; filename="KSS_Warehouse_Summary_${reportDate}.pdf"`);
     res.status(200).send(pdfBuffer);

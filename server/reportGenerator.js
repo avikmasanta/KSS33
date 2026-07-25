@@ -7,7 +7,7 @@ const PDFDocument = require('pdfkit');
  * @param {string} params.date - The date of the report (YYYY-MM-DD)
  * @param {Object} params.models - The DB models dictionary
  */
-async function generateDailyWarehouseSummary({ date, models }) {
+async function generateDailyWarehouseSummary({ date, models, includeSiteChallans = false }) {
   const Material   = models.Material;
   const Incoming   = models.Incoming;
   const Outgoing   = models.Outgoing;
@@ -932,94 +932,96 @@ async function generateDailyWarehouseSummary({ date, models }) {
       }
     }
 
-    // Loop over every site and render landscape reports ONLY for sites with actual data
-    sites.forEach(site => {
-      const sId = String(site._id || site.id);
-      const siteOutgoing = allOutgoing.filter(r => String(r.siteId) === sId);
-      const siteIncomingDirect = allIncoming.filter(r => r.destinationType === 'site' && String(r.destinationSiteId) === sId);
-      const siteReturns = allReturns.filter(r => String(r.siteId) === sId);
+    // Loop over sites and render landscape reports ONLY if includeSiteChallans is explicitly true and sites have actual transaction data
+    if (includeSiteChallans) {
+      sites.forEach(site => {
+        const sId = String(site._id || site.id);
+        const siteOutgoing = allOutgoing.filter(r => String(r.siteId) === sId);
+        const siteIncomingDirect = allIncoming.filter(r => r.destinationType === 'site' && String(r.destinationSiteId) === sId);
+        const siteReturns = allReturns.filter(r => String(r.siteId) === sId);
 
-      const dispatchMap = {};
-      const returnMap = {};
-      const dispatchedMatIds = new Set();
-      const returnedMatIds = new Set();
+        const dispatchMap = {};
+        const returnMap = {};
+        const dispatchedMatIds = new Set();
+        const returnedMatIds = new Set();
 
-      siteOutgoing.forEach((record, index) => {
-        (record.items || []).forEach(item => {
-          const matId = String(item.materialId);
-          if (!matId || !materialsMap[matId]) return;
-          dispatchedMatIds.add(matId);
-          const rowKey = String(record._id || record.id || (record.date + '-out-' + index));
-          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.ticketNo || '-' };
-          dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
+        siteOutgoing.forEach((record, index) => {
+          (record.items || []).forEach(item => {
+            const matId = String(item.materialId);
+            if (!matId || !materialsMap[matId]) return;
+            dispatchedMatIds.add(matId);
+            const rowKey = String(record._id || record.id || (record.date + '-out-' + index));
+            dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.ticketNo || '-' };
+            dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
+          });
         });
-      });
 
-      siteIncomingDirect.forEach((record, index) => {
-        (record.items || []).forEach(item => {
-          const matId = String(item.materialId);
-          if (!matId || !materialsMap[matId]) return;
-          dispatchedMatIds.add(matId);
-          const rowKey = String(record._id || record.id || (record.date + '-inc-' + index));
-          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.invoiceNo || 'Direct' };
-          dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
+        siteIncomingDirect.forEach((record, index) => {
+          (record.items || []).forEach(item => {
+            const matId = String(item.materialId);
+            if (!matId || !materialsMap[matId]) return;
+            dispatchedMatIds.add(matId);
+            const rowKey = String(record._id || record.id || (record.date + '-inc-' + index));
+            dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.invoiceNo || 'Direct' };
+            dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
+          });
         });
+
+        siteReturns.forEach((record, index) => {
+          const matId = String(record.materialId);
+          if (!matId || !materialsMap[matId]) return;
+          returnedMatIds.add(matId);
+          const rowKey = String(record._id || record.id || (record.date + '-ret-' + index));
+          returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
+          returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
+        });
+
+        const dispatchMats = [...dispatchedMatIds].map(id => materialsMap[id]).filter(Boolean);
+        const returnMats   = [...returnedMatIds].map(id => materialsMap[id]).filter(Boolean);
+
+        const dispatchRowKeys = Object.keys(dispatchMap).sort((a, b) => new Date(dispatchMap[a].date) - new Date(dispatchMap[b].date));
+        const returnRowKeys   = Object.keys(returnMap).sort((a, b) => new Date(returnMap[a].date) - new Date(returnMap[b].date));
+
+        const summaryMats = materials.filter(m => {
+          const mId = String(m._id || m.id);
+          let sent = 0, ret = 0;
+          siteOutgoing.forEach(r => (r.items || []).forEach(i => { if (String(i.materialId) === mId) sent += parseFloat(i.quantity) || 0; }));
+          siteIncomingDirect.forEach(r => (r.items || []).forEach(i => { if (String(i.materialId) === mId) sent += parseFloat(i.quantity) || 0; }));
+          siteReturns.forEach(r => { if (String(r.materialId) === mId) ret += parseFloat(r.quantity) || 0; });
+          return sent > 0 || ret > 0;
+        });
+
+        // SKIP completely empty sites without any transactions or active materials
+        const sLogs = allLabourLogs.filter(l => String(l.siteId) === sId);
+        if (dispatchRowKeys.length === 0 && returnRowKeys.length === 0 && summaryMats.length === 0 && sLogs.length === 0) {
+          return;
+        }
+
+        // PAGE 1: RECEIVED (CHALLAN IN) — ONLY render if there are actual received dispatches
+        if (dispatchRowKeys.length > 0) {
+          doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
+          drawSiteHeader(site, 'Material Received at Site');
+          drawChallanTable(dispatchMats, dispatchRowKeys, dispatchMap);
+          doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (IN)', 700, 545, { width: 121, align: 'right' });
+        }
+
+        // PAGE 2: RETURNED (CHALLAN RETURN) — ONLY render if there are actual returned items
+        if (returnRowKeys.length > 0) {
+          doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
+          drawSiteHeader(site, 'Material Returned from Site');
+          drawChallanTable(returnMats, returnRowKeys, returnMap);
+          doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (RETURN)', 700, 545, { width: 121, align: 'right' });
+        }
+
+        // PAGE 3: INVENTORY SUMMARY (NET BALANCE) — ONLY render if site has summary materials or site labour logs
+        if (summaryMats.length > 0 || sLogs.length > 0) {
+          doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
+          drawSiteHeader(site, 'Material Inventory Summary (Net Balance at Site)');
+          drawSiteInventorySummaryTable(summaryMats, site);
+          doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('INVENTORY SUMMARY', 700, 545, { width: 121, align: 'right' });
+        }
       });
-
-      siteReturns.forEach((record, index) => {
-        const matId = String(record.materialId);
-        if (!matId || !materialsMap[matId]) return;
-        returnedMatIds.add(matId);
-        const rowKey = String(record._id || record.id || (record.date + '-ret-' + index));
-        returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
-        returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
-      });
-
-      const dispatchMats = [...dispatchedMatIds].map(id => materialsMap[id]).filter(Boolean);
-      const returnMats   = [...returnedMatIds].map(id => materialsMap[id]).filter(Boolean);
-
-      const dispatchRowKeys = Object.keys(dispatchMap).sort((a, b) => new Date(dispatchMap[a].date) - new Date(dispatchMap[b].date));
-      const returnRowKeys   = Object.keys(returnMap).sort((a, b) => new Date(returnMap[a].date) - new Date(returnMap[b].date));
-
-      const summaryMats = materials.filter(m => {
-        const mId = String(m._id || m.id);
-        let sent = 0, ret = 0;
-        siteOutgoing.forEach(r => (r.items || []).forEach(i => { if (String(i.materialId) === mId) sent += parseFloat(i.quantity) || 0; }));
-        siteIncomingDirect.forEach(r => (r.items || []).forEach(i => { if (String(i.materialId) === mId) sent += parseFloat(i.quantity) || 0; }));
-        siteReturns.forEach(r => { if (String(r.materialId) === mId) ret += parseFloat(r.quantity) || 0; });
-        return sent > 0 || ret > 0;
-      });
-
-      // SKIP completely empty sites without any transactions or active materials
-      const sLogs = allLabourLogs.filter(l => String(l.siteId) === sId);
-      if (dispatchRowKeys.length === 0 && returnRowKeys.length === 0 && summaryMats.length === 0 && sLogs.length === 0) {
-        return;
-      }
-
-      // PAGE 1: RECEIVED (CHALLAN IN) — only render if there are received dispatches
-      if (dispatchRowKeys.length > 0 || dispatchMats.length > 0) {
-        doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
-        drawSiteHeader(site, 'Material Received at Site');
-        drawChallanTable(dispatchMats, dispatchRowKeys, dispatchMap);
-        doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (IN)', 700, 545, { width: 121, align: 'right' });
-      }
-
-      // PAGE 2: RETURNED (CHALLAN RETURN) — only render if site actually has returned items!
-      if (returnRowKeys.length > 0 || returnMats.length > 0) {
-        doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
-        drawSiteHeader(site, 'Material Returned from Site');
-        drawChallanTable(returnMats, returnRowKeys, returnMap);
-        doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('CHALLAN (RETURN)', 700, 545, { width: 121, align: 'right' });
-      }
-
-      // PAGE 3: INVENTORY SUMMARY (NET BALANCE) — render if site has summary materials or site labour logs
-      if (summaryMats.length > 0 || sLogs.length > 0) {
-        doc.addPage({ size: 'A4', layout: 'landscape', margin: 20 });
-        drawSiteHeader(site, 'Material Inventory Summary (Net Balance at Site)');
-        drawSiteInventorySummaryTable(summaryMats, site);
-        doc.fillColor(C_GRAY).font('Helvetica-Bold').fontSize(11).text('INVENTORY SUMMARY', 700, 545, { width: 121, align: 'right' });
-      }
-    });
+    }
 
     // ── DYNAMIC PAGE FOOTERS ──────────────────────────────────────────
     const range = doc.bufferedPageRange();
