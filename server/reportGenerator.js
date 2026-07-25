@@ -223,18 +223,18 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     // ── HELPERS ─────────────────────────────────────────────────────
     let y = 30;
     function checkSpace(neededHeight) {
-      if (y + neededHeight > 760) {
-        doc.addPage();
+      if (y + neededHeight > 730) {
+        doc.addPage({ size: 'A4', margin: 30 });
         y = 30;
       }
     }
 
     function sectionTitle(text, color = C_BLUE) {
-      checkSpace(40);
-      doc.fillColor(color).rect(30, y, PW, 28).fill();
-      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(12);
-      doc.text(text, 40, y + 7, { width: PW - 20 });
-      y += 28;
+      checkSpace(35);
+      doc.fillColor(color).rect(30, y, PW, 24).fill();
+      doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(11);
+      doc.text(text.toUpperCase(), 38, y + 6, { width: PW - 16, lineBreak: false });
+      y += 24;
     }
 
     function bigCard(x, yPos, w, h, label, value, bg, valColor) {
@@ -273,7 +273,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     y += cardH + 12;
 
     // Warehouse Stock Table
-    sectionTitle('🏢  Current Warehouse Stock Summary', C_BLUE);
+    sectionTitle('Current Warehouse Stock Summary', C_BLUE);
     y += 4;
 
     if (warehouseRows.length === 0) {
@@ -310,7 +310,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
 
     if (lowStockRows.length > 0) {
       y += 12;
-      sectionTitle('⚠️  Low Stock Alert Items', C_RED);
+      sectionTitle('Low Stock Alert Items', C_RED);
       y += 4;
       doc.fillColor(C_RED).rect(30, y, PW, 20).fill();
       doc.fillColor(C_WHITE).font('Helvetica-Bold').fontSize(9);
@@ -354,7 +354,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     y += 12;
 
     // ── Active Rental Sites & Materials Section ───────────────────────
-    sectionTitle('🔑  Active Rental Sites & Materials', C_BLUE);
+    sectionTitle('Active Rental Sites & Materials', C_BLUE);
     y += 4;
 
     if (activeRentalsData.length === 0) {
@@ -393,7 +393,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     y += 12;
 
     // ── Stock Movement Section (Today's Transactions) ───────────────
-    sectionTitle('🔄  Stock Movement Report (Today\'s Transactions)', C_GREEN);
+    sectionTitle('Stock Movement Report (Today\'s Transactions)', C_GREEN);
     y += 4;
 
     if (incomingMovements.length === 0 && outgoingMovements.length === 0) {
@@ -406,7 +406,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
         checkSpace(30);
         doc.fillColor('#f0fdf4').rect(30, y, PW, 18).fill();
         doc.fillColor(C_GREEN).font('Helvetica-Bold').fontSize(9);
-        doc.text('📥 INCOMING STOCK MOVEMENTS', 36, y + 4);
+        doc.text('INCOMING STOCK MOVEMENTS', 36, y + 4);
         y += 18;
 
         incomingMovements.forEach((row, idx) => {
@@ -426,7 +426,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
         checkSpace(30);
         doc.fillColor('#fef2f2').rect(30, y, PW, 18).fill();
         doc.fillColor(C_RED).font('Helvetica-Bold').fontSize(9);
-        doc.text('📤 OUTGOING STOCK MOVEMENTS', 36, y + 4);
+        doc.text('OUTGOING STOCK MOVEMENTS', 36, y + 4);
         y += 18;
 
         outgoingMovements.forEach((row, idx) => {
@@ -445,7 +445,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
     y += 12;
 
     // ── Material Utilization & Deployed Stock Section ────────────────
-    sectionTitle('📊  Material Utilization & Site Deployments', '#0284c7');
+    sectionTitle('Material Utilization & Site Deployments', '#0284c7');
     y += 4;
 
     if (utilizationRows.length === 0) {
@@ -928,7 +928,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
         doc.fillColor('#f8fafc').rect(20, tableY, 801.89, 24).fill();
         doc.strokeColor(C_BORDER).lineWidth(0.5).rect(20, tableY, 801.89, 24).stroke();
         doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(9);
-        doc.text(`👷 Site Labour Log Summary: ${pres} Present, ${half} Half Day, ${abs} Absent  |  Overtime: ${otH} hrs (Rs. ${Math.round(otP)})  |  Total Disbursed: Rs. ${Math.round(mg)}`, 26, tableY + 7);
+        doc.text(`Site Labour Log Summary: ${pres} Present, ${half} Half Day, ${abs} Absent  |  Overtime: ${otH} hrs (Rs. ${Math.round(otP)})  |  Total Disbursed: Rs. ${Math.round(mg)}`, 26, tableY + 7);
       }
     }
 
