@@ -163,6 +163,36 @@ async function generateTelegramReportText({ date, models }) {
         labourReportText += `- Attendance: *${presentCount}* Present, *${halfCount}* Half Day, *${absentCount}* Absent\n`;
         labourReportText += `- Overtime: *${totalOtHours} hrs* (₹${Math.round(totalOtPay).toLocaleString('en-IN')})\n`;
         labourReportText += `- Money Paid Today: *₹${Math.round(totalMoneyGiven).toLocaleString('en-IN')}*\n`;
+
+        // Worker-wise details
+        let allLabours = [];
+        const laboursMap = {};
+        if (models.Labour) {
+          try {
+            allLabours = await models.Labour.find({ status: { $ne: 'Archived' } });
+            allLabours.forEach(l => { laboursMap[String(l._id || l.id)] = l; });
+          } catch(e) {}
+        }
+
+        const workerLines = dayLogs.map(l => {
+          const lab = laboursMap[String(l.labourId)] || {};
+          const name = lab.name || 'Worker';
+          const nick = lab.nickname ? ` (${lab.nickname})` : '';
+          const otH  = parseFloat(l.overtimeHours) || 0;
+          const dw   = parseFloat(l.dailyWage) || parseFloat(lab.defaultWage) || 0;
+          const otP  = otH > 0 ? (dw / 8) * otH : (parseFloat(l.overtime) || 0);
+          const mg   = parseFloat(l.moneyGiven) || 0;
+
+          let info = [];
+          if (l.attendance) info.push(l.attendance);
+          if (otH > 0) info.push(`OT: ${otH}h (₹${Math.round(otP)})`);
+          if (mg > 0) info.push(`Paid: ₹${Math.round(mg)}`);
+          return `  • *${name}${nick}*: ${info.join(' | ')}`;
+        });
+
+        if (workerLines.length > 0) {
+          labourReportText += `  *Worker Details:*\n` + workerLines.join('\n') + `\n`;
+        }
       }
     } catch (e) {
       console.error('Error calculating labour summary for Telegram:', e);
