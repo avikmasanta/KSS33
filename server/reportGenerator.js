@@ -680,7 +680,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       y += 20;
 
       allBills.forEach((b, idx) => {
-        checkSpace(24);
+        checkSpace(28);
         const bg = idx % 2 === 0 ? C_WHITE : '#f8fafc';
         doc.fillColor(bg).rect(30, y, PW, 24).fill();
 
@@ -708,6 +708,39 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
 
         doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
         y += 24;
+
+        // Render itemized measurement breakdown if items exist
+        if (b.items && b.items.length > 0) {
+          checkSpace(18);
+          doc.fillColor('#f1f5f9').rect(40, y, PW - 10, 16).fill();
+          doc.fillColor(C_DARK).font('Helvetica-Bold').fontSize(8);
+          doc.text('Measurement Items:', 46, y + 4);
+          doc.text('Type', 150, y + 4, { width: 50 });
+          doc.text('Length', 210, y + 4, { width: 50, align: 'right' });
+          doc.text('Breadth', 270, y + 4, { width: 50, align: 'right' });
+          doc.text('Qty', 330, y + 4, { width: 40, align: 'center' });
+          doc.text('Area (Sq Ft)', 380, y + 4, { width: 145, align: 'right' });
+          y += 16;
+
+          b.items.forEach(item => {
+            checkSpace(18);
+            const isDeduct = item.type === 'Open' || item.type === 'MiscDeduct';
+            doc.fillColor(C_WHITE).rect(40, y, PW - 10, 18).fill();
+            doc.fillColor(C_DARK).font('Helvetica').fontSize(8);
+            doc.text(item.materialName || item.type || 'Slab', 46, y + 4, { width: 100, lineBreak: false });
+            doc.text(item.type || 'Slab', 150, y + 4, { width: 50, lineBreak: false });
+            doc.text(item.length ? String(item.length) : '-', 210, y + 4, { width: 50, align: 'right', lineBreak: false });
+            doc.text(item.breadth ? String(item.breadth) : '-', 270, y + 4, { width: 50, align: 'right', lineBreak: false });
+            doc.text(item.quantity ? String(item.quantity) : '1', 330, y + 4, { width: 40, align: 'center', lineBreak: false });
+            
+            const areaColor = isDeduct ? C_RED : C_DARK;
+            doc.fillColor(areaColor).font('Helvetica-Bold').fontSize(8);
+            doc.text(`${isDeduct ? '- ' : ''}${parseFloat(item.area || 0).toFixed(2)} Sq Ft`, 380, y + 4, { width: 145, align: 'right', lineBreak: false });
+            doc.strokeColor('#e2e8f0').lineWidth(0.5).moveTo(40, y + 18).lineTo(555, y + 18).stroke();
+            y += 18;
+          });
+          y += 4;
+        }
       });
     }
 

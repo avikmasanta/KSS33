@@ -212,22 +212,23 @@ async function generateTelegramReportText({ date, models }) {
 
         allBills.forEach(b => {
           const net = parseFloat(b.netArea || b.totalArea) || 0;
-          const amt = parseFloat(b.totalAmount) || 0;
+          const amt = parseFloat(b.grandTotal || b.totalAmount) || 0;
           const rec = parseFloat(b.receivedAmount) || 0;
+          const bal = amt > 0 ? Math.max(0, amt - rec) : 0;
           totalNetArea += net;
           totalBillAmt += amt;
           totalReceivedAmt += rec;
           
-          if (b.receivedDate || rec > 0) {
-            billSummaries.push(`- *${b.siteName}*: Rec ₹${rec.toLocaleString('en-IN')}${b.receivedDate ? ' (on ' + b.receivedDate + ')' : ''}`);
-          }
+          const sName = b.siteName || 'Bill';
+          const cName = b.contractorName || 'Contractor';
+          billSummaries.push(`• *${sName}* (${cName}): Net *${Math.round(net)} Sq Ft* | Amt: *₹${Math.round(amt).toLocaleString('en-IN')}* | Rec: *₹${Math.round(rec).toLocaleString('en-IN')}* | Bal: *₹${Math.round(bal).toLocaleString('en-IN')}*`);
         });
 
-        billsReportText += `\n📐 *Measurement Bills Summary:*\n`;
+        billsReportText += `\n📐 *Separate Measurement Bills & Invoices:*\n`;
         billsReportText += `- Total Bills: *${allBills.length}* | Net Area: *${Math.round(totalNetArea).toLocaleString('en-IN')} Sq Ft*\n`;
         billsReportText += `- Total Amount: *₹${Math.round(totalBillAmt).toLocaleString('en-IN')}* | Total Received: *₹${Math.round(totalReceivedAmt).toLocaleString('en-IN')}*\n`;
         if (billSummaries.length > 0) {
-          billsReportText += `  Payment Dates:\n  ` + billSummaries.slice(0, 5).join('\n  ') + `\n`;
+          billsReportText += `  *Bills Breakdown:*\n  ` + billSummaries.join('\n  ') + `\n`;
         }
       }
     } catch (e) {
