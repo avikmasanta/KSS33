@@ -1173,8 +1173,8 @@ var SeparateBillingPage = (function() {
       }
     }
 
-    var invNum = "BILL-" + (bill.id || bill._id || "NEW").slice(-6).toUpperCase();
-    var invDate = formatDate(bill.createdAt || new Date());
+    var invNum = bill.taxInvoiceNo || bill.invoiceNo || ("BILL-" + (bill.id || bill._id || "NEW").slice(-6).toUpperCase());
+    var invDate = formatDate(bill.taxInvoiceDate || bill.createdAt || new Date());
     var lintelDateFormatted = formatDate(bill.lintelDate);
 
     var rows = '';
@@ -1260,6 +1260,9 @@ var SeparateBillingPage = (function() {
     html += '</div>';
     html += '<div class="business-details">';
     html += '<div class="business-name">' + (bill.supplierName || 'KSS Construction Materials') + '</div>';
+    if (bill.supplierGstin) {
+      html += '<div style="font-weight:700; color:#0f3c7a; margin-bottom:2px;">GSTIN: ' + bill.supplierGstin + '</div>';
+    }
     html += '<div>Slab & Shuttering Services</div>';
     html += '<div>Phone: +91 98765 43210</div>';
     html += '</div>';
@@ -1267,8 +1270,8 @@ var SeparateBillingPage = (function() {
 
     // Banner strip
     html += '<div class="banner-strip">';
-    html += '<span>Bill No. : ' + invNum + '</span>';
-    html += '<span>Bill Date : ' + invDate + '</span>';
+    html += '<span>Invoice No. : ' + invNum + '</span>';
+    html += '<span>Invoice Date : ' + invDate + '</span>';
     html += '</div>';
 
     // Project Info card
@@ -1281,11 +1284,21 @@ var SeparateBillingPage = (function() {
     html += '<div class="info-row"><span class="info-label">Contractor</span><span class="info-value">: ' + (bill.contractorName || '-') + '</span></div>';
     html += '<div class="info-row"><span class="info-label">Owner</span><span class="info-value">: ' + (bill.ownerName || '-') + '</span></div>';
     html += '<div class="info-row"><span class="info-label">Location</span><span class="info-value">: ' + (bill.location || '-') + '</span></div>';
+    if (bill.clientGstin) {
+      html += '<div class="info-row"><span class="info-label">Client GSTIN</span><span class="info-value" style="font-weight:700;">: ' + bill.clientGstin + '</span></div>';
+    }
     html += '</div>';
 
     html += '<div class="info-grid-col">';
+    html += '<div class="info-row"><span class="info-label">Invoice No.</span><span class="info-value" style="color:#0f3c7a; font-weight:800;">: ' + invNum + '</span></div>';
     html += '<div class="info-row"><span class="info-label">Lintel Date</span><span class="info-value">: ' + lintelDateFormatted + '</span></div>';
     html += '<div class="info-row"><span class="info-label">Bill Date</span><span class="info-value">: ' + invDate + '</span></div>';
+    if (bill.placeOfSupply) {
+      html += '<div class="info-row"><span class="info-label">Place of Supply</span><span class="info-value" style="color:#059669;">: ' + bill.placeOfSupply + '</span></div>';
+    }
+    if (bill.supplierGstin) {
+      html += '<div class="info-row"><span class="info-label">Supplier GSTIN</span><span class="info-value" style="font-weight:700;">: ' + bill.supplierGstin + '</span></div>';
+    }
     html += '<div class="info-row"><span class="info-label">Prepared By</span><span class="info-value">: KSS Team</span></div>';
     html += '</div>';
 
@@ -1329,14 +1342,36 @@ var SeparateBillingPage = (function() {
     var recVal = parseFloat(bill.receivedAmount) || 0;
     var payments = bill.payments && bill.payments.length > 0 ? bill.payments : (recVal > 0 ? [{ date: bill.receivedDate, amount: recVal, notes: 'Received' }] : []);
     var totalRec = payments.reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
-    var netPay = amtVal > 0 ? Math.max(0, amtVal - totalRec) : 0;
+
+    var gstRate = parseFloat(bill.gstRate) || 18;
+    var isInterstate = bill.isInterstate || false;
+    var cgstRate = isInterstate ? 0 : (gstRate / 2);
+    var sgstRate = isInterstate ? 0 : (gstRate / 2);
+    var igstRate = isInterstate ? gstRate : 0;
+
+    var cgstAmt = isInterstate ? 0 : parseFloat((amtVal * (cgstRate / 100)).toFixed(2));
+    var sgstAmt = isInterstate ? 0 : parseFloat((amtVal * (sgstRate / 100)).toFixed(2));
+    var igstAmt = isInterstate ? parseFloat((amtVal * (igstRate / 100)).toFixed(2)) : 0;
+    var totalTax = cgstAmt + sgstAmt + igstAmt;
+    var grandTotal = (amtVal > 0 && bill.supplierGstin) ? parseFloat((amtVal + totalTax).toFixed(2)) : amtVal;
+    var netPay = grandTotal > 0 ? Math.max(0, parseFloat((grandTotal - totalRec).toFixed(2))) : 0;
 
     html += '<div class="summary-box">';
-    html += '<div class="summary-box-header">Pricing Summary</div>';
+    html += '<div class="summary-box-header">Pricing & GST Summary</div>';
     html += '<div class="summary-box-body" style="padding-bottom:0">';
     html += '<div class="summary-row"><span>Rate per Sq Ft</span><span>' + (rateVal > 0 ? '₹ ' + rateVal.toFixed(2) : '—') + '</span></div>';
     html += '<div class="summary-row bold-total"><span>Net Area</span><span>' + net.toFixed(2) + ' Sq Ft</span></div>';
-    html += '<div class="summary-row"><span>Total Amount</span><span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span></div>';
+    html += '<div class="summary-row"><span>Taxable Amount</span><span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span></div>';
+
+    if (amtVal > 0 && bill.supplierGstin) {
+      if (isInterstate) {
+        html += '<div class="summary-row"><span>IGST @ ' + igstRate + '%</span><span>+ ₹ ' + igstAmt.toFixed(2) + '</span></div>';
+      } else {
+        html += '<div class="summary-row"><span>CGST @ ' + cgstRate + '%</span><span>+ ₹ ' + cgstAmt.toFixed(2) + '</span></div>';
+        html += '<div class="summary-row"><span>SGST @ ' + sgstRate + '%</span><span>+ ₹ ' + sgstAmt.toFixed(2) + '</span></div>';
+      }
+      html += '<div class="summary-row bold-total" style="color:#0f3c7a;"><span>Grand Total (Incl. GST)</span><span>₹ ' + grandTotal.toFixed(2) + '</span></div>';
+    }
 
     if (payments.length > 0) {
       payments.forEach(function(p) {
@@ -1353,7 +1388,7 @@ var SeparateBillingPage = (function() {
     }
     html += '</div>';
     html += '<div class="grand-total-banner">';
-    html += '<span>' + (totalRec > 0 ? 'NET PAYABLE' : 'GRAND TOTAL') + '</span>';
+    html += '<span>' + (totalRec > 0 ? 'NET PAYABLE BALANCE' : 'GRAND TOTAL') + '</span>';
     html += '<span>' + (amtVal > 0 ? '₹ ' + netPay.toFixed(2) : '—') + '</span>';
     html += '</div>';
     html += '</div>';
