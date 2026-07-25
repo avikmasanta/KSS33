@@ -302,7 +302,7 @@ async function sendTelegramReport({ date, models }) {
   // 2. Generate PDF
   let pdfBuffer;
   try {
-    pdfBuffer = await generateDailyWarehouseSummary({ date, models });
+    pdfBuffer = await generateDailyWarehouseSummary({ date, models, includeSiteChallans: false });
   } catch (err) {
     console.error('Error generating PDF:', err);
     throw new Error('PDF generation failed: ' + err.message);

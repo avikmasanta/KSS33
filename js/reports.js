@@ -192,12 +192,17 @@ var ReportsPage = {
                       <label>Select Report Target Date</label>
                       <input type="date" id="tg-report-date" class="form-control" value="${yesterday}" style="background: var(--bg-card);">
                     </div>
-                    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-                      <button class="btn btn-outline" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.previewTelegramReport()">
-                        ${Icons.fileText} Preview PDF
-                      </button>
-                      <button class="btn btn-success" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.sendTelegramReportNow()">
-                        ${Icons.check} Send to Telegram
+                    <div style="display:flex; flex-direction:column; gap:10px;">
+                      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.previewTelegramReport(false)">
+                          ${Icons.fileText} 📄 Preview Executive Master PDF
+                        </button>
+                        <button class="btn btn-outline" style="flex:1; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.previewTelegramReport(true)">
+                          ${Icons.printer} 📑 Preview Full Report (with Challans)
+                        </button>
+                      </div>
+                      <button class="btn btn-success" style="width:100%; display:inline-flex; align-items:center; justify-content:center; gap:6px;" onclick="ReportsPage.sendTelegramReportNow()">
+                        ${Icons.check} 🚀 Send Daily Summary to Telegram
                       </button>
                     </div>
                   </div>
@@ -1158,14 +1163,15 @@ var ReportsPage = {
     }
   },
 
-  previewTelegramReport() {
+  previewTelegramReport(withChallans) {
     const dateInput = document.getElementById('tg-report-date');
     if (!dateInput) return;
     const date = dateInput.value;
     const API_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
       ? 'http://localhost:5000/api'
       : '/api';
-    window.open(`${API_URL}/telegram-report/preview?date=${date}`, '_blank');
+    const flag = withChallans ? 'true' : 'false';
+    window.open(`${API_URL}/telegram-report/preview?date=${date}&includeSiteChallans=${flag}`, '_blank');
   },
 
   async sendTelegramReportNow() {
