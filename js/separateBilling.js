@@ -1549,6 +1549,7 @@ var SeparateBillingPage = (function() {
     var clientAddr = bill.clientAddress || bill.location || ("Site: " + (bill.siteName || "-"));
     var clientState = (bill.clientState || "West Bengal") + " (Code: " + (bill.clientStateCode || "19") + ")";
     var placeOfSupply = bill.placeOfSupply || ((bill.clientState || "West Bengal") + " (" + (bill.clientStateCode || "19") + ")");
+    var sacCode = bill.sacCode || "995411";
 
     var rawCustomTax = bill.customTaxAmount !== undefined ? bill.customTaxAmount : '';
     var customTax = parseFloat(rawCustomTax);
