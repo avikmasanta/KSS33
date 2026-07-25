@@ -92,9 +92,11 @@ var SeparateBillingPage = (function() {
   }
 
   // Calc totals including GST breakdown
-  function calcTotals(items, payments) {
+  function calcTotals(items, payments, opts) {
     var src = items || state.formItems;
     var paySrc = payments || state.payments || [];
+    var dataObj = opts || (state ? state.formData : {}) || {};
+
     var slabArea = 0, beamArea = 0, openArea = 0, miscAddArea = 0, miscDeductArea = 0;
     src.forEach(function(i) {
       var a = parseFloat(i.area) || 0;
@@ -107,7 +109,7 @@ var SeparateBillingPage = (function() {
     var grossArea = slabArea + beamArea + miscAddArea;
     var totalDeductions = openArea + miscDeductArea;
     var netArea   = parseFloat(Math.max(0, grossArea - totalDeductions).toFixed(3));
-    var rate      = parseFloat(state.formData.ratePerSqFt) || 0;
+    var rate      = parseFloat(dataObj.ratePerSqFt) || 0;
     var totalAmount = rate > 0 ? parseFloat((netArea * rate).toFixed(2)) : null;
     
     var totalReceived = 0;
@@ -115,16 +117,15 @@ var SeparateBillingPage = (function() {
       totalReceived += (parseFloat(p.amount) || 0);
     });
 
-    if (totalReceived === 0 && parseFloat(state.formData.receivedAmount) > 0) {
-      totalReceived = parseFloat(state.formData.receivedAmount);
+    if (totalReceived === 0 && parseFloat(dataObj.receivedAmount) > 0) {
+      totalReceived = parseFloat(dataObj.receivedAmount);
     }
 
     // GST Taxes calculation
     var baseVal = totalAmount || 0;
-    var rawCustomTax = state.formData.customTaxAmount !== undefined ? state.formData.customTaxAmount : '';
+    var rawCustomTax = dataObj.customTaxAmount !== undefined ? dataObj.customTaxAmount : '';
     var customTax = parseFloat(rawCustomTax);
-    var gstRate = parseFloat(state.formData.gstRate);
-    if (isNaN(gstRate)) gstRate = 18;
+    var gstRate = (dataObj.gstRate !== undefined && dataObj.gstRate !== null && !isNaN(parseFloat(dataObj.gstRate))) ? parseFloat(dataObj.gstRate) : 18;
 
     var totalTax = 0;
     if (!isNaN(customTax) && customTax >= 0 && rawCustomTax !== '' && rawCustomTax !== null) {
@@ -136,7 +137,7 @@ var SeparateBillingPage = (function() {
       totalTax = parseFloat((baseVal * (gstRate / 100)).toFixed(2));
     }
 
-    var isInterstate = !!state.formData.isInterstate;
+    var isInterstate = !!dataObj.isInterstate;
     var cgstRate = isInterstate ? 0 : (gstRate / 2);
     var sgstRate = isInterstate ? 0 : (gstRate / 2);
     var igstRate = isInterstate ? gstRate : 0;
@@ -701,7 +702,7 @@ var SeparateBillingPage = (function() {
       return s;
     }
 
-    var t2 = calcTotals(bill.items, bill.payments);
+    var t2 = calcTotals(bill.items, bill.payments, bill);
     var taxNo = bill.taxInvoiceNo || ("TAX-INV-" + (bill.id || bill._id || "001").slice(-6).toUpperCase());
 
     var html = '<div class="sb-page">';
@@ -1364,17 +1365,30 @@ var SeparateBillingPage = (function() {
     var payments = bill.payments && bill.payments.length > 0 ? bill.payments : (recVal > 0 ? [{ date: bill.receivedDate, amount: recVal, notes: 'Received' }] : []);
     var totalRec = payments.reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
 
-    var gstRate = parseFloat(bill.gstRate) || 18;
-    var isInterstate = bill.isInterstate || false;
+    var rawCustomTax = bill.customTaxAmount !== undefined ? bill.customTaxAmount : '';
+    var customTax = parseFloat(rawCustomTax);
+    var gstRate = (bill.gstRate !== undefined && bill.gstRate !== null && !isNaN(parseFloat(bill.gstRate))) ? parseFloat(bill.gstRate) : 18;
+
+    var totalTax = 0;
+    if (!isNaN(customTax) && customTax >= 0 && rawCustomTax !== '' && rawCustomTax !== null) {
+      totalTax = customTax;
+      if (amtVal > 0) {
+        gstRate = parseFloat(((customTax / amtVal) * 100).toFixed(2));
+      }
+    } else {
+      totalTax = parseFloat((amtVal * (gstRate / 100)).toFixed(2));
+    }
+
+    var isInterstate = !!bill.isInterstate;
     var cgstRate = isInterstate ? 0 : (gstRate / 2);
     var sgstRate = isInterstate ? 0 : (gstRate / 2);
     var igstRate = isInterstate ? gstRate : 0;
 
-    var cgstAmt = isInterstate ? 0 : parseFloat((amtVal * (cgstRate / 100)).toFixed(2));
-    var sgstAmt = isInterstate ? 0 : parseFloat((amtVal * (sgstRate / 100)).toFixed(2));
-    var igstAmt = isInterstate ? parseFloat((amtVal * (igstRate / 100)).toFixed(2)) : 0;
-    var totalTax = cgstAmt + sgstAmt + igstAmt;
-    var grandTotal = (amtVal > 0 && bill.supplierGstin) ? parseFloat((amtVal + totalTax).toFixed(2)) : amtVal;
+    var cgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
+    var sgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
+    var igstAmt = isInterstate ? totalTax : 0;
+
+    var grandTotal = amtVal > 0 ? parseFloat((amtVal + totalTax).toFixed(2)) : amtVal;
     var netPay = grandTotal > 0 ? Math.max(0, parseFloat((grandTotal - totalRec).toFixed(2))) : 0;
 
     html += '<div class="summary-box">';
@@ -1384,12 +1398,12 @@ var SeparateBillingPage = (function() {
     html += '<div class="summary-row bold-total"><span>Net Area</span><span>' + net.toFixed(2) + ' Sq Ft</span></div>';
     html += '<div class="summary-row"><span>Taxable Amount</span><span>' + (amtVal > 0 ? '₹ ' + amtVal.toFixed(2) : '—') + '</span></div>';
 
-    if (amtVal > 0 && bill.supplierGstin) {
+    if (amtVal > 0 && totalTax >= 0) {
       if (isInterstate) {
-        html += '<div class="summary-row"><span>IGST @ ' + igstRate + '%</span><span>+ ₹ ' + igstAmt.toFixed(2) + '</span></div>';
+        html += '<div class="summary-row" style="color:#2563eb; font-weight:600;"><span>IGST @ ' + igstRate + '%</span><span>+ ₹ ' + igstAmt.toFixed(2) + '</span></div>';
       } else {
-        html += '<div class="summary-row"><span>CGST @ ' + cgstRate + '%</span><span>+ ₹ ' + cgstAmt.toFixed(2) + '</span></div>';
-        html += '<div class="summary-row"><span>SGST @ ' + sgstRate + '%</span><span>+ ₹ ' + sgstAmt.toFixed(2) + '</span></div>';
+        html += '<div class="summary-row" style="color:#2563eb; font-weight:600;"><span>CGST @ ' + cgstRate.toFixed(1) + '%</span><span>+ ₹ ' + cgstAmt.toFixed(2) + '</span></div>';
+        html += '<div class="summary-row" style="color:#2563eb; font-weight:600;"><span>SGST @ ' + sgstRate.toFixed(1) + '%</span><span>+ ₹ ' + sgstAmt.toFixed(2) + '</span></div>';
       }
       html += '<div class="summary-row bold-total" style="color:#0f3c7a;"><span>Grand Total (Incl. GST)</span><span>₹ ' + grandTotal.toFixed(2) + '</span></div>';
     }
