@@ -1007,7 +1007,13 @@ var LabourPage = {
               return `<span style="background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(o.date)}: ${hrsNum}h${timeStr} = ₹${Math.round(o.pay)}</span>`;
             }).join(' ');
 
-            const payLogs = (l.paymentLogs || []).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(p => {
+            let rawPayLogs = (l.paymentLogs || []);
+            if (rawPayLogs.length === 0 && (l.totalMoneyGiven || 0) > 0 && Store.LabourLogs) {
+              rawPayLogs = Store.LabourLogs.getAll()
+                .filter(log => String(log.labourId) === String(l.id) && (parseFloat(log.moneyGiven) || 0) > 0)
+                .map(log => ({ date: log.date, amount: parseFloat(log.moneyGiven) || 0, notes: log.notes || '' }));
+            }
+            const payLogs = rawPayLogs.slice().sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(p => {
               const notesStr = p.notes ? ` (${p.notes})` : '';
               return `<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(p.date)}: ₹${Math.round(p.amount)}${notesStr}</span>`;
             }).join(' ');
@@ -1136,10 +1142,23 @@ var LabourPage = {
     }
 
     const rows = [
-      ["Labour Name", "Mobile Number", "Present Days", "Half Days", "Absent Days", "Gross Wages (₹)", "Overtime (₹)", "Money Given (₹)", "Payable Amount (₹)"]
+      ["Labour Name", "Mobile Number", "Present Days", "Half Days", "Absent Days", "Gross Wages (₹)", "Overtime (₹)", "Money Given (₹)", "Payable Amount (₹)", "Money Paid Dates & Breakdown"]
     ];
 
     this.summaryData.labours.forEach(l => {
+      let rawPayLogs = (l.paymentLogs || []);
+      if (rawPayLogs.length === 0 && (l.totalMoneyGiven || 0) > 0 && Store.LabourLogs) {
+        rawPayLogs = Store.LabourLogs.getAll()
+          .filter(log => String(log.labourId) === String(l.id) && (parseFloat(log.moneyGiven) || 0) > 0)
+          .map(log => ({ date: log.date, amount: parseFloat(log.moneyGiven) || 0, notes: log.notes || '' }));
+      }
+
+      const payStr = rawPayLogs
+        .slice()
+        .sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+        .map(p => `${p.date}: ₹${Math.round(p.amount)}${p.notes ? ' (' + p.notes + ')' : ''}`)
+        .join(' | ');
+
       rows.push([
         l.name,
         l.phone || '',
@@ -1149,7 +1168,8 @@ var LabourPage = {
         l.grossWages,
         l.totalOvertime,
         l.totalMoneyGiven,
-        l.payableAmount
+        l.payableAmount,
+        payStr || 'None'
       ]);
     });
 
@@ -1222,7 +1242,16 @@ var LabourPage = {
       }
 
       // Format Money Given / Payment History Table
-      const sortedPayments = (l.paymentLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
+      let sortedPayments = (l.paymentLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
+      if (sortedPayments.length === 0 && (l.totalMoneyGiven || 0) > 0 && Store.LabourLogs) {
+        const storeLogs = Store.LabourLogs.getAll().filter(log => String(log.labourId) === String(l.id) && (parseFloat(log.moneyGiven) || 0) > 0);
+        sortedPayments = storeLogs.map(log => ({
+          date: log.date,
+          amount: parseFloat(log.moneyGiven) || 0,
+          notes: log.notes || 'Payment / Advance',
+          createdAt: log.createdAt || ''
+        })).sort((a,b) => (a.date || '').localeCompare(b.date || ''));
+      }
       let paymentTableHtml = '';
       if (sortedPayments.length > 0) {
         paymentTableHtml = `

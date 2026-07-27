@@ -237,6 +237,12 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       y += 24;
     }
 
+    function addSectionPage(text, color = C_BLUE) {
+      doc.addPage({ size: 'A4', margin: 30 });
+      y = 30;
+      sectionTitle(text, color);
+    }
+
     function bigCard(x, yPos, w, h, label, value, bg, valColor) {
       doc.fillColor(bg).rect(x, yPos, w, h).fill();
       doc.strokeColor(C_BORDER).lineWidth(1).rect(x, yPos, w, h).stroke();
@@ -562,6 +568,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
         const id = String(lab._id || lab.id);
         const wLogs = allLabourLogs.filter(l => String(l.labourId) === id);
         let pDays = 0, hDays = 0, gross = 0, otP = 0, paid = 0;
+        const paymentLogs = [];
 
         wLogs.forEach(l => {
           const att = l.attendance === 'Present' ? 1 : (l.attendance === 'Half Day' ? 0.5 : 0);
@@ -574,8 +581,15 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
           const otDirect = parseFloat(l.overtime) || 0;
           const otPayVal = Math.max(oH > 0 && dw > 0 ? (dw / 8) * oH : 0, otDirect);
           otP += otPayVal;
-          paid += parseFloat(l.moneyGiven) || 0;
+
+          const mg = parseFloat(l.moneyGiven) || 0;
+          paid += mg;
+          if (mg > 0) {
+            paymentLogs.push({ date: l.date, amount: mg, notes: l.notes || '' });
+          }
         });
+
+        paymentLogs.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 
         const earned = gross + otP;
         const bal = earned - paid;
@@ -589,7 +603,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
           daysStr: `${pDays}P ${hDays > 0 ? hDays + 'H' : ''}`,
           earned,
           paid,
-          bal
+          bal,
+          paymentLogs
         };
       });
 
@@ -611,7 +626,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
       y += 20;
 
       workerRows.forEach((row, idx) => {
-        checkSpace(24);
+        checkSpace(24 + (row.paymentLogs.length > 0 ? 18 : 0));
         const bg = idx % 2 === 0 ? C_WHITE : '#faf5ff';
         doc.fillColor(bg).rect(30, y, PW, 24).fill();
 
@@ -637,6 +652,15 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
 
         doc.strokeColor(C_BORDER).lineWidth(0.5).moveTo(30, y + 24).lineTo(565, y + 24).stroke();
         y += 24;
+
+        if (row.paymentLogs && row.paymentLogs.length > 0) {
+          const payStrList = row.paymentLogs.map(p => `${fmtDate(p.date)}: Rs.${Math.round(p.amount)}${p.notes ? ' (' + p.notes + ')' : ''}`).join('  |  ');
+          doc.fillColor('#f0fdf4').rect(40, y, PW - 10, 18).fill();
+          doc.strokeColor('#bbf7d0').lineWidth(0.5).rect(40, y, PW - 10, 18).stroke();
+          doc.fillColor('#15803d').font('Helvetica-Oblique').fontSize(8);
+          doc.text(`💵 Money Paid Dates: ${payStrList}`, 46, y + 4, { width: PW - 22, lineBreak: false });
+          y += 18;
+        }
       });
     }
 
