@@ -470,7 +470,7 @@ const Store = (() => {
   const Auth = {
     login(email, password) {
       const users = [
-        { email: 'admin@kss.com', password: 'admin123', name: 'Admin User', role: 'Admin' }
+        { email: 'admin@kss.com', password: 'Harsh@33', name: 'Admin User', role: 'Admin' }
       ];
       const user = users.find(u => u.email === email && u.password === password);
       if (user) {

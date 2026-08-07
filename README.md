@@ -1,6 +1,8 @@
 # KSS33
 Construction Materials Inventory & Site Management System
 
+**GitHub Repository**: [https://github.com/avikmasanta/KSS33](https://github.com/avikmasanta/KSS33)
+
 ---
 
 ## 📊 Daily Summary Notification Setup
