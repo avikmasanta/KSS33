@@ -2,7 +2,7 @@
    KSS Construction PWA Service Worker
    ============================================ */
 
-const CACHE_NAME = 'kss-pwa-v19';
+const CACHE_NAME = 'kss-pwa-v20';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -46,7 +46,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event - Clean old caches
+// Activate Event - Clean old caches immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -94,42 +94,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First for JS and CSS assets to ensure latest code is always served
-  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/')) {
-    event.respondWith(
-      fetch(req)
-        .then((networkRes) => {
-          if (networkRes.status === 200) {
-            const resClone = networkRes.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
-          }
-          return networkRes;
-        })
-        .catch(() => {
-          return caches.match(req);
-        })
-    );
-    return;
-  }
-
-  // Cache-First with Network Fallback for HTML/Images
+  // Network-First for HTML, JS, and CSS assets to ensure latest code is always served instantly
   event.respondWith(
-    caches.match(req).then((cachedRes) => {
-      if (cachedRes) {
-        fetch(req).then((networkRes) => {
-          if (networkRes.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, networkRes));
-          }
-        }).catch(() => {/* Offline fallback */});
-        return cachedRes;
-      }
-      return fetch(req).then((networkRes) => {
+    fetch(req)
+      .then((networkRes) => {
         if (networkRes.status === 200) {
           const resClone = networkRes.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
         }
         return networkRes;
-      });
-    })
+      })
+      .catch(() => {
+        return caches.match(req);
+      })
   );
 });
