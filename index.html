@@ -22,15 +22,48 @@
   <link rel="icon" href="icons/icon-192.png" type="image/png">
 
   <script>
+    // Toast Notification System
+    window.showToast = function(msg, type) {
+      if (!msg) return;
+      var container = document.getElementById('app-toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'app-toast-container';
+        container.style.cssText = 'position:fixed; top:20px; right:20px; z-index:9999999; display:flex; flex-direction:column; gap:8px; pointer-events:none;';
+        document.body ? document.body.appendChild(container) : document.documentElement.appendChild(container);
+      }
+      var isError = type === 'error' || String(msg).toLowerCase().includes('fail') || String(msg).toLowerCase().includes('error');
+      var toast = document.createElement('div');
+      toast.style.cssText = 'padding:12px 20px; border-radius:8px; font-family:Inter,sans-serif; font-size:13px; font-weight:600; color:white; background:' + (isError ? '#dc2626' : '#10b981') + '; box-shadow:0 10px 25px -5px rgba(0,0,0,0.4); transition:all 0.3s ease; transform:translateY(-10px); opacity:0; pointer-events:auto; display:flex; align-items:center; gap:8px;';
+      toast.innerHTML = (isError ? '⚠️ ' : '✅ ') + String(msg);
+      container.appendChild(toast);
+      setTimeout(function() {
+        toast.style.transform = 'translateY(0)';
+        toast.style.opacity = '1';
+      }, 10);
+      setTimeout(function() {
+        toast.style.transform = 'translateY(-10px)';
+        toast.style.opacity = '0';
+        setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
+      }, 3500);
+    };
+
+    // Override native browser alert to block modal dialog popups permanently
+    window.alert = function(msg) {
+      if (!msg) return;
+      console.log('[Alert Suppressed]:', msg);
+      window.showToast(msg);
+    };
+
     // Invalidate and clear old PWA ServiceWorker cache
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        for (let reg of regs) reg.unregister();
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) regs[i].unregister();
       });
     }
     if ('caches' in window) {
-      caches.keys().then(keys => {
-        for (let key of keys) caches.delete(key);
+      caches.keys().then(function(keys) {
+        for (var i = 0; i < keys.length; i++) caches.delete(keys[i]);
       });
     }
     if (localStorage.getItem('theme') === 'dark') {
@@ -74,22 +107,22 @@
   <div id="app-root"></div>
 
   <!-- JavaScript -->
-  <script src="js/icons.js?v=115"></script>
-  <script src="js/store.js?v=115"></script>
-  <script src="js/auth.js?v=115"></script>
-  <script src="js/dashboard.js?v=115"></script>
-  <script src="js/sites2.js?v=115"></script>
-  <script src="js/products.js?v=115"></script>
-  <script src="js/incoming.js?v=115"></script>
-  <script src="js/outgoing.js?v=115"></script>
-  <script src="js/site-details2.js?v=115"></script>
-  <script src="js/inventory.js?v=115"></script>
-  <script src="js/ledger.js?v=115"></script>
-  <script src="js/reports.js?v=115"></script>
-  <script src="js/returns.js?v=115"></script>
-  <script src="js/rentals.js?v=115"></script>
-  <script src="js/separateBilling.js?v=115"></script>
-  <script src="js/labour.js?v=115"></script>
-  <script src="js/app.js?v=115"></script>
+  <script src="js/icons.js?v=116"></script>
+  <script src="js/store.js?v=116"></script>
+  <script src="js/auth.js?v=116"></script>
+  <script src="js/dashboard.js?v=116"></script>
+  <script src="js/sites2.js?v=116"></script>
+  <script src="js/products.js?v=116"></script>
+  <script src="js/incoming.js?v=116"></script>
+  <script src="js/outgoing.js?v=116"></script>
+  <script src="js/site-details2.js?v=116"></script>
+  <script src="js/inventory.js?v=116"></script>
+  <script src="js/ledger.js?v=116"></script>
+  <script src="js/reports.js?v=116"></script>
+  <script src="js/returns.js?v=116"></script>
+  <script src="js/rentals.js?v=116"></script>
+  <script src="js/separateBilling.js?v=116"></script>
+  <script src="js/labour.js?v=116"></script>
+  <script src="js/app.js?v=116"></script>
 </body>
 </html>
