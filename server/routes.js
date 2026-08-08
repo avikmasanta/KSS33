@@ -27,18 +27,33 @@ function createCrudRoutes(modelName, Model) {
     }
   });
 
+function sanitizeDocument(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeDocument);
+  const clean = {};
+  for (const k of Object.keys(obj)) {
+    if (k === '__v') continue;
+    clean[k] = sanitizeDocument(obj[k]);
+  }
+  return clean;
+}
+
   // Create / Upsert
   r.post('/', async (req, res) => {
     try {
-      const body = req.body || {};
+      let body = req.body || {};
+      if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch(e) {}
+      }
       const docId = String(body.id || body._id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       if (!body.createdAt) {
         const now = new Date();
         const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
         body.createdAt = ist.toISOString().split('T')[0];
       }
-      const cleanData = { ...body, _id: docId, id: docId };
-      delete cleanData.__v;
+      const cleanData = sanitizeDocument(body);
+      cleanData._id = docId;
+      cleanData.id = docId;
 
       await Model.collection.updateOne(
         { _id: docId },

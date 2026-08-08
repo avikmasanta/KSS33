@@ -764,14 +764,29 @@ module.exports = async function handler(req, res) {
       return json(res, 200, item);
     }
 
+function sanitizeDocument(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeDocument);
+  const clean = {};
+  for (const k of Object.keys(obj)) {
+    if (k === '__v') continue;
+    clean[k] = sanitizeDocument(obj[k]);
+  }
+  return clean;
+}
+
     // ── POST (create / upsert) ───────────────────────────────────
     if (req.method === 'POST' && !id) {
-      const body = req.body || {};
+      let body = req.body || {};
+      if (typeof body === 'string') {
+        try { body = JSON.parse(body); } catch(e) {}
+      }
       const docId = String(body.id || body._id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       if (!body.createdAt) body.createdAt = new Date().toISOString().split('T')[0];
 
-      const cleanData = { ...body, _id: docId, id: docId };
-      delete cleanData.__v;
+      const cleanData = sanitizeDocument(body);
+      cleanData._id = docId;
+      cleanData.id = docId;
 
       try {
         await Model.collection.updateOne(
