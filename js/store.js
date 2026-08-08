@@ -112,28 +112,6 @@ const Store = (() => {
     if (cache.materials.length === 0) {
       await seedDefaultMaterials();
     }
-
-    // Auto-delete archived sites older than 3 days
-    cleanupOldArchives();
-  }
-
-  function cleanupOldArchives() {
-    const now = new Date();
-    const threeDays = 3 * 24 * 60 * 60 * 1000;
-    cache.sites.forEach(site => {
-      if (site.status === 'Archived' && site.archivedAt) {
-        const archivedDate = new Date(site.archivedAt);
-        if (now - archivedDate > threeDays) {
-          // Permanently delete site and all its dependencies
-          console.log(`Auto-deleting archived site: ${site.id}`);
-          fetch(`${API_URL}/sites/${site.id}/cascade`, { method: 'DELETE' }).catch(console.error);
-          
-          // Remove from local cache
-          cache.sites = cache.sites.filter(s => s.id !== site.id);
-          persistLocal('bm_sites', cache.sites);
-        }
-      }
-    });
   }
 
   async function seedDefaultCategories() {
@@ -171,34 +149,7 @@ const Store = (() => {
       // Seed default categories if empty
       await seedDefaultCategories();
 
-      // Clean up any orphaned records (from before cascade delete was implemented)
-      const validSiteIds = new Set(cache.sites.map(s => s.id));
-      
-      const cleanOrphans = (store, cacheKey, siteIdField = 'siteId') => {
-        if (!cache[cacheKey]) return;
-        cache[cacheKey].forEach(record => {
-          const sId = record[siteIdField];
-          if (sId && !validSiteIds.has(sId)) {
-            store.remove(record.id);
-          }
-        });
-      };
-
-      cleanOrphans(OutgoingStore, 'outgoing');
-      cleanOrphans(ReturnsStore, 'siteReturns');
-      cleanOrphans(UsageStore, 'siteUsage');
-      cleanOrphans(DamagedStore, 'siteDamaged');
-      cleanOrphans(ExpensesStore, 'siteExpenses');
-      cleanOrphans(PaymentsStore, 'sitePayments');
-      
-      // Incoming has destinationSiteId
-      if (cache.incoming) {
-        cache.incoming.forEach(record => {
-          if (record.destinationType === 'site' && record.destinationSiteId && !validSiteIds.has(record.destinationSiteId)) {
-            IncomingStore.remove(record.id);
-          }
-        });
-      }
+      // Database is patched. Auto-refresh current page after cloud sync completes
       // Database is patched. Auto-refresh current page after cloud sync completes
       const currentHash = window.location.hash.replace('#', '') || 'dashboard';
       const moduleMap = {
@@ -776,16 +727,7 @@ const Store = (() => {
   };
 
   // Seeding helper to post default materials to DB
-  async function seedDefaultMaterials(force = false) {
-    if (force) {
-      // Wipe existing materials
-      await Promise.all(cache.materials.map(async (m) => {
-        try {
-          await fetch(`${API_URL}/materials/${m.id}`, { method: 'DELETE' });
-        } catch(e) {}
-      }));
-      cache.materials = [];
-    }
+  async function seedDefaultMaterials() {
 
     const defaults = [
       { name: 'Shuttering plate 2\'x4\'', sku: 'SHUT-2x4', category: 'Shuttering plate', unit: 'Nos', unitPrice: 0, reorderLevel: 50, status: 'Active', sqFtPerUnit: 8.0 },
