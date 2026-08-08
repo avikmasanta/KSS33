@@ -97,14 +97,15 @@ async function connectDB() {
     try { await mongoose.disconnect(); } catch(e) {}
   }
   const rawUri = process.env.MONGO_URI || '';
-  const cleanUri = rawUri.replace(/&?tlsInsecure=\w+/g, '').replace(/&?tlsAllowInvalidCertificates=\w+/g, '');
+  const cleanUri = rawUri
+    .replace(/&?tlsAllowInvalidCertificates=\w+/g, '')
+    .replace(/&?tlsInsecure=\w+/g, '');
 
   await mongoose.connect(cleanUri, {
     maxPoolSize: 10,
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 5000,
-    tls: true,
-    tlsAllowInvalidCertificates: true
+    tlsInsecure: true
   });
   return mongoose.connection;
 }
