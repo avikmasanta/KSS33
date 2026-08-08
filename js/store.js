@@ -1040,23 +1040,6 @@ const Store = (() => {
 
   // Emergency Recovery: Push any local browser data back to cloud MongoDB Atlas
   async function pushLocalToCloud() {
-    const collections = [
-      { key: 'bm_sites', url: 'sites' },
-      { key: 'bm_materials', url: 'materials' },
-      { key: 'bm_customers', url: 'customers' },
-      { key: 'bm_incoming', url: 'incoming' },
-      { key: 'bm_outgoing', url: 'outgoing' },
-      { key: 'bm_siteReturns', url: 'siteReturns' },
-      { key: 'bm_siteUsage', url: 'siteUsage' },
-      { key: 'bm_siteDamaged', url: 'siteDamaged' },
-      { key: 'bm_siteExpenses', url: 'siteExpenses' },
-      { key: 'bm_sitePayments', url: 'sitePayments' },
-      { key: 'bm_categories', url: 'categories' },
-      { key: 'bm_separate_billings', url: 'separate_billings' },
-      { key: 'bm_labours', url: 'labours' },
-      { key: 'bm_labourLogs', url: 'labourLogs' }
-    ];
-
     let totalRestored = 0;
     const itemsToUpload = {}; // { 'materials': Map(id -> item), 'sites': Map(id -> item), ... }
 
@@ -1068,11 +1051,31 @@ const Store = (() => {
       itemsToUpload[endpoint].set(String(itemId), item);
     }
 
-    // 1. Scan ServiceWorker CacheStorage for cached API responses
+    // 1. Scan in-memory cache
+    Object.keys(cache).forEach(cacheKey => {
+      const items = cache[cacheKey];
+      const entry = Object.values(endpointMap).find(e => e.cacheKey === cacheKey);
+      if (entry && Array.isArray(items)) {
+        for (const item of items) queueItem(entry.url, item);
+      }
+    });
+
+    // 2. Scan LocalStorage keys
+    Object.keys(endpointMap).forEach(key => {
+      const config = endpointMap[key];
+      try {
+        const items = JSON.parse(localStorage.getItem(key) || '[]');
+        if (Array.isArray(items)) {
+          for (const item of items) queueItem(config.url, item);
+        }
+      } catch(e) {}
+    });
+
+    // 3. Scan ServiceWorker CacheStorage for cached API responses
     if ('caches' in window) {
       try {
         const cacheNames = await caches.keys();
-        const validEndpoints = ['sites', 'materials', 'customers', 'incoming', 'outgoing', 'siteReturns', 'siteUsage', 'siteDamaged', 'siteExpenses', 'sitePayments', 'categories', 'separate_billings', 'labours', 'labourLogs'];
+        const validEndpoints = Object.values(endpointMap).map(e => e.url);
         for (const cName of cacheNames) {
           const cacheObj = await caches.open(cName);
           const requests = await cacheObj.keys();
@@ -1095,17 +1098,7 @@ const Store = (() => {
       } catch(e) {}
     }
 
-    // 2. Scan LocalStorage keys
-    for (const col of collections) {
-      try {
-        const items = JSON.parse(localStorage.getItem(col.key) || '[]');
-        if (Array.isArray(items)) {
-          for (const item of items) queueItem(col.url, item);
-        }
-      } catch(e) {}
-    }
-
-    // 3. Batch POST all unique items in a single request to /api/backup/import
+    // 4. Batch POST all unique items in a single request to /api/backup/import
     const endpointToModel = {
       customers: 'Customer',
       sites: 'Site',
@@ -1123,7 +1116,10 @@ const Store = (() => {
       labours: 'Labour',
       labourLogs: 'LabourLog',
       separate_billings: 'SeparateBilling',
-      separateBillings: 'SeparateBilling'
+      separateBillings: 'SeparateBilling',
+      telegramChats: 'TelegramChat',
+      smsContacts: 'SmsContact',
+      whatsappContacts: 'WhatsappContact'
     };
 
     const backupPayload = {};

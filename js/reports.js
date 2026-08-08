@@ -1388,11 +1388,17 @@ var ReportsPage = {
           </a>
         </div>
 
-        <div style="background: rgba(16, 185, 129, 0.08); padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
+        <div style="margin-bottom: 20px; background: rgba(16, 185, 129, 0.08); padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
           <h4 style="margin:0 0 8px 0; color: #059669;">📤 Restore Database from File</h4>
           <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">Select a previously downloaded JSON backup file to restore your database.</p>
           <input type="file" id="backup-file-input" accept=".json" style="margin-bottom: 12px; display: block;" />
           <button class="btn btn-primary" style="background-color:#10b981; border-color:#10b981;" onclick="ReportsPage.uploadBackupFile()">Restore Database</button>
+        </div>
+
+        <div style="background: rgba(245, 158, 11, 0.08); padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+          <h4 style="margin:0 0 8px 0; color: #d97706;">⚡ Emergency Browser Memory Sync</h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">Scan local browser memory and sync all offline records to MongoDB Cloud.</p>
+          <button id="btn-sync-memory" class="btn btn-primary" style="background-color:#f59e0b; border-color:#f59e0b; color: white;" onclick="ReportsPage.recoverLocalMemory()">Sync Local Memory to Cloud</button>
         </div>
       </div>
     `;
@@ -1426,6 +1432,20 @@ var ReportsPage = {
       }
     };
     reader.readAsText(file);
+  },
+
+  async recoverLocalMemory() {
+    const btn = document.getElementById('btn-sync-memory');
+    if (btn) { btn.disabled = true; btn.innerText = "Syncing local data..."; }
+    try {
+      const count = await Store.pushLocalToCloud();
+      alert(`Synced ${count} records from local browser memory to Cloud Database!`);
+      window.location.reload();
+    } catch (err) {
+      alert("Local memory sync failed: " + err.message);
+    } finally {
+      if (btn) { btn.disabled = false; btn.innerText = "Sync Local Memory to Cloud"; }
+    }
   }
 
 };
