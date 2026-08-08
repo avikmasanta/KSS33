@@ -114,7 +114,7 @@ async function connectDB() {
     socketTimeoutMS: 20000,
     retryWrites: true,
     retryReads: true,
-    tlsInsecure: true
+    family: 4           // Force IPv4 — fixes SSL Alert 80 on Vercel OpenSSL 3
   };
 
   // Retry up to 3 times — SSL Alert 80 is transient on Vercel OpenSSL 3
