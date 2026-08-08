@@ -86,11 +86,17 @@ function getModel(name) {
 }
 
 // ─── DB Connection (reused across warm invocations) ───────────────
-let isConnected = false;
+let cachedConn = null;
 async function connectDB() {
-  if (isConnected) return;
-  await mongoose.connect(process.env.MONGO_URI);
-  isConnected = true;
+  if (cachedConn && mongoose.connection.readyState === 1) {
+    return cachedConn;
+  }
+  mongoose.set('strictQuery', false);
+  cachedConn = await mongoose.connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000
+  });
+  return cachedConn;
 }
 
 // ─── Helper: send JSON response ───────────────────────────────────

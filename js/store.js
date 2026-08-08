@@ -1061,6 +1061,7 @@ const Store = (() => {
                           body: JSON.stringify(item)
                         });
                         totalRestored++;
+                        await new Promise(r => setTimeout(r, 50));
                       } catch(e) {}
                     }
                   }
@@ -1087,6 +1088,7 @@ const Store = (() => {
               body: JSON.stringify(item)
             });
             totalRestored++;
+            await new Promise(r => setTimeout(r, 50));
           } catch(e) {}
         }
       }
