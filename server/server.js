@@ -18,15 +18,15 @@ mongoose.connect(MONGO_URI)
 // Routes
 app.use('/api', require('./routes'));
 
-// Daily Cron Job at 8:00 AM local time
+// Daily Cron Job at 9:00 AM local time
 const cron = require('node-cron');
 const { sendTelegramReport } = require('./telegramService');
 const { sendWhatsappReport } = require('./whatsappService');
 const { sendSmsReport } = require('./smsService');
 const models = require('./models');
 
-// '0 8 * * *' = at 08:00 AM every day
-cron.schedule('0 8 * * *', async () => {
+// '0 9 * * *' = at 09:00 AM every day
+cron.schedule('0 9 * * *', async () => {
   console.log('[Cron] Running daily warehouse summary report job...');
   try {
     function getYesterdayIST() {
