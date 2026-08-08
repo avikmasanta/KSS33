@@ -1201,12 +1201,13 @@ var LabourPage = {
   printPDF(targetLabourId = null) {
     let laboursToPrint = this.summaryData.labours || [];
     if (targetLabourId) {
-      laboursToPrint = laboursToPrint.filter(l => String(l.id) === String(targetLabourId));
+      laboursToPrint = laboursToPrint.filter(l => String(l.id || l._id) === String(targetLabourId));
       if (laboursToPrint.length === 0) {
         const masterL = Store.Labours ? Store.Labours.getById(targetLabourId) : null;
         if (masterL) {
           laboursToPrint = [{
-            id: masterL.id,
+            id: masterL.id || masterL._id,
+            _id: masterL._id || masterL.id,
             name: masterL.name,
             nickname: masterL.nickname,
             phone: masterL.phone,
@@ -1248,6 +1249,7 @@ var LabourPage = {
     };
 
     const labourSections = laboursToPrint.map((l, lIdx) => {
+      const labourIdStr = String(l.id || l._id || '');
       const rawOtHours = parseFloat(l.totalOvertimeHours) || 0;
       const otHours = Number(rawOtHours.toFixed(1));
       const otPay = Math.round(l.totalOvertime || 0);
@@ -1294,7 +1296,7 @@ var LabourPage = {
       // 2. Date-Wise Payment & Advance History Table
       let sortedPayments = (l.paymentLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
       if (sortedPayments.length === 0 && Store.LabourLogs) {
-        const storeLogs = Store.LabourLogs.getAll().filter(log => String(log.labourId) === String(l.id) && (parseFloat(log.moneyGiven) || 0) > 0);
+        const storeLogs = Store.LabourLogs.getAll().filter(log => String(log.labourId) === labourIdStr && (parseFloat(log.moneyGiven) || 0) > 0);
         sortedPayments = storeLogs.map(log => ({
           date: log.date,
           siteId: log.siteId || '',
@@ -1349,7 +1351,7 @@ var LabourPage = {
       let dailyLedgerHtml = '';
       if (Store.LabourLogs) {
         const periodLogs = Store.LabourLogs.getAll()
-          .filter(log => String(log.labourId) === String(l.id))
+          .filter(log => String(log.labourId) === labourIdStr)
           .filter(log => {
             if (this.reportStartDate && log.date < this.reportStartDate) return false;
             if (this.reportEndDate && log.date > this.reportEndDate) return false;

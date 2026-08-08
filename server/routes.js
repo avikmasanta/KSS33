@@ -622,6 +622,7 @@ router.get('/labours-summary', async (req, res) => {
 
     pipeline.push({
       $project: {
+        id: "$_id",
         name: 1,
         nickname: 1,
         phone: 1,
@@ -640,6 +641,7 @@ router.get('/labours-summary', async (req, res) => {
         halfDayDates: 1,
         absentDates: 1,
         overtimeLogs: 1,
+        paymentLogs: 1,
 
 
         payableAmount: {
