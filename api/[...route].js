@@ -93,6 +93,9 @@ async function connectDB() {
   }
   mongoose.set('strictQuery', false);
   cachedConn = await mongoose.connect(process.env.MONGO_URI, {
+    maxPoolSize: 5,
+    minPoolSize: 1,
+    socketTimeoutMS: 30000,
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 5000
   });
