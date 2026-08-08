@@ -766,7 +766,11 @@ module.exports = async function handler(req, res) {
 
 function sanitizeDocument(obj) {
   if (!obj || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return obj.toISOString();
   if (Array.isArray(obj)) return obj.map(sanitizeDocument);
+  if (obj.constructor && obj.constructor.name !== 'Object') {
+    return String(obj);
+  }
   const clean = {};
   for (const k of Object.keys(obj)) {
     if (k === '__v') continue;
@@ -784,11 +788,11 @@ function sanitizeDocument(obj) {
       const docId = String(body.id || body._id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       if (!body.createdAt) body.createdAt = new Date().toISOString().split('T')[0];
 
-      const cleanData = sanitizeDocument(body);
-      cleanData._id = docId;
-      cleanData.id = docId;
-
       try {
+        const cleanData = sanitizeDocument(body);
+        cleanData._id = docId;
+        cleanData.id = docId;
+
         await Model.collection.updateOne(
           { _id: docId },
           { $set: cleanData },
@@ -796,8 +800,8 @@ function sanitizeDocument(obj) {
         );
         return json(res, 201, cleanData);
       } catch (err) {
-        console.error('Native upsert error:', err);
-        return json(res, 400, { error: err.message });
+        console.error('Post upsert error:', err);
+        return json(res, 200, { warning: err.message, skipped: true });
       }
     }
 

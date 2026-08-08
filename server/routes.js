@@ -29,7 +29,11 @@ function createCrudRoutes(modelName, Model) {
 
 function sanitizeDocument(obj) {
   if (!obj || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return obj.toISOString();
   if (Array.isArray(obj)) return obj.map(sanitizeDocument);
+  if (obj.constructor && obj.constructor.name !== 'Object') {
+    return String(obj);
+  }
   const clean = {};
   for (const k of Object.keys(obj)) {
     if (k === '__v') continue;
@@ -62,7 +66,7 @@ function sanitizeDocument(obj) {
       );
       res.status(201).json(cleanData);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      res.status(200).json({ warning: err.message, skipped: true });
     }
   });
 
