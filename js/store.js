@@ -1042,30 +1042,34 @@ const Store = (() => {
     if ('caches' in window) {
       try {
         const cacheNames = await caches.keys();
+        const validEndpoints = ['sites', 'materials', 'customers', 'incoming', 'outgoing', 'siteReturns', 'siteUsage', 'siteDamaged', 'siteExpenses', 'sitePayments', 'categories', 'separate_billings', 'labours', 'labourLogs'];
         for (const cName of cacheNames) {
           const cacheObj = await caches.open(cName);
           const requests = await cacheObj.keys();
           for (const req of requests) {
-            if (req.url.includes('/api/sites') || req.url.includes('/api/outgoing') || req.url.includes('/api/materials') || req.url.includes('/api/sitePayments')) {
-              const resp = await cacheObj.match(req);
-              if (resp && resp.ok) {
-                const data = await resp.clone().json();
-                if (Array.isArray(data) && data.length > 0) {
-                  const endpoint = req.url.split('/api/')[1]?.split('?')[0];
-                  if (endpoint) {
-                    for (const item of data) {
-                      try {
-                        await fetch(`${API_URL}/${endpoint}`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(item)
-                        });
-                        totalRestored++;
-                        await new Promise(r => setTimeout(r, 50));
-                      } catch(e) {}
+            if (req.url.includes('/api/')) {
+              const endpoint = req.url.split('/api/')[1]?.split('?')[0]?.split('/')[0];
+              if (endpoint && validEndpoints.includes(endpoint)) {
+                try {
+                  const resp = await cacheObj.match(req);
+                  if (resp && resp.ok) {
+                    const data = await resp.clone().json();
+                    const items = Array.isArray(data) ? data : [data];
+                    for (const item of items) {
+                      if (item && typeof item === 'object') {
+                        try {
+                          await fetch(`${API_URL}/${endpoint}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(item)
+                          });
+                          totalRestored++;
+                          await new Promise(r => setTimeout(r, 50));
+                        } catch(e) {}
+                      }
                     }
                   }
-                }
+                } catch(e) {}
               }
             }
           }
