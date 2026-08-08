@@ -86,27 +86,50 @@ const Store = (() => {
     });
   }
 
-  // Phase 2: Sync with cloud in background — silently updates cache + localStorage sequentially to avoid network congestion
+  // Phase 2: Sync with cloud in background — single batch request for all collections
   async function syncFromCloud() {
-    const keys = Object.keys(endpointMap);
+    let syncSuccess = false;
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      const res = await fetch(`${API_URL}/sync`, { signal: controller.signal });
+      clearTimeout(timer);
 
-    await Promise.all(keys.map(async (key) => {
-      const config = endpointMap[key];
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(`${API_URL}/${config.url}`, { signal: controller.signal });
-        clearTimeout(timer);
-
-        if (res.ok) {
-          const cloudData = await res.json();
-          cache[config.cacheKey] = cloudData;
-          persistLocal(key, cloudData);
-        }
-      } catch (err) {
-        // Network error — keep local data silently
+      if (res.ok) {
+        const batchData = await res.json();
+        Object.keys(endpointMap).forEach(key => {
+          const config = endpointMap[key];
+          if (batchData[config.cacheKey] && Array.isArray(batchData[config.cacheKey])) {
+            cache[config.cacheKey] = batchData[config.cacheKey];
+            persistLocal(key, batchData[config.cacheKey]);
+          }
+        });
+        syncSuccess = true;
       }
-    }));
+    } catch (err) {
+      // /sync endpoint failed or timed out — fall back to sequential fetches
+    }
+
+    if (!syncSuccess) {
+      const keys = Object.keys(endpointMap);
+      for (const key of keys) {
+        const config = endpointMap[key];
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 4000);
+          const res = await fetch(`${API_URL}/${config.url}`, { signal: controller.signal });
+          clearTimeout(timer);
+
+          if (res.ok) {
+            const cloudData = await res.json();
+            cache[config.cacheKey] = cloudData;
+            persistLocal(key, cloudData);
+          }
+        } catch (e) {
+          // Network error — keep local data silently
+        }
+      }
+    }
 
     // Seed default materials if completely empty everywhere
     if (cache.materials.length === 0) {

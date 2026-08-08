@@ -88,38 +88,40 @@ function getModel(name) {
 }
 
 // ─── DB Connection (reused across warm invocations) ───────────────
-let isConnecting = null;
+let cached = global.mongoose;
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 async function connectDB() {
   mongoose.set('strictQuery', false);
 
-  if (mongoose.connection.readyState === 1) {
-    return mongoose.connection;
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
   }
 
-  if (isConnecting) {
-    await isConnecting;
-    return mongoose.connection;
+  if (!cached.promise) {
+    const uri = process.env.MONGO_URI || '';
+    cached.promise = mongoose.connect(uri, {
+      maxPoolSize: 1,
+      minPoolSize: 0,
+      maxIdleTimeMS: 1000,
+      serverSelectionTimeoutMS: 5000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 15000,
+      tls: true,
+      tlsAllowInvalidCertificates: true,
+      tlsAllowInvalidHostnames: true
+    }).then((m) => {
+      cached.conn = m.connection;
+      return m.connection;
+    }).catch(err => {
+      cached.promise = null;
+      throw err;
+    });
   }
 
-  const uri = process.env.MONGO_URI || '';
-
-  isConnecting = mongoose.connect(uri, {
-    maxPoolSize: 2,
-    minPoolSize: 0,
-    maxIdleTimeMS: 2000,
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 5000,
-    socketTimeoutMS: 15000,
-    tls: true,
-    tlsAllowInvalidCertificates: true,
-    tlsAllowInvalidHostnames: true
-  }).finally(() => {
-    isConnecting = null;
-  });
-
-  await isConnecting;
-  return mongoose.connection;
+  return await cached.promise;
 }
 
 // ─── Helper: send JSON response ───────────────────────────────────
@@ -147,6 +149,19 @@ module.exports = async function handler(req, res) {
   const collection = segments[0];
   const id = segments[1];
   const action = segments[2]; // e.g. "cascade"
+
+  if (collection === 'sync') {
+    try {
+      const keys = Object.keys(schemas);
+      const results = {};
+      await Promise.all(keys.map(async (key) => {
+        results[key] = await getModel(key).find();
+      }));
+      return json(res, 200, results);
+    } catch (err) {
+      return json(res, 500, { error: 'Sync failed: ' + err.message });
+    }
+  }
 
   if (collection === 'telegram-report') {
     function getYesterdayIST() {

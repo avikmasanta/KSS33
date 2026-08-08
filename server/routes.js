@@ -97,6 +97,43 @@ function sanitizeDocument(obj) {
   return r;
 }
 
+// Batch Sync Route
+router.get('/sync', async (req, res) => {
+  try {
+    const map = {
+      customers: models.Customer,
+      sites: models.Site,
+      materials: models.Material,
+      incoming: models.Incoming,
+      outgoing: models.Outgoing,
+      siteUsage: models.SiteUsage,
+      siteReturns: models.SiteReturns,
+      siteDamaged: models.SiteDamaged,
+      siteExpenses: models.SiteExpenses,
+      sitePayments: models.SitePayments,
+      transactions: models.Transaction,
+      rentalSites: models.RentalSite,
+      categories: models.Category,
+      telegramChats: models.TelegramChat,
+      smsContacts: models.SmsContact,
+      whatsappContacts: models.WhatsappContact,
+      separateBillings: models.SeparateBilling,
+      labours: models.Labour,
+      labourLogs: models.LabourLog
+    };
+
+    const results = {};
+    await Promise.all(Object.entries(map).map(async ([key, Model]) => {
+      if (Model) {
+        results[key] = await Model.find();
+      }
+    }));
+    res.json(results);
+  } catch (err) {
+    res.status(500).json({ error: 'Sync failed: ' + err.message });
+  }
+});
+
 router.use('/customers', createCrudRoutes('Customer', models.Customer));
 router.use('/sites', createCrudRoutes('Site', models.Site));
 router.use('/materials', createCrudRoutes('Material', models.Material));
