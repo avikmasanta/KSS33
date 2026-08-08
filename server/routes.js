@@ -27,16 +27,21 @@ function createCrudRoutes(modelName, Model) {
     }
   });
 
-  // Create
+  // Create / Upsert
   r.post('/', async (req, res) => {
     try {
-      if (req.body.id) {
-        req.body._id = req.body.id;
+      const docId = req.body.id || req.body._id;
+      if (docId) {
+        req.body._id = docId;
       }
       if (!req.body.createdAt) {
         const now = new Date();
         const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
         req.body.createdAt = ist.toISOString().split('T')[0];
+      }
+      if (docId) {
+        const updated = await Model.findByIdAndUpdate(docId, req.body, { new: true, upsert: true, setDefaultsOnInsert: true });
+        return res.status(201).json(updated);
       }
       const newItem = new Model(req.body);
       const saved = await newItem.save();
