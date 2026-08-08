@@ -1074,7 +1074,10 @@ const Store = (() => {
 
     // 2. Check LocalStorage keys
     for (const col of collections) {
-      const items = getLocal(col.key);
+      let items = [];
+      try {
+        items = JSON.parse(localStorage.getItem(col.key) || '[]');
+      } catch(e) {}
       if (items && Array.isArray(items) && items.length > 0) {
         for (const item of items) {
           try {
