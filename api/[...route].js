@@ -85,8 +85,7 @@ function getModel(name) {
   return models[name];
 }
 
-// ─── DB Connection (reused across warm invocations, with retry) ───
-let _connPromise = null;
+// ─── DB Connection (reused across warm invocations) ───────────────
 async function connectDB() {
   mongoose.set('strictQuery', false);
 
@@ -95,49 +94,21 @@ async function connectDB() {
     return mongoose.connection;
   }
 
-  // A connect attempt is already in-flight — await that instead of racing
-  if (_connPromise) {
-    try { await _connPromise; return mongoose.connection; } catch(e) { _connPromise = null; }
-  }
-
-  // Clean stale sockets
-  if (mongoose.connection.readyState !== 0) {
+  // Connection in bad state — try to clean up
+  if (mongoose.connection.readyState > 1) {
     try { await mongoose.disconnect(); } catch(e) {}
   }
 
   const uri = process.env.MONGO_URI || '';
 
-  const opts = {
+  await mongoose.connect(uri, {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 5000,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
     socketTimeoutMS: 20000,
-    retryWrites: true,
-    retryReads: true,
     family: 4           // Force IPv4 — fixes SSL Alert 80 on Vercel OpenSSL 3
-  };
-
-  // Retry up to 3 times — SSL Alert 80 is transient on Vercel OpenSSL 3
-  let lastErr;
-  for (let attempt = 1; attempt <= 3; attempt++) {
-    try {
-      _connPromise = mongoose.connect(uri, opts);
-      await _connPromise;
-      _connPromise = null;
-      return mongoose.connection;
-    } catch (err) {
-      _connPromise = null;
-      lastErr = err;
-      // Only retry on TLS / network errors
-      if (attempt < 3 && (err.message.includes('SSL') || err.message.includes('ECONNREFUSED') || err.message.includes('ETIMEDOUT') || err.message.includes('alert'))) {
-        try { await mongoose.disconnect(); } catch(e) {}
-        await new Promise(r => setTimeout(r, 300 * attempt)); // 300ms, 600ms backoff
-        continue;
-      }
-      throw err;
-    }
-  }
-  throw lastErr;
+  });
+  return mongoose.connection;
 }
 
 // ─── Helper: send JSON response ───────────────────────────────────
