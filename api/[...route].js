@@ -757,12 +757,19 @@ module.exports = async function handler(req, res) {
 
     // ── POST (create / upsert) ───────────────────────────────────
     if (req.method === 'POST' && !id) {
-      const body = req.body;
+      const body = req.body || {};
       const docId = body.id || body._id;
-      if (docId) body._id = docId;
       if (!body.createdAt) body.createdAt = new Date().toISOString().split('T')[0];
+
       if (docId) {
-        const updated = await Model.findByIdAndUpdate(docId, body, { new: true, upsert: true, setDefaultsOnInsert: true });
+        const updateData = { ...body };
+        delete updateData._id;
+        delete updateData.id;
+        const updated = await Model.findByIdAndUpdate(
+          docId,
+          { $set: updateData },
+          { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
         return json(res, 201, updated);
       }
       const item = new Model(body);

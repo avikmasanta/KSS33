@@ -30,20 +30,25 @@ function createCrudRoutes(modelName, Model) {
   // Create / Upsert
   r.post('/', async (req, res) => {
     try {
-      const docId = req.body.id || req.body._id;
-      if (docId) {
-        req.body._id = docId;
-      }
-      if (!req.body.createdAt) {
+      const body = req.body || {};
+      const docId = body.id || body._id;
+      if (!body.createdAt) {
         const now = new Date();
         const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-        req.body.createdAt = ist.toISOString().split('T')[0];
+        body.createdAt = ist.toISOString().split('T')[0];
       }
       if (docId) {
-        const updated = await Model.findByIdAndUpdate(docId, req.body, { new: true, upsert: true, setDefaultsOnInsert: true });
+        const updateData = { ...body };
+        delete updateData._id;
+        delete updateData.id;
+        const updated = await Model.findByIdAndUpdate(
+          docId,
+          { $set: updateData },
+          { new: true, upsert: true, setDefaultsOnInsert: true }
+        );
         return res.status(201).json(updated);
       }
-      const newItem = new Model(req.body);
+      const newItem = new Model(body);
       const saved = await newItem.save();
       res.status(201).json(saved);
     } catch (err) {
