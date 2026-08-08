@@ -819,12 +819,25 @@ router.post('/backup/import', async (req, res) => {
 
     for (const [key, Model] of Object.entries(modelMapping)) {
       if (backupData[key] && Array.isArray(backupData[key])) {
+        const bulkOps = [];
         for (const item of backupData[key]) {
-          const filterId = item.id || item._id;
+          const filterId = String(item.id || item._id);
           if (filterId) {
-            await Model.findByIdAndUpdate(filterId, item, { upsert: true, new: true });
+            const cleanData = sanitizeDocument(item);
+            cleanData._id = filterId;
+            cleanData.id = filterId;
+            bulkOps.push({
+              updateOne: {
+                filter: { _id: filterId },
+                update: { $set: cleanData },
+                upsert: true
+              }
+            });
             restoredCount++;
           }
+        }
+        if (bulkOps.length > 0) {
+          await Model.bulkWrite(bulkOps, { ordered: false });
         }
       }
     }
