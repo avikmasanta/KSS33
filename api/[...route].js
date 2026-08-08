@@ -85,29 +85,65 @@ function getModel(name) {
   return models[name];
 }
 
-// ─── DB Connection (reused across warm invocations) ───────────────
+// ─── DB Connection (reused across warm invocations, with retry) ───
+let _connPromise = null;
 async function connectDB() {
   mongoose.set('strictQuery', false);
-  mongoose.set('bufferCommands', false);
 
+  // Already connected — reuse
   if (mongoose.connection.readyState === 1) {
     return mongoose.connection;
   }
+
+  // A connect attempt is already in-flight — await that instead of racing
+  if (_connPromise) {
+    try { await _connPromise; return mongoose.connection; } catch(e) { _connPromise = null; }
+  }
+
+  // Clean stale sockets
   if (mongoose.connection.readyState !== 0) {
     try { await mongoose.disconnect(); } catch(e) {}
   }
-  const rawUri = process.env.MONGO_URI || '';
-  const cleanUri = rawUri
-    .replace(/&?tlsAllowInvalidCertificates=\w+/g, '')
-    .replace(/&?tlsInsecure=\w+/g, '');
 
-  await mongoose.connect(cleanUri, {
+  // Strip ALL TLS params from URI to avoid conflicts with driver options
+  const rawUri = process.env.MONGO_URI || '';
+  const uri = rawUri
+    .replace(/[?&]tlsInsecure=[^&]*/g, '')
+    .replace(/[?&]tlsAllowInvalidCertificates=[^&]*/g, '')
+    .replace(/[?&]tls=[^&]*/g, '')
+    .replace(/[?&]ssl=[^&]*/g, '')
+    .replace(/\?$/, '');  // remove trailing ? if all params were stripped
+
+  const opts = {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 5000,
-    tlsInsecure: true
-  });
-  return mongoose.connection;
+    serverSelectionTimeoutMS: 8000,
+    connectTimeoutMS: 8000,
+    socketTimeoutMS: 30000,
+    retryWrites: true,
+    retryReads: true
+  };
+
+  // Retry up to 3 times — SSL Alert 80 is transient on Vercel OpenSSL 3
+  let lastErr;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      _connPromise = mongoose.connect(uri, opts);
+      await _connPromise;
+      _connPromise = null;
+      return mongoose.connection;
+    } catch (err) {
+      _connPromise = null;
+      lastErr = err;
+      // Only retry on TLS / network errors
+      if (attempt < 3 && (err.message.includes('SSL') || err.message.includes('ECONNREFUSED') || err.message.includes('ETIMEDOUT') || err.message.includes('alert'))) {
+        try { await mongoose.disconnect(); } catch(e) {}
+        await new Promise(r => setTimeout(r, 300 * attempt)); // 300ms, 600ms backoff
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastErr;
 }
 
 // ─── Helper: send JSON response ───────────────────────────────────
