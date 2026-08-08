@@ -1037,6 +1037,42 @@ const Store = (() => {
     ];
 
     let totalRestored = 0;
+
+    // 1. Check ServiceWorker CacheStorage for any cached API responses
+    if ('caches' in window) {
+      try {
+        const cacheNames = await caches.keys();
+        for (const cName of cacheNames) {
+          const cacheObj = await caches.open(cName);
+          const requests = await cacheObj.keys();
+          for (const req of requests) {
+            if (req.url.includes('/api/sites') || req.url.includes('/api/outgoing') || req.url.includes('/api/materials') || req.url.includes('/api/sitePayments')) {
+              const resp = await cacheObj.match(req);
+              if (resp && resp.ok) {
+                const data = await resp.clone().json();
+                if (Array.isArray(data) && data.length > 0) {
+                  const endpoint = req.url.split('/api/')[1]?.split('?')[0];
+                  if (endpoint) {
+                    for (const item of data) {
+                      try {
+                        await fetch(`${API_URL}/${endpoint}`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(item)
+                        });
+                        totalRestored++;
+                      } catch(e) {}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch(e) {}
+    }
+
+    // 2. Check LocalStorage keys
     for (const col of collections) {
       const items = getLocal(col.key);
       if (items && Array.isArray(items) && items.length > 0) {
