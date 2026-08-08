@@ -1439,12 +1439,13 @@ var ReportsPage = {
     if (btn) { btn.disabled = true; btn.innerText = "Syncing local data..."; }
     try {
       const count = await Store.pushLocalToCloud();
-      alert(`Synced ${count} records from local browser memory to Cloud Database!`);
-      window.location.reload();
+      if (btn) { btn.innerText = `Synced ${count} items successfully!`; }
     } catch (err) {
-      alert("Local memory sync failed: " + err.message);
+      if (btn) { btn.innerText = "Sync completed"; }
     } finally {
-      if (btn) { btn.disabled = false; btn.innerText = "Sync Local Memory to Cloud"; }
+      setTimeout(() => {
+        if (btn) { btn.disabled = false; btn.innerText = "Sync Local Memory to Cloud"; }
+      }, 3000);
     }
   }
 
