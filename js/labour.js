@@ -285,6 +285,7 @@ var LabourPage = {
                 <th style="text-align:right;">Total Earnings</th>
                 <th style="text-align:right;">Money Given</th>
                 <th style="text-align:right;">Balance status</th>
+                <th style="text-align:center;">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -308,10 +309,15 @@ var LabourPage = {
                     <td style="text-align:right;font-weight:700;">₹${l.totalEarnings}</td>
                     <td style="text-align:right;">₹${l.totalMoneyGiven}</td>
                     <td style="text-align:right;">${balBadge}</td>
+                    <td style="text-align:center;">
+                      <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" onclick="LabourPage.printPDF('${l.id}')" title="Print Payroll Statement">
+                        ${Icons.fileText} Slip
+                      </button>
+                    </td>
                   </tr>
                 `;
               }).join('')}
-              ${this.summaryData.labours.length === 0 ? '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--text-tertiary);">No labour data found. Add labour in the Labour Master tab.</td></tr>' : ''}
+              ${this.summaryData.labours.length === 0 ? '<tr><td colspan="10" style="text-align:center;padding:24px;color:var(--text-tertiary);">No labour data found. Add labour in the Labour Master tab.</td></tr>' : ''}
             </tbody>
           </table>
         </div>
@@ -385,6 +391,7 @@ var LabourPage = {
             <h3>Labour Profile & Ledger</h3>
             ${selectedLabour ? `
               <div style="display:flex; gap:6px;">
+                <button class="btn btn-sm btn-primary" style="display:inline-flex; align-items:center; gap:4px;" onclick="LabourPage.printPDF('${selectedLabour.id}')">${Icons.fileText} Print Statement</button>
                 <button class="btn btn-sm btn-outline" onclick="LabourPage.openEditLabourModal('${selectedLabour.id}')">${Icons.edit} Edit</button>
                 <button class="btn btn-sm btn-danger" style="background:var(--danger);color:white" onclick="LabourPage.deleteLabour('${selectedLabour.id}')">${Icons.trash} Delete</button>
               </div>
@@ -1037,12 +1044,17 @@ var LabourPage = {
                       <span>📞 ${l.phone || 'No phone'}</span>
                     </div>
                   </div>
-                  <div style="text-align:right; background:rgba(255,255,255,0.06); padding:8px 16px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
-                    <div style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Net Payable</div>
-                    <div style="font-size:1.65rem; font-weight:800; line-height:1.1; color:${payable > 0 ? '#fde047' : '#4ade80'};">
-                      ₹${payable > 0 ? payable.toLocaleString('en-IN') : (advance > 0 ? '-' + advance.toLocaleString('en-IN') : '0')}
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <button class="btn btn-sm btn-outline" style="background:rgba(255,255,255,0.12); color:#e2e8f0; border:1px solid rgba(255,255,255,0.25); display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="LabourPage.printPDF('${l.id}')">
+                      ${Icons.fileText} Print Statement
+                    </button>
+                    <div style="text-align:right; background:rgba(255,255,255,0.06); padding:8px 16px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
+                      <div style="font-size:0.7rem; color:#94a3b8; text-transform:uppercase; letter-spacing:0.5px; font-weight:600;">Net Payable</div>
+                      <div style="font-size:1.65rem; font-weight:800; line-height:1.1; color:${payable > 0 ? '#fde047' : '#4ade80'};">
+                        ₹${payable > 0 ? payable.toLocaleString('en-IN') : (advance > 0 ? '-' + advance.toLocaleString('en-IN') : '0')}
+                      </div>
+                      <div style="font-size:0.7rem; color:#cbd5e1; font-weight:500;">${payable > 0 ? 'amount to pay' : advance > 0 ? 'advance balance' : 'settled'}</div>
                     </div>
-                    <div style="font-size:0.7rem; color:#cbd5e1; font-weight:500;">${payable > 0 ? 'amount to pay' : advance > 0 ? 'advance balance' : 'settled'}</div>
                   </div>
                 </div>
 
@@ -1186,9 +1198,30 @@ var LabourPage = {
   },
 
   // EXPORT PRINTABLE PDF
-  printPDF() {
-    if (this.summaryData.labours.length === 0) {
-      alert("No data to export.");
+  printPDF(targetLabourId = null) {
+    let laboursToPrint = this.summaryData.labours || [];
+    if (targetLabourId) {
+      laboursToPrint = laboursToPrint.filter(l => String(l.id) === String(targetLabourId));
+      if (laboursToPrint.length === 0) {
+        const masterL = Store.Labours ? Store.Labours.getById(targetLabourId) : null;
+        if (masterL) {
+          laboursToPrint = [{
+            id: masterL.id,
+            name: masterL.name,
+            nickname: masterL.nickname,
+            phone: masterL.phone,
+            presentDays: 0, halfDays: 0, absentDays: 0,
+            grossWages: 0, totalOvertime: 0, totalOvertimeHours: 0, totalMoneyGiven: 0,
+            payableAmount: 0, advanceBalance: 0,
+            presentDates: [], halfDayDates: [], absentDates: [],
+            overtimeLogs: [], paymentLogs: []
+          }];
+        }
+      }
+    }
+
+    if (laboursToPrint.length === 0) {
+      alert("No labour data available to export.");
       return;
     }
 
@@ -1201,25 +1234,42 @@ var LabourPage = {
     const dateRangeStr = `${this.reportStartDate} to ${this.reportEndDate}`;
     const printDate = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 
-    const labourSections = this.summaryData.labours.map((l, lIdx) => {
+    const formatFullDate = (dateStr) => {
+      if (!dateStr) return '—';
+      try {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const d = new Date(parts[0], parts[1] - 1, parts[2]);
+          const dayName = d.toLocaleDateString('en-IN', { weekday: 'short' });
+          return `${parts[2]}/${parts[1]}/${parts[0]} (${dayName})`;
+        }
+      } catch(e) {}
+      return dateStr;
+    };
+
+    const labourSections = laboursToPrint.map((l, lIdx) => {
       const rawOtHours = parseFloat(l.totalOvertimeHours) || 0;
       const otHours = Number(rawOtHours.toFixed(1));
       const otPay = Math.round(l.totalOvertime || 0);
-      const payable = Math.round(l.payableAmount || 0);
-      const advance = Math.round(l.advanceBalance || 0);
 
-      // Format Overtime Logs Table
+      const grossWages = Math.round(l.grossWages || 0);
+      const totalMoneyGiven = Math.round(l.totalMoneyGiven || 0);
+      const netEarnings = grossWages + otPay;
+      const payable = netEarnings > totalMoneyGiven ? (netEarnings - totalMoneyGiven) : (l.payableAmount || 0);
+      const advance = totalMoneyGiven > netEarnings ? (totalMoneyGiven - netEarnings) : (l.advanceBalance || 0);
+
+      // 1. Overtime Logs Table
       const sortedOt = (l.overtimeLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
       let otTableHtml = '';
       if (sortedOt.length > 0) {
         otTableHtml = `
-          <div style="margin-top: 12px;">
+          <div style="margin-top: 14px;">
             <h5 style="margin: 0 0 6px 0; color: #6b21a8; font-size: 11px; text-transform: uppercase;">⏰ Overtime Worked Logs (${otHours} hrs total = ₹${otPay.toLocaleString('en-IN')})</h5>
             <table class="sub-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
               <thead>
                 <tr style="background:#f3e8ff; color:#6b21a8;">
-                  <th style="width:40px; text-align:center;">#</th>
-                  <th style="width:120px; text-align:left;">Date Worked</th>
+                  <th style="width:35px; text-align:center;">#</th>
+                  <th style="width:150px; text-align:left;">Date Worked</th>
                   <th style="width:100px; text-align:center;">OT Hours</th>
                   <th style="text-align:left;">Time Slot / Notes</th>
                   <th style="width:120px; text-align:right;">OT Pay (₹)</th>
@@ -1229,7 +1279,7 @@ var LabourPage = {
                 ${sortedOt.map((o, idx) => `
                   <tr>
                     <td style="text-align:center; color:#666;">${idx + 1}</td>
-                    <td style="font-weight:600;">${o.date}</td>
+                    <td style="font-weight:600;">${formatFullDate(o.date)}</td>
                     <td style="text-align:center; font-weight:600; color:#6b21a8;">${Number(parseFloat(o.hours).toFixed(1))} hrs</td>
                     <td style="color:#555;">${o.time || 'Standard OT'}</td>
                     <td style="text-align:right; font-weight:700; color:#6b21a8;">₹${Math.round(o.pay).toLocaleString('en-IN')}</td>
@@ -1241,50 +1291,45 @@ var LabourPage = {
         `;
       }
 
-      // Format Money Given / Payment History Table
+      // 2. Date-Wise Payment & Advance History Table
       let sortedPayments = (l.paymentLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
-      if (sortedPayments.length === 0 && (l.totalMoneyGiven || 0) > 0 && Store.LabourLogs) {
+      if (sortedPayments.length === 0 && Store.LabourLogs) {
         const storeLogs = Store.LabourLogs.getAll().filter(log => String(log.labourId) === String(l.id) && (parseFloat(log.moneyGiven) || 0) > 0);
         sortedPayments = storeLogs.map(log => ({
           date: log.date,
+          siteId: log.siteId || '',
           amount: parseFloat(log.moneyGiven) || 0,
           notes: log.notes || 'Payment / Advance',
           createdAt: log.createdAt || ''
         })).sort((a,b) => (a.date || '').localeCompare(b.date || ''));
       }
+      
       let paymentTableHtml = '';
       if (sortedPayments.length > 0) {
         paymentTableHtml = `
-          <div style="margin-top: 12px;">
-            <h5 style="margin: 0 0 6px 0; color: #047857; font-size: 11px; text-transform: uppercase;">💵 Money Paid / Advance Payment History (Total ₹${Math.round(l.totalMoneyGiven || 0).toLocaleString('en-IN')})</h5>
+          <div style="margin-top: 14px;">
+            <h5 style="margin: 0 0 6px 0; color: #047857; font-size: 11px; text-transform: uppercase;">💵 Date-Wise Payment & Advance History (Total Paid: ₹${totalMoneyGiven.toLocaleString('en-IN')})</h5>
             <table class="sub-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
               <thead>
                 <tr style="background:#ecfdf5; color:#047857;">
-                  <th style="width:40px; text-align:center;">#</th>
-                  <th style="width:130px; text-align:left;">Payment Date</th>
-                  <th style="width:150px; text-align:left;">Time / Logged Date</th>
-                  <th style="width:130px; text-align:right;">Amount Paid (₹)</th>
-                  <th style="text-align:left;">Payment Notes / Remarks</th>
+                  <th style="width:35px; text-align:center;">#</th>
+                  <th style="width:160px; text-align:left;">Payment Date</th>
+                  <th style="width:140px; text-align:left;">Site Assigned</th>
+                  <th style="width:130px; text-align:right;">Payment Taken (₹)</th>
+                  <th style="text-align:left;">Remarks / Payment Notes</th>
                 </tr>
               </thead>
               <tbody>
                 ${sortedPayments.map((p, idx) => {
-                  let timeDisplay = p.date;
-                  if (p.createdAt) {
-                    try {
-                      const cd = new Date(p.createdAt);
-                      if (!isNaN(cd.getTime())) {
-                        timeDisplay = cd.toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
-                      }
-                    } catch(e) {}
-                  }
+                  const siteObj = Store.Sites ? Store.Sites.getById(p.siteId) : null;
+                  const siteName = siteObj ? siteObj.name : 'General / Unassigned';
                   return `
                     <tr>
                       <td style="text-align:center; color:#666;">${idx + 1}</td>
-                      <td style="font-weight:600;">${p.date}</td>
-                      <td style="font-size:10px; color:#475569;">${timeDisplay}</td>
-                      <td style="text-align:right; font-weight:700; color:#059669;">₹${Math.round(p.amount).toLocaleString('en-IN')}</td>
-                      <td style="color:#555;">${p.notes || 'Payment / Advance'}</td>
+                      <td style="font-weight:700; color:#0f172a;">${formatFullDate(p.date)}</td>
+                      <td style="color:#475569; font-weight:500;">${siteName}</td>
+                      <td style="text-align:right; font-weight:800; color:#059669; font-size:12px;">₹${Math.round(p.amount).toLocaleString('en-IN')}</td>
+                      <td style="color:#334155;">${p.notes || 'Payment / Advance'}</td>
                     </tr>
                   `;
                 }).join('')}
@@ -1292,10 +1337,84 @@ var LabourPage = {
             </table>
           </div>
         `;
+      } else {
+        paymentTableHtml = `
+          <div style="margin-top: 14px; padding: 10px 12px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px; font-size:11px; color:#64748b;">
+            💵 <strong>Money Given / Payments:</strong> No payments/advances taken in this period.
+          </div>
+        `;
+      }
+
+      // 3. Complete Daily Attendance & Payment Ledger Table
+      let dailyLedgerHtml = '';
+      if (Store.LabourLogs) {
+        const periodLogs = Store.LabourLogs.getAll()
+          .filter(log => String(log.labourId) === String(l.id))
+          .filter(log => {
+            if (this.reportStartDate && log.date < this.reportStartDate) return false;
+            if (this.reportEndDate && log.date > this.reportEndDate) return false;
+            if (this.reportSiteId && String(log.siteId) !== String(this.reportSiteId)) return false;
+            return true;
+          })
+          .sort((a,b) => (a.date || '').localeCompare(b.date || ''));
+
+        if (periodLogs.length > 0) {
+          dailyLedgerHtml = `
+            <div style="margin-top: 14px;">
+              <h5 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 11px; text-transform: uppercase;">📅 Daily Work & Payment Ledger</h5>
+              <table class="sub-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
+                <thead>
+                  <tr style="background:#eff6ff; color:#1e40af;">
+                    <th style="width:35px; text-align:center;">#</th>
+                    <th style="width:140px; text-align:left;">Date</th>
+                    <th style="width:90px; text-align:center;">Status</th>
+                    <th style="width:130px; text-align:left;">Site</th>
+                    <th style="width:90px; text-align:right;">Daily Wage</th>
+                    <th style="width:90px; text-align:right;">OT Pay</th>
+                    <th style="width:110px; text-align:right;">Money Taken (₹)</th>
+                    <th style="text-align:left;">Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${periodLogs.map((log, idx) => {
+                    const siteObj = Store.Sites ? Store.Sites.getById(log.siteId) : null;
+                    const sName = siteObj ? siteObj.name : '—';
+                    const attVal = log.attendance === 'Present' ? 1.0 : (log.attendance === 'Half Day' ? 0.5 : 0);
+                    const wageEarned = Math.round((log.dailyWage || 0) * attVal);
+                    const otH = parseFloat(log.overtimeHours) || 0;
+                    const otP = parseFloat(log.overtime) || 0;
+                    const dw = parseFloat(log.dailyWage) || 0;
+                    const otEarned = otH > 0 ? Math.round((dw / 8) * otH) : Math.round(otP);
+                    const mg = Math.round(log.moneyGiven || 0);
+
+                    let badgeBg = '#dcfce7'; let badgeColor = '#15803d';
+                    if (log.attendance === 'Half Day') { badgeBg = '#fef9c3'; badgeColor = '#a16207'; }
+                    if (log.attendance === 'Absent') { badgeBg = '#fee2e2'; badgeColor = '#b91c1c'; }
+
+                    return `
+                      <tr>
+                        <td style="text-align:center; color:#666;">${idx + 1}</td>
+                        <td style="font-weight:600;">${formatFullDate(log.date)}</td>
+                        <td style="text-align:center;"><span style="background:${badgeBg}; color:${badgeColor}; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">${log.attendance}</span></td>
+                        <td style="color:#475569;">${sName}</td>
+                        <td style="text-align:right;">₹${wageEarned}</td>
+                        <td style="text-align:right; color:${otEarned > 0 ? '#6b21a8' : '#94a3b8'};">₹${otEarned}</td>
+                        <td style="text-align:right; font-weight:${mg > 0 ? '800' : '400'}; color:${mg > 0 ? '#059669' : '#94a3b8'};">
+                          ${mg > 0 ? '₹' + mg.toLocaleString('en-IN') : '—'}
+                        </td>
+                        <td style="color:#64748b; font-size:10px;">${log.notes || '—'}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>
+          `;
+        }
       }
 
       return `
-        <div class="labour-section" style="${lIdx > 0 ? 'page-break-before: auto; margin-top: 25px;' : ''}">
+        <div class="labour-section" style="${lIdx > 0 ? 'page-break-before: always; margin-top: 25px;' : ''}">
           <div class="labour-card">
             <!-- Header bar -->
             <div class="card-header">
@@ -1321,7 +1440,7 @@ var LabourPage = {
             <div class="metrics-grid">
               <div class="metric-box">
                 <div class="m-label">Gross Wages</div>
-                <div class="m-val">₹${Math.round(l.grossWages || 0).toLocaleString('en-IN')}</div>
+                <div class="m-val">₹${grossWages.toLocaleString('en-IN')}</div>
               </div>
               <div class="metric-box">
                 <div class="m-label">Overtime Pay</div>
@@ -1329,8 +1448,8 @@ var LabourPage = {
                 <div style="font-size:9px; color:#7c3aed;">(${otHours} hrs)</div>
               </div>
               <div class="metric-box">
-                <div class="m-label">Money Given</div>
-                <div class="m-val" style="color:#059669;">₹${Math.round(l.totalMoneyGiven || 0).toLocaleString('en-IN')}</div>
+                <div class="m-label">Money Given (Paid)</div>
+                <div class="m-val" style="color:#059669;">₹${totalMoneyGiven.toLocaleString('en-IN')}</div>
               </div>
               <div class="metric-box" style="background:${payable > 0 ? '#fef2f2' : '#f0fdf4'}; border-color:${payable > 0 ? '#fecaca' : '#bbf7d0'};">
                 <div class="m-label" style="color:${payable > 0 ? '#b91c1c' : '#15803d'}; font-weight:700;">
@@ -1342,11 +1461,14 @@ var LabourPage = {
               </div>
             </div>
 
+            <!-- Date-wise Money Given Payment Table -->
+            ${paymentTableHtml}
+
             <!-- Overtime Table -->
             ${otTableHtml}
 
-            <!-- Money Given Payment Table -->
-            ${paymentTableHtml}
+            <!-- Complete Daily Ledger Table -->
+            ${dailyLedgerHtml}
           </div>
         </div>
       `;
@@ -1359,9 +1481,9 @@ var LabourPage = {
         <title>KSS Labour Payroll Printable Statement</title>
         <style>
           @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
-          @page { size: A4 portrait; margin: 12mm; }
+          @page { size: A4 portrait; margin: 10mm; }
           body { font-family: 'Inter', sans-serif; color: #0f172a; padding: 10px; background: #fff; line-height: 1.4; }
-          .report-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f3c7a; padding-bottom: 12px; margin-bottom: 20px; }
+          .report-header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f3c7a; padding-bottom: 12px; margin-bottom: 16px; }
           .title { font-size: 20px; font-weight: 800; color: #0f3c7a; text-transform: uppercase; letter-spacing: 0.5px; }
           .subtitle { font-size: 11px; color: #475569; margin-top: 3px; font-weight: 500; }
           .labour-card { border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
@@ -1375,11 +1497,13 @@ var LabourPage = {
           .m-label { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #64748b; margin-bottom: 2px; }
           .m-val { font-size: 14px; font-weight: 800; color: #0f172a; }
           .sub-table { margin-top: 4px; font-size: 11px; }
-          .sub-table th { padding: 6px 10px; font-size: 10px; text-transform: uppercase; border: 1px solid #cbd5e1; }
-          .sub-table td { padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 11px; }
+          .sub-table th { padding: 6px 8px; font-size: 10px; text-transform: uppercase; border: 1px solid #cbd5e1; }
+          .sub-table td { padding: 6px 8px; border: 1px solid #e2e8f0; font-size: 11px; }
           @media print {
             body { padding: 0; }
             .no-print { display: none; }
+            .labour-section { page-break-after: always; }
+            .labour-section:last-child { page-break-after: auto; }
           }
         </style>
       </head>

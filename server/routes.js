@@ -580,6 +580,7 @@ router.get('/labours-summary', async (req, res) => {
                       { $gt: [{ $toDouble: { $ifNull: ["$$this.moneyGiven", 0] } }, 0] },
                       [{
                         date: "$$this.date",
+                        siteId: { $ifNull: ["$$this.siteId", ""] },
                         amount: { $toDouble: { $ifNull: ["$$this.moneyGiven", 0] } },
                         notes: { $ifNull: ["$$this.notes", ""] },
                         createdAt: { $ifNull: ["$$this.createdAt", ""] }
