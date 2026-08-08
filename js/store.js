@@ -1035,8 +1035,17 @@ const Store = (() => {
     ];
 
     let totalRestored = 0;
+    const itemsToUpload = {}; // { 'materials': Map(id -> item), 'sites': Map(id -> item), ... }
 
-    // 1. Check ServiceWorker CacheStorage for any cached API responses
+    function queueItem(endpoint, item) {
+      if (!endpoint || !item || typeof item !== 'object') return;
+      const itemId = item.id || item._id;
+      if (!itemId) return;
+      if (!itemsToUpload[endpoint]) itemsToUpload[endpoint] = new Map();
+      itemsToUpload[endpoint].set(String(itemId), item);
+    }
+
+    // 1. Scan ServiceWorker CacheStorage for cached API responses
     if ('caches' in window) {
       try {
         const cacheNames = await caches.keys();
@@ -1053,19 +1062,7 @@ const Store = (() => {
                   if (resp && resp.ok) {
                     const data = await resp.clone().json();
                     const items = Array.isArray(data) ? data : [data];
-                    for (const item of items) {
-                      if (item && typeof item === 'object') {
-                        try {
-                          await fetch(`${API_URL}/${endpoint}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(item)
-                          });
-                          totalRestored++;
-                          await new Promise(r => setTimeout(r, 50));
-                        } catch(e) {}
-                      }
-                    }
+                    for (const item of items) queueItem(endpoint, item);
                   }
                 } catch(e) {}
               }
@@ -1075,26 +1072,31 @@ const Store = (() => {
       } catch(e) {}
     }
 
-    // 2. Check LocalStorage keys
+    // 2. Scan LocalStorage keys
     for (const col of collections) {
-      let items = [];
       try {
-        items = JSON.parse(localStorage.getItem(col.key) || '[]');
-      } catch(e) {}
-      if (items && Array.isArray(items) && items.length > 0) {
-        for (const item of items) {
-          try {
-            await fetch(`${API_URL}/${col.url}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(item)
-            });
-            totalRestored++;
-            await new Promise(r => setTimeout(r, 50));
-          } catch(e) {}
+        const items = JSON.parse(localStorage.getItem(col.key) || '[]');
+        if (Array.isArray(items)) {
+          for (const item of items) queueItem(col.url, item);
         }
+      } catch(e) {}
+    }
+
+    // 3. Sequentially POST unique items with throttling to avoid DB pool overflow
+    for (const [endpoint, itemMap] of Object.entries(itemsToUpload)) {
+      for (const item of itemMap.values()) {
+        try {
+          const res = await fetch(`${API_URL}/${endpoint}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item)
+          });
+          if (res.ok) totalRestored++;
+          await new Promise(r => setTimeout(r, 150)); // Throttling 150ms between requests
+        } catch(e) {}
       }
     }
+
     // Re-sync cloud cache after restoring
     await syncFromCloud();
     return totalRestored;
