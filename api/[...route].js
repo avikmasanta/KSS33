@@ -1,3 +1,5 @@
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 const mongoose = require('mongoose');
 
 // ─── Schema Options ───────────────────────────────────────────────
@@ -86,31 +88,36 @@ function getModel(name) {
 }
 
 // ─── DB Connection (reused across warm invocations) ───────────────
+let isConnecting = null;
+
 async function connectDB() {
   mongoose.set('strictQuery', false);
 
-  // Already connected — reuse
   if (mongoose.connection.readyState === 1) {
     return mongoose.connection;
   }
 
-  // Connection in bad state — try to clean up
-  if (mongoose.connection.readyState > 1) {
-    try { await mongoose.disconnect(); } catch(e) {}
+  if (isConnecting) {
+    await isConnecting;
+    return mongoose.connection;
   }
 
   const uri = process.env.MONGO_URI || '';
 
-  await mongoose.connect(uri, {
+  isConnecting = mongoose.connect(uri, {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 8000,
-    connectTimeoutMS: 8000,
-    socketTimeoutMS: 20000,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 30000,
     family: 4,
     tls: true,
     tlsAllowInvalidCertificates: true,
     tlsAllowInvalidHostnames: true
+  }).finally(() => {
+    isConnecting = null;
   });
+
+  await isConnecting;
   return mongoose.connection;
 }
 
