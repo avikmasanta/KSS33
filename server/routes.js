@@ -38,15 +38,23 @@ function createCrudRoutes(modelName, Model) {
         body.createdAt = ist.toISOString().split('T')[0];
       }
       if (docId) {
-        const updateData = { ...body };
-        delete updateData._id;
-        delete updateData.id;
-        const updated = await Model.findByIdAndUpdate(
-          docId,
-          { $set: updateData },
-          { new: true, upsert: true, setDefaultsOnInsert: true }
-        );
-        return res.status(201).json(updated);
+        body._id = docId;
+        try {
+          const updateData = { ...body };
+          delete updateData._id;
+          delete updateData.id;
+          const updated = await Model.findByIdAndUpdate(
+            docId,
+            { $set: updateData },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+          );
+          return res.status(201).json(updated);
+        } catch (e) {
+          await Model.findByIdAndDelete(docId).catch(() => {});
+          const item = new Model(body);
+          const saved = await item.save();
+          return res.status(201).json(saved);
+        }
       }
       const newItem = new Model(body);
       const saved = await newItem.save();

@@ -768,15 +768,24 @@ module.exports = async function handler(req, res) {
       if (!body.createdAt) body.createdAt = new Date().toISOString().split('T')[0];
 
       if (docId) {
-        const updateData = { ...body };
-        delete updateData._id;
-        delete updateData.id;
-        const updated = await Model.findByIdAndUpdate(
-          docId,
-          { $set: updateData },
-          { new: true, upsert: true, setDefaultsOnInsert: true }
-        );
-        return json(res, 201, updated);
+        body._id = docId;
+        try {
+          const updateData = { ...body };
+          delete updateData._id;
+          delete updateData.id;
+          const updated = await Model.findByIdAndUpdate(
+            docId,
+            { $set: updateData },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
+          );
+          return json(res, 201, updated);
+        } catch (e) {
+          // Fallback: remove existing if any, then save
+          await Model.findByIdAndDelete(docId).catch(() => {});
+          const item = new Model(body);
+          const saved = await item.save();
+          return json(res, 201, saved);
+        }
       }
       const item = new Model(body);
       const saved = await item.save();
