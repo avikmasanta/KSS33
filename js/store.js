@@ -41,7 +41,8 @@ const Store = (() => {
     whatsappContacts: [],
     separateBillings: [],
     labours: [],
-    labourLogs: []
+    labourLogs: [],
+    labourContracts: []
   };
 
   // Maps collection store key to cache object key and API endpoint
@@ -64,7 +65,8 @@ const Store = (() => {
     bm_whatsappContacts: { cacheKey: 'whatsappContacts', url: 'whatsappContacts' },
     bm_separateBillings: { cacheKey: 'separateBillings', url: 'separateBillings' },
     bm_labours: { cacheKey: 'labours', url: 'labours' },
-    bm_labourLogs: { cacheKey: 'labourLogs', url: 'labourLogs' }
+    bm_labourLogs: { cacheKey: 'labourLogs', url: 'labourLogs' },
+    bm_labourContracts: { cacheKey: 'labourContracts', url: 'labourContracts' }
   };
 
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
@@ -328,6 +330,7 @@ const Store = (() => {
   const SeparateBillingsStore = makeStore('bm_separateBillings');
   const LaboursStore = makeStore('bm_labours');
   const LabourLogsStore = makeStore('bm_labourLogs');
+  const LabourContractsStore = makeStore('bm_labourContracts');
  
   const Customers    = CustomersStore;
   const Categories   = CategoriesStore;
@@ -346,6 +349,7 @@ const Store = (() => {
   const SeparateBillings = SeparateBillingsStore;
   const Labours = LaboursStore;
   const LabourLogs = LabourLogsStore;
+  const LabourContracts = LabourContractsStore;
 
 
 
@@ -1149,6 +1153,6 @@ const Store = (() => {
     return totalRestored;
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days, pushLocalToCloud };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, LabourContracts, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days, pushLocalToCloud };
 
 })();

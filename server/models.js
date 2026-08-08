@@ -260,6 +260,30 @@ const LabourLogSchema = new mongoose.Schema({
   createdAt: String
 }, schemaOptions);
 
+const LabourContractSchema = new mongoose.Schema({
+  _id: String,
+  siteId: String,
+  siteName: String,
+  contractorName: String,
+  labourId: String,
+  contractTitle: String,
+  basisType: { type: String, enum: ['Monthly', 'SqFt'], default: 'Monthly' },
+  ratePerSqFt: { type: Number, default: 0 },
+  totalSqFt: { type: Number, default: 0 },
+  monthlyRate: { type: Number, default: 0 },
+  durationMonths: { type: Number, default: 1 },
+  totalAmount: { type: Number, default: 0 },
+  receivedPayments: [{
+    date: String,
+    amount: Number,
+    reference: String,
+    notes: String
+  }],
+  status: { type: String, default: 'Active' },
+  notes: { type: String, default: '' },
+  createdAt: String
+}, schemaOptions);
+
 module.exports = {
   Customer: mongoose.model('Customer', CustomerSchema, 'customers'),
   Site: mongoose.model('Site', SiteSchema, 'sites'),
@@ -279,7 +303,8 @@ module.exports = {
   WhatsappContact: mongoose.model('WhatsappContact', WhatsappContactSchema, 'whatsappContacts'),
   SeparateBilling: mongoose.model('SeparateBilling', SeparateBillingSchema, 'separate_billings'),
   Labour: mongoose.model('Labour', LabourSchema, 'labours'),
-  LabourLog: mongoose.model('LabourLog', LabourLogSchema, 'labour_logs')
+  LabourLog: mongoose.model('LabourLog', LabourLogSchema, 'labour_logs'),
+  LabourContract: mongoose.model('LabourContract', LabourContractSchema, 'labour_contracts')
 };
 
 

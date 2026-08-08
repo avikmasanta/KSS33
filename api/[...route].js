@@ -70,6 +70,7 @@ const schemas = {
   }, schemaOptions),
   labours: new mongoose.Schema({ _id: String, name: String, nickname: String, phone: String, status: { type: String, default: 'Active' }, defaultWage: { type: Number, default: 500 }, createdAt: String }, schemaOptions),
   labourLogs: new mongoose.Schema({ _id: String, date: String, labourId: String, siteId: String, attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] }, dailyWage: { type: Number, default: 0 }, overtimeHours: { type: Number, default: 0 }, overtimeTime: { type: String, default: '' }, overtime: { type: Number, default: 0 }, moneyGiven: { type: Number, default: 0 }, notes: { type: String, default: '' }, createdAt: String }, schemaOptions),
+  labourContracts: new mongoose.Schema({ _id: String, siteId: String, siteName: String, contractorName: String, labourId: String, contractTitle: String, basisType: { type: String, enum: ['Monthly', 'SqFt'], default: 'Monthly' }, ratePerSqFt: { type: Number, default: 0 }, totalSqFt: { type: Number, default: 0 }, monthlyRate: { type: Number, default: 0 }, durationMonths: { type: Number, default: 1 }, totalAmount: { type: Number, default: 0 }, receivedPayments: [{ date: String, amount: Number, reference: String, notes: String }], status: { type: String, default: 'Active' }, notes: { type: String, default: '' }, createdAt: String }, schemaOptions),
 };
 
 
@@ -80,7 +81,8 @@ function getModel(name) {
     try {
       models[name] = mongoose.model(name);
     } catch {
-      const collName = name === 'labourLogs' ? 'labour_logs' : name;
+      const collMap = { labourLogs: 'labour_logs', labourContracts: 'labour_contracts', separateBillings: 'separate_billings' };
+      const collName = collMap[name] || name;
       models[name] = mongoose.model(name, schemas[name], collName);
     }
   }
@@ -437,6 +439,7 @@ module.exports = async function handler(req, res) {
           Category: getModel('categories'),
           Labour: getModel('labours'),
           LabourLog: getModel('labourLogs'),
+          LabourContract: getModel('labourContracts'),
           SeparateBilling: getModel('separateBillings')
         };
 

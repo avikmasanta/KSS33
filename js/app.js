@@ -7,6 +7,7 @@ var App = (() => {
     dashboard: { title: 'Operations Dashboard', subtitle: 'Real-time overview of stock, sites and recent movements.', icon: 'home', module: 'DashboardPage' },
     sites: { title: 'Sites', subtitle: 'Manage customer sites', icon: 'mapPin', module: 'SitesPage' },
     labour: { title: 'Labour Log', subtitle: 'Manage labour, logs and wages', icon: 'users', module: 'LabourPage' },
+    'labour-contracts': { title: 'Labour Contracts', subtitle: 'Manage Monthly & Square Feet Wise Labour Contracts', icon: 'fileText', module: 'LabourContractsPage' },
     materials: { title: 'Materials', subtitle: 'Manage all materials', icon: 'package', module: 'MaterialsPage' },
 
     incoming: { title: 'Incoming Stock', subtitle: 'Record new incoming stock', icon: 'arrowDownCircle', module: 'IncomingPage' },
@@ -171,6 +172,7 @@ var App = (() => {
       { key: 'dashboard', label: 'Dashboard', icon: 'home' },
       { key: 'sites', label: 'Sites', icon: 'mapPin' },
       { key: 'labour', label: 'Labour Log', icon: 'users' },
+      { key: 'labour-contracts', label: 'Labour Contracts', icon: 'fileText' },
       { key: 'rentals', label: 'Rental Sites', icon: 'truck' },
       { key: 'materials', label: 'Materials', icon: 'package' },
       { key: 'site-returns', label: 'Warehouse', icon: 'arrowDownCircle' },

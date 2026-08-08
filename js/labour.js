@@ -140,6 +140,9 @@ var LabourPage = {
         <button class="btn ${this.activeTab === 'reports' ? 'btn-primary' : 'btn-ghost'}" onclick="LabourPage.switchTab('reports')">
           ${Icons.barChart} &nbsp; Payroll Reports
         </button>
+        <button class="btn btn-ghost" onclick="window.location.hash = '#labour-contracts'" style="border: 1px dashed var(--primary-500); color: var(--primary-500);">
+          ${Icons.fileText} &nbsp; Labour Contracts
+        </button>
       </div>
 
       <div class="tab-content">
