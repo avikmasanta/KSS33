@@ -105,11 +105,12 @@ async function connectDB() {
   const uri = process.env.MONGO_URI || '';
 
   isConnecting = mongoose.connect(uri, {
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 10000,
-    connectTimeoutMS: 10000,
-    socketTimeoutMS: 30000,
-    family: 4,
+    maxPoolSize: 2,
+    minPoolSize: 0,
+    maxIdleTimeMS: 2000,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
+    socketTimeoutMS: 15000,
     tls: true,
     tlsAllowInvalidCertificates: true,
     tlsAllowInvalidHostnames: true
