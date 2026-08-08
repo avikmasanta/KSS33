@@ -299,21 +299,84 @@ module.exports = async function handler(req, res) {
     return json(res, 400, { error: 'Invalid whatsapp-report action. Use /preview or /send' });
   }
 
-  if (collection === 'reset-stock') {
-    if (req.method === 'POST') {
+  if (collection === 'backup') {
+    if (id === 'export') {
       try {
-        await getModel('incoming').deleteMany({});
-        await getModel('outgoing').deleteMany({});
-        await getModel('siteReturns').deleteMany({});
-        await getModel('siteUsage').deleteMany({});
-        await getModel('siteDamaged').deleteMany({});
-        await getModel('transactions').deleteMany({});
-        return json(res, 200, { message: 'Stock reset completed' });
+        const backupData = {
+          version: '1.0',
+          timestamp: new Date().toISOString(),
+          data: {
+            Customer: await getModel('customers').find(),
+            Site: await getModel('sites').find(),
+            Material: await getModel('materials').find(),
+            Incoming: await getModel('incoming').find(),
+            Outgoing: await getModel('outgoing').find(),
+            SiteReturns: await getModel('siteReturns').find(),
+            SiteUsage: await getModel('siteUsage').find(),
+            SiteDamaged: await getModel('siteDamaged').find(),
+            SiteExpenses: await getModel('siteExpenses').find(),
+            SitePayments: await getModel('sitePayments').find(),
+            Transaction: await getModel('transactions').find(),
+            RentalSite: await getModel('rentalSites').find(),
+            Category: await getModel('categories').find(),
+            Labour: await getModel('labours').find(),
+            LabourLog: await getModel('labourLogs').find(),
+            SeparateBilling: await getModel('separateBillings').find()
+          }
+        };
+        const filename = `KSS_Full_Database_Backup_${new Date().toISOString().split('T')[0]}.json`;
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.status(200).send(JSON.stringify(backupData, null, 2));
       } catch (err) {
-        return json(res, 500, { error: err.message });
+        return json(res, 500, { error: 'Failed to generate database backup: ' + err.message });
       }
     }
-    return json(res, 405, { error: 'Method not allowed' });
+
+    if (id === 'import' && req.method === 'POST') {
+      try {
+        const payload = req.body;
+        const backupData = payload.data || payload;
+        let restoredCount = 0;
+
+        const modelMapping = {
+          Customer: getModel('customers'),
+          Site: getModel('sites'),
+          Material: getModel('materials'),
+          Incoming: getModel('incoming'),
+          Outgoing: getModel('outgoing'),
+          SiteReturns: getModel('siteReturns'),
+          SiteUsage: getModel('siteUsage'),
+          SiteDamaged: getModel('siteDamaged'),
+          SiteExpenses: getModel('siteExpenses'),
+          SitePayments: getModel('sitePayments'),
+          Transaction: getModel('transactions'),
+          RentalSite: getModel('rentalSites'),
+          Category: getModel('categories'),
+          Labour: getModel('labours'),
+          LabourLog: getModel('labourLogs'),
+          SeparateBilling: getModel('separateBillings')
+        };
+
+        for (const [key, Model] of Object.entries(modelMapping)) {
+          if (backupData[key] && Array.isArray(backupData[key])) {
+            for (const item of backupData[key]) {
+              const filterId = item.id || item._id;
+              if (filterId) {
+                await Model.findByIdAndUpdate(filterId, item, { upsert: true, new: true, setDefaultsOnInsert: true });
+                restoredCount++;
+              }
+            }
+          }
+        }
+
+        return json(res, 200, { message: 'Backup restored successfully!', restoredCount });
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to restore backup: ' + err.message });
+      }
+    }
+
+    return json(res, 400, { error: 'Invalid backup action' });
   }
 
   // ---- Custom Labour Module Endpoints ----
@@ -692,11 +755,16 @@ module.exports = async function handler(req, res) {
       return json(res, 200, item);
     }
 
-    // ── POST (create) ────────────────────────────────────────────
+    // ── POST (create / upsert) ───────────────────────────────────
     if (req.method === 'POST' && !id) {
       const body = req.body;
-      if (body.id) body._id = body.id;
+      const docId = body.id || body._id;
+      if (docId) body._id = docId;
       if (!body.createdAt) body.createdAt = new Date().toISOString().split('T')[0];
+      if (docId) {
+        const updated = await Model.findByIdAndUpdate(docId, body, { new: true, upsert: true, setDefaultsOnInsert: true });
+        return json(res, 201, updated);
+      }
       const item = new Model(body);
       const saved = await item.save();
       return json(res, 201, saved);
