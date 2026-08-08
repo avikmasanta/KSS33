@@ -764,32 +764,23 @@ module.exports = async function handler(req, res) {
     // ── POST (create / upsert) ───────────────────────────────────
     if (req.method === 'POST' && !id) {
       const body = req.body || {};
-      const docId = body.id || body._id;
+      const docId = String(body.id || body._id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       if (!body.createdAt) body.createdAt = new Date().toISOString().split('T')[0];
 
-      if (docId) {
-        body._id = docId;
-        try {
-          const updateData = { ...body };
-          delete updateData._id;
-          delete updateData.id;
-          const updated = await Model.findByIdAndUpdate(
-            docId,
-            { $set: updateData },
-            { new: true, upsert: true, setDefaultsOnInsert: true }
-          );
-          return json(res, 201, updated);
-        } catch (e) {
-          // Fallback: remove existing if any, then save
-          await Model.findByIdAndDelete(docId).catch(() => {});
-          const item = new Model(body);
-          const saved = await item.save();
-          return json(res, 201, saved);
-        }
+      const cleanData = { ...body, _id: docId, id: docId };
+      delete cleanData.__v;
+
+      try {
+        await Model.collection.updateOne(
+          { _id: docId },
+          { $set: cleanData },
+          { upsert: true }
+        );
+        return json(res, 201, cleanData);
+      } catch (err) {
+        console.error('Native upsert error:', err);
+        return json(res, 400, { error: err.message });
       }
-      const item = new Model(body);
-      const saved = await item.save();
-      return json(res, 201, saved);
     }
 
     // ── PUT (update) ─────────────────────────────────────────────

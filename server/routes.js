@@ -31,34 +31,21 @@ function createCrudRoutes(modelName, Model) {
   r.post('/', async (req, res) => {
     try {
       const body = req.body || {};
-      const docId = body.id || body._id;
+      const docId = String(body.id || body._id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       if (!body.createdAt) {
         const now = new Date();
         const ist = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
         body.createdAt = ist.toISOString().split('T')[0];
       }
-      if (docId) {
-        body._id = docId;
-        try {
-          const updateData = { ...body };
-          delete updateData._id;
-          delete updateData.id;
-          const updated = await Model.findByIdAndUpdate(
-            docId,
-            { $set: updateData },
-            { new: true, upsert: true, setDefaultsOnInsert: true }
-          );
-          return res.status(201).json(updated);
-        } catch (e) {
-          await Model.findByIdAndDelete(docId).catch(() => {});
-          const item = new Model(body);
-          const saved = await item.save();
-          return res.status(201).json(saved);
-        }
-      }
-      const newItem = new Model(body);
-      const saved = await newItem.save();
-      res.status(201).json(saved);
+      const cleanData = { ...body, _id: docId, id: docId };
+      delete cleanData.__v;
+
+      await Model.collection.updateOne(
+        { _id: docId },
+        { $set: cleanData },
+        { upsert: true }
+      );
+      res.status(201).json(cleanData);
     } catch (err) {
       res.status(400).json({ error: err.message });
     }
