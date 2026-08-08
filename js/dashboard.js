@@ -175,6 +175,14 @@ var DashboardPage = {
     `;
   },
 
+  refresh() {
+    const contentArea = document.getElementById('app-content');
+    if (contentArea) {
+      contentArea.innerHTML = this.render();
+      this.init();
+    }
+  },
+
   init() {
     this.drawStockChart();
     this.drawSqFtChart();

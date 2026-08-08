@@ -149,9 +149,7 @@ const Store = (() => {
       // Seed default categories if empty
       await seedDefaultCategories();
 
-      // Database is patched. Auto-refresh current page after cloud sync completes
-      // Database is patched. Auto-refresh current page after cloud sync completes
-      const currentHash = window.location.hash.replace('#', '') || 'dashboard';
+      const currentHash = (window.location.hash.replace('#', '') || 'dashboard').split('/')[0];
       const moduleMap = {
         dashboard: 'DashboardPage', sites: 'SitesPage', labour: 'LabourPage',
         materials: 'MaterialsPage', incoming: 'IncomingPage', outgoing: 'OutgoingPage',
@@ -159,8 +157,8 @@ const Store = (() => {
         'site-returns': 'ReturnsPage', rentals: 'RentalsPage', 'separate-billing': 'SeparateBillingPage'
       };
       const moduleName = moduleMap[currentHash];
-      if (window[moduleName] && typeof window[moduleName].refresh === 'function') {
-        window[moduleName].refresh();
+      if (moduleName && window[moduleName] && typeof window[moduleName].refresh === 'function') {
+        try { window[moduleName].refresh(); } catch(e) {}
       }
     }); // Fire and forget
   }
