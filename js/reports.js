@@ -18,6 +18,7 @@ var ReportsPage = {
       { id: 'stock-summary', title: 'Stock Summary Report', desc: 'Current stock levels across all products', icon: 'box', color: '#3b82f6', colorBg: '#dbeafe' },
       { id: 'stock-movement', title: 'Stock Movement Report', desc: 'All incoming and outgoing transactions', icon: 'activity', color: '#10b981', colorBg: '#d1fae5' },
       { id: 'site-cost', title: 'Site Cost & Material Report', desc: 'Total project cost, materials issued & returned per site', icon: 'mapPin', color: '#8b5cf6', colorBg: '#ede9fe' },
+      { id: 'database-backup', title: 'Database Backup & Restore', desc: 'Download 1-click JSON backup or restore database', icon: 'download', color: '#ec4899', colorBg: '#fce7f3' },
       { id: 'telegram-summary', title: 'Telegram Reports', desc: 'Configure Telegram Bot chat alerts and send daily summaries', icon: 'settings', color: '#f59e0b', colorBg: '#fef3c7' },
       { id: 'whatsapp-summary', title: 'WhatsApp Reports', desc: 'Configure WhatsApp contact alerts and send daily summaries', icon: 'messageSquare', color: '#10b981', colorBg: '#e6fcf5' }
     ];
@@ -91,6 +92,9 @@ var ReportsPage = {
     const formatDate = (d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
     switch (reportId) {
+      case 'database-backup':
+        content = this.renderBackupReport();
+        break;
       case 'stock-summary': {
         const overview = Store.Inventory.getOverview();
         content = `
@@ -1367,5 +1371,61 @@ var ReportsPage = {
       btn.innerHTML = originalText;
     }
   },
+
+  renderBackupReport() {
+    return `
+      <div class="card slide-up" style="padding: 24px; max-width: 700px; margin: 0 auto;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+          <h3>💾 Full Database Backup & Restore</h3>
+          <button class="btn btn-sm btn-outline" onclick="ReportsPage.closeReport()">Close</button>
+        </div>
+        
+        <div style="margin-bottom: 24px; background: rgba(59, 130, 246, 0.08); padding: 16px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+          <h4 style="margin:0 0 8px 0; color: #2563eb;">📥 1-Click Backup Export</h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">Download a complete JSON snapshot of all your Sites, Materials, Dispatches, Returns, Payments, and Labour logs.</p>
+          <a href="/api/backup/export" target="_blank" class="btn btn-primary" style="text-decoration:none; display:inline-block;">
+            Download Full Database Backup (.json)
+          </a>
+        </div>
+
+        <div style="background: rgba(16, 185, 129, 0.08); padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
+          <h4 style="margin:0 0 8px 0; color: #059669;">📤 Restore Database from File</h4>
+          <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 12px;">Select a previously downloaded JSON backup file to restore your database.</p>
+          <input type="file" id="backup-file-input" accept=".json" style="margin-bottom: 12px; display: block;" />
+          <button class="btn btn-primary" style="background-color:#10b981; border-color:#10b981;" onclick="ReportsPage.uploadBackupFile()">Restore Database</button>
+        </div>
+      </div>
+    `;
+  },
+
+  async uploadBackupFile() {
+    const fileInput = document.getElementById('backup-file-input');
+    if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+      alert("Please select a JSON backup file first.");
+      return;
+    }
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const jsonData = JSON.parse(e.target.result);
+        const res = await fetch('/api/backup/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(jsonData)
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Backup restored successfully! ${data.restoredCount} records restored.`);
+          window.location.reload();
+        } else {
+          alert("Failed to restore backup: " + data.error);
+        }
+      } catch (err) {
+        alert("Invalid backup file: " + err.message);
+      }
+    };
+    reader.readAsText(file);
+  }
 
 };

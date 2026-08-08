@@ -696,5 +696,83 @@ router.get('/labours/:id/logs', async (req, res) => {
   }
 });
 
+// Full Database Backup Export Endpoint
+router.get('/backup/export', async (req, res) => {
+  try {
+    const backupData = {
+      version: '1.0',
+      timestamp: new Date().toISOString(),
+      data: {
+        Customer: await models.Customer.find(),
+        Site: await models.Site.find(),
+        Material: await models.Material.find(),
+        Incoming: await models.Incoming.find(),
+        Outgoing: await models.Outgoing.find(),
+        SiteReturns: await models.SiteReturns.find(),
+        SiteUsage: await models.SiteUsage.find(),
+        SiteDamaged: await models.SiteDamaged.find(),
+        SiteExpenses: await models.SiteExpenses.find(),
+        SitePayments: await models.SitePayments.find(),
+        Transaction: await models.Transaction.find(),
+        RentalSite: await models.RentalSite.find(),
+        Category: await models.Category.find(),
+        Labour: await models.Labour.find(),
+        LabourLog: await models.LabourLog.find(),
+        SeparateBilling: await models.SeparateBilling.find()
+      }
+    };
+    const filename = `KSS_Full_Database_Backup_${new Date().toISOString().split('T')[0]}.json`;
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.status(200).send(JSON.stringify(backupData, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate database backup: ' + err.message });
+  }
+});
+
+// Full Database Backup Import / Restore Endpoint
+router.post('/backup/import', async (req, res) => {
+  try {
+    const payload = req.body;
+    const backupData = payload.data || payload;
+    let restoredCount = 0;
+
+    const modelMapping = {
+      Customer: models.Customer,
+      Site: models.Site,
+      Material: models.Material,
+      Incoming: models.Incoming,
+      Outgoing: models.Outgoing,
+      SiteReturns: models.SiteReturns,
+      SiteUsage: models.SiteUsage,
+      SiteDamaged: models.SiteDamaged,
+      SiteExpenses: models.SiteExpenses,
+      SitePayments: models.SitePayments,
+      Transaction: models.Transaction,
+      RentalSite: models.RentalSite,
+      Category: models.Category,
+      Labour: models.Labour,
+      LabourLog: models.LabourLog,
+      SeparateBilling: models.SeparateBilling
+    };
+
+    for (const [key, Model] of Object.entries(modelMapping)) {
+      if (backupData[key] && Array.isArray(backupData[key])) {
+        for (const item of backupData[key]) {
+          const filterId = item.id || item._id;
+          if (filterId) {
+            await Model.findByIdAndUpdate(filterId, item, { upsert: true, new: true });
+            restoredCount++;
+          }
+        }
+      }
+    }
+
+    res.status(200).json({ message: 'Backup restored successfully!', restoredCount });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to restore backup: ' + err.message });
+  }
+});
+
 module.exports = router;
 
