@@ -103,11 +103,13 @@ async function connectDB() {
 
   await mongoose.connect(uri, {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 10000,
-    connectTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 8000,
+    connectTimeoutMS: 8000,
     socketTimeoutMS: 20000,
-    family: 4,           // Force IPv4
-    tlsInsecure: true    // Bypass OpenSSL 3 TLS alert 80
+    family: 4,
+    tls: true,
+    tlsAllowInvalidCertificates: true,
+    tlsAllowInvalidHostnames: true
   });
   return mongoose.connection;
 }
