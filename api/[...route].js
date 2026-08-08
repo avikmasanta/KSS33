@@ -105,22 +105,16 @@ async function connectDB() {
     try { await mongoose.disconnect(); } catch(e) {}
   }
 
-  // Strip ALL TLS params from URI to avoid conflicts with driver options
-  const rawUri = process.env.MONGO_URI || '';
-  const uri = rawUri
-    .replace(/[?&]tlsInsecure=[^&]*/g, '')
-    .replace(/[?&]tlsAllowInvalidCertificates=[^&]*/g, '')
-    .replace(/[?&]tls=[^&]*/g, '')
-    .replace(/[?&]ssl=[^&]*/g, '')
-    .replace(/\?$/, '');  // remove trailing ? if all params were stripped
+  const uri = process.env.MONGO_URI || '';
 
   const opts = {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 4000,
-    connectTimeoutMS: 4000,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
     socketTimeoutMS: 20000,
     retryWrites: true,
-    retryReads: true
+    retryReads: true,
+    tlsInsecure: true
   };
 
   // Retry up to 3 times — SSL Alert 80 is transient on Vercel OpenSSL 3
