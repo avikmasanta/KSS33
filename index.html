@@ -25,17 +25,23 @@
     // Toast Notification System
     window.showToast = function(msg, type) {
       if (!msg) return;
+      var str = String(msg);
+      if (str.includes('Recovered') || str.includes('Browser Memory') || str.includes('Cloud Database')) return;
       var container = document.getElementById('app-toast-container');
       if (!container) {
         container = document.createElement('div');
         container.id = 'app-toast-container';
-        container.style.cssText = 'position:fixed; top:20px; right:20px; z-index:9999999; display:flex; flex-direction:column; gap:8px; pointer-events:none;';
+        container.style.cssText = 'position:fixed; top:20px; right:20px; z-index:9999999; display:flex; flex-direction:column; gap:8px; pointer-events:none; max-width:360px;';
         document.body ? document.body.appendChild(container) : document.documentElement.appendChild(container);
       }
-      var isError = type === 'error' || String(msg).toLowerCase().includes('fail') || String(msg).toLowerCase().includes('error');
+      // Limit to max 3 toasts on screen at once
+      if (container.children.length >= 3) {
+        container.removeChild(container.firstChild);
+      }
+      var isError = type === 'error' || str.toLowerCase().includes('fail') || str.toLowerCase().includes('error');
       var toast = document.createElement('div');
       toast.style.cssText = 'padding:12px 20px; border-radius:8px; font-family:Inter,sans-serif; font-size:13px; font-weight:600; color:white; background:' + (isError ? '#dc2626' : '#10b981') + '; box-shadow:0 10px 25px -5px rgba(0,0,0,0.4); transition:all 0.3s ease; transform:translateY(-10px); opacity:0; pointer-events:auto; display:flex; align-items:center; gap:8px;';
-      toast.innerHTML = (isError ? '⚠️ ' : '✅ ') + String(msg);
+      toast.innerHTML = (isError ? '⚠️ ' : '✅ ') + str;
       container.appendChild(toast);
       setTimeout(function() {
         toast.style.transform = 'translateY(0)';
@@ -51,8 +57,10 @@
     // Override native browser alert to block modal dialog popups permanently
     window.alert = function(msg) {
       if (!msg) return;
-      console.log('[Alert Suppressed]:', msg);
-      window.showToast(msg);
+      var str = String(msg);
+      if (str.includes('Recovered') || str.includes('Browser Memory') || str.includes('Cloud Database')) return;
+      console.log('[Alert Suppressed]:', str);
+      window.showToast(str);
     };
 
     // Invalidate and clear old PWA ServiceWorker cache
@@ -107,22 +115,22 @@
   <div id="app-root"></div>
 
   <!-- JavaScript -->
-  <script src="js/icons.js?v=116"></script>
-  <script src="js/store.js?v=116"></script>
-  <script src="js/auth.js?v=116"></script>
-  <script src="js/dashboard.js?v=116"></script>
-  <script src="js/sites2.js?v=116"></script>
-  <script src="js/products.js?v=116"></script>
-  <script src="js/incoming.js?v=116"></script>
-  <script src="js/outgoing.js?v=116"></script>
-  <script src="js/site-details2.js?v=116"></script>
-  <script src="js/inventory.js?v=116"></script>
-  <script src="js/ledger.js?v=116"></script>
-  <script src="js/reports.js?v=116"></script>
-  <script src="js/returns.js?v=116"></script>
-  <script src="js/rentals.js?v=116"></script>
-  <script src="js/separateBilling.js?v=116"></script>
-  <script src="js/labour.js?v=116"></script>
-  <script src="js/app.js?v=116"></script>
+  <script src="js/icons.js?v=117"></script>
+  <script src="js/store.js?v=117"></script>
+  <script src="js/auth.js?v=117"></script>
+  <script src="js/dashboard.js?v=117"></script>
+  <script src="js/sites2.js?v=117"></script>
+  <script src="js/products.js?v=117"></script>
+  <script src="js/incoming.js?v=117"></script>
+  <script src="js/outgoing.js?v=117"></script>
+  <script src="js/site-details2.js?v=117"></script>
+  <script src="js/inventory.js?v=117"></script>
+  <script src="js/ledger.js?v=117"></script>
+  <script src="js/reports.js?v=117"></script>
+  <script src="js/returns.js?v=117"></script>
+  <script src="js/rentals.js?v=117"></script>
+  <script src="js/separateBilling.js?v=117"></script>
+  <script src="js/labour.js?v=117"></script>
+  <script src="js/app.js?v=117"></script>
 </body>
 </html>
