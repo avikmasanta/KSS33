@@ -90,11 +90,11 @@ const Store = (() => {
   async function syncFromCloud() {
     const keys = Object.keys(endpointMap);
 
-    for (const key of keys) {
+    await Promise.all(keys.map(async (key) => {
       const config = endpointMap[key];
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 15000);
+        const timer = setTimeout(() => controller.abort(), 6000);
         const res = await fetch(`${API_URL}/${config.url}`, { signal: controller.signal });
         clearTimeout(timer);
 
@@ -104,9 +104,9 @@ const Store = (() => {
           persistLocal(key, cloudData);
         }
       } catch (err) {
-        // Network error — silently keep local data
+        // Network error — keep local data silently
       }
-    }
+    }));
 
     // Seed default materials if completely empty everywhere
     if (cache.materials.length === 0) {
