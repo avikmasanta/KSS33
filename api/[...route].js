@@ -99,15 +99,14 @@ async function connectDB() {
   const uri = process.env.MONGO_URI || '';
   const mongoUri = uri.includes('ssl=')
     ? uri
-    : (uri + (uri.includes('?') ? '&' : '?') + 'ssl=true&tlsInsecure=true&tlsAllowInvalidCertificates=true');
+    : (uri + (uri.includes('?') ? '&' : '?') + 'ssl=true&tlsInsecure=true');
 
   await mongoose.connect(mongoUri, {
     maxPoolSize: 10,
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 5000,
     ssl: true,
-    tlsInsecure: true,
-    tlsAllowInvalidCertificates: true
+    tlsInsecure: true
   });
   return mongoose.connection;
 }
