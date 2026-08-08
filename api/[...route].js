@@ -116,9 +116,9 @@ async function connectDB() {
 
   const opts = {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 8000,
-    connectTimeoutMS: 8000,
-    socketTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 4000,
+    connectTimeoutMS: 4000,
+    socketTimeoutMS: 20000,
     retryWrites: true,
     retryReads: true
   };
