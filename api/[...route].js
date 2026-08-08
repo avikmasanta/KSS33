@@ -129,6 +129,44 @@ function json(res, status, data) {
   res.status(status).json(data);
 }
 
+// ─── Helpers: body parsing and sanitization ────────────────────────
+async function parseBody(req) {
+  if (req.body) {
+    if (typeof req.body === 'object') return req.body;
+    if (typeof req.body === 'string') {
+      try { return JSON.parse(req.body); } catch(e) { return {}; }
+    }
+  }
+  return new Promise((resolve) => {
+    let bodyStr = '';
+    req.on('data', chunk => { bodyStr += chunk; });
+    req.on('end', () => {
+      try {
+        resolve(bodyStr ? JSON.parse(bodyStr) : {});
+      } catch(e) {
+        resolve({});
+      }
+    });
+    req.on('error', () => resolve({}));
+  });
+}
+
+function sanitizeDocument(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  if (obj instanceof Date) return obj.toISOString();
+  if (Array.isArray(obj)) return obj.map(sanitizeDocument);
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(obj)) return obj.toString('utf8');
+  if (obj.constructor && obj.constructor.name && obj.constructor.name !== 'Object') {
+    return String(obj);
+  }
+  const clean = {};
+  for (const k of Object.keys(obj)) {
+    if (k === '__v') continue;
+    clean[k] = sanitizeDocument(obj[k]);
+  }
+  return clean;
+}
+
 // ─── Main Handler ─────────────────────────────────────────────────
 module.exports = async function handler(req, res) {
   // CORS headers
@@ -379,7 +417,7 @@ module.exports = async function handler(req, res) {
 
     if (id === 'import' && req.method === 'POST') {
       try {
-        const payload = req.body;
+        const payload = await parseBody(req);
         const backupData = payload.data || payload;
         let restoredCount = 0;
 
@@ -405,9 +443,12 @@ module.exports = async function handler(req, res) {
         for (const [key, Model] of Object.entries(modelMapping)) {
           if (backupData[key] && Array.isArray(backupData[key])) {
             for (const item of backupData[key]) {
-              const filterId = item.id || item._id;
+              const filterId = String(item.id || item._id);
               if (filterId) {
-                await Model.findByIdAndUpdate(filterId, item, { upsert: true, new: true, setDefaultsOnInsert: true });
+                const cleanData = sanitizeDocument(item);
+                cleanData._id = filterId;
+                cleanData.id = filterId;
+                await Model.updateOne({ _id: filterId }, { $set: cleanData }, { upsert: true });
                 restoredCount++;
               }
             }
@@ -799,27 +840,9 @@ module.exports = async function handler(req, res) {
       return json(res, 200, item);
     }
 
-function sanitizeDocument(obj) {
-  if (!obj || typeof obj !== 'object') return obj;
-  if (obj instanceof Date) return obj.toISOString();
-  if (Array.isArray(obj)) return obj.map(sanitizeDocument);
-  if (obj.constructor && obj.constructor.name !== 'Object') {
-    return String(obj);
-  }
-  const clean = {};
-  for (const k of Object.keys(obj)) {
-    if (k === '__v') continue;
-    clean[k] = sanitizeDocument(obj[k]);
-  }
-  return clean;
-}
-
     // ── POST (create / upsert) ───────────────────────────────────
     if (req.method === 'POST' && !id) {
-      let body = req.body || {};
-      if (typeof body === 'string') {
-        try { body = JSON.parse(body); } catch(e) {}
-      }
+      const body = await parseBody(req);
       const docId = String(body.id || body._id || `id_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`);
       if (!body.createdAt) body.createdAt = new Date().toISOString().split('T')[0];
 
@@ -828,7 +851,7 @@ function sanitizeDocument(obj) {
         cleanData._id = docId;
         cleanData.id = docId;
 
-        await Model.collection.updateOne(
+        await Model.updateOne(
           { _id: docId },
           { $set: cleanData },
           { upsert: true }
@@ -842,8 +865,10 @@ function sanitizeDocument(obj) {
 
     // ── PUT (update) ─────────────────────────────────────────────
     if (req.method === 'PUT' && id) {
-      const body = { ...req.body, _id: id };
-      const updated = await Model.findByIdAndUpdate(id, body, { new: true, upsert: true });
+      const rawBody = await parseBody(req);
+      const body = { ...rawBody, _id: id };
+      const cleanData = sanitizeDocument(body);
+      const updated = await Model.findByIdAndUpdate(id, cleanData, { new: true, upsert: true });
       if (!updated) return json(res, 404, { error: 'Not found' });
       return json(res, 200, updated);
     }

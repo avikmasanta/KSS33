@@ -1105,19 +1105,47 @@ const Store = (() => {
       } catch(e) {}
     }
 
-    // 3. Sequentially POST unique items with throttling to avoid DB pool overflow
+    // 3. Batch POST all unique items in a single request to /api/backup/import
+    const endpointToModel = {
+      customers: 'Customer',
+      sites: 'Site',
+      materials: 'Material',
+      incoming: 'Incoming',
+      outgoing: 'Outgoing',
+      siteReturns: 'SiteReturns',
+      siteUsage: 'SiteUsage',
+      siteDamaged: 'SiteDamaged',
+      siteExpenses: 'SiteExpenses',
+      sitePayments: 'SitePayments',
+      transactions: 'Transaction',
+      rentalSites: 'RentalSite',
+      categories: 'Category',
+      labours: 'Labour',
+      labourLogs: 'LabourLog',
+      separate_billings: 'SeparateBilling',
+      separateBillings: 'SeparateBilling'
+    };
+
+    const backupPayload = {};
     for (const [endpoint, itemMap] of Object.entries(itemsToUpload)) {
-      for (const item of itemMap.values()) {
-        try {
-          const res = await fetch(`${API_URL}/${endpoint}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(item)
-          });
-          if (res.ok) totalRestored++;
-          await new Promise(r => setTimeout(r, 150)); // Throttling 150ms between requests
-        } catch(e) {}
+      const modelKey = endpointToModel[endpoint];
+      if (modelKey) {
+        backupPayload[modelKey] = Array.from(itemMap.values());
       }
+    }
+
+    if (Object.keys(backupPayload).length > 0) {
+      try {
+        const res = await fetch(`${API_URL}/backup/import`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: backupPayload })
+        });
+        if (res.ok) {
+          const resData = await res.json();
+          totalRestored = resData.restoredCount || 0;
+        }
+      } catch(e) {}
     }
 
     // Re-sync cloud cache after restoring
