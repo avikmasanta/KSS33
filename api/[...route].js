@@ -106,7 +106,8 @@ async function connectDB() {
     serverSelectionTimeoutMS: 10000,
     connectTimeoutMS: 10000,
     socketTimeoutMS: 20000,
-    family: 4           // Force IPv4 — fixes SSL Alert 80 on Vercel OpenSSL 3
+    family: 4,           // Force IPv4
+    tlsInsecure: true    // Bypass OpenSSL 3 TLS alert 80
   });
   return mongoose.connection;
 }
