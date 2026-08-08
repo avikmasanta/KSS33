@@ -96,11 +96,17 @@ async function connectDB() {
   if (mongoose.connection.readyState !== 0) {
     try { await mongoose.disconnect(); } catch(e) {}
   }
-  await mongoose.connect(process.env.MONGO_URI, {
+  const uri = process.env.MONGO_URI || '';
+  const mongoUri = uri.includes('ssl=')
+    ? uri
+    : (uri + (uri.includes('?') ? '&' : '?') + 'ssl=true&tlsInsecure=true&tlsAllowInvalidCertificates=true');
+
+  await mongoose.connect(mongoUri, {
     maxPoolSize: 10,
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 5000,
-    tls: true,
+    ssl: true,
+    tlsInsecure: true,
     tlsAllowInvalidCertificates: true
   });
   return mongoose.connection;
