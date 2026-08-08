@@ -87,17 +87,19 @@ function getModel(name) {
 
 // ─── DB Connection (reused across warm invocations) ───────────────
 async function connectDB() {
+  mongoose.set('strictQuery', false);
+  mongoose.set('bufferCommands', false);
+
   if (mongoose.connection.readyState === 1) {
     return mongoose.connection;
   }
   if (mongoose.connection.readyState !== 0) {
     try { await mongoose.disconnect(); } catch(e) {}
   }
-  mongoose.set('strictQuery', false);
   await mongoose.connect(process.env.MONGO_URI, {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 10000,
-    connectTimeoutMS: 10000,
+    serverSelectionTimeoutMS: 5000,
+    connectTimeoutMS: 5000,
     tls: true,
     tlsAllowInvalidCertificates: true
   });
