@@ -86,30 +86,20 @@ function getModel(name) {
 }
 
 // ─── DB Connection (reused across warm invocations) ───────────────
-let cachedConn = null;
 async function connectDB() {
   if (mongoose.connection.readyState === 1) {
     return mongoose.connection;
   }
-  if (mongoose.connection.readyState === 2) {
-    await new Promise((resolve) => {
-      mongoose.connection.once('open', resolve);
-      setTimeout(resolve, 3000);
-    });
-    if (mongoose.connection.readyState === 1) return mongoose.connection;
+  if (mongoose.connection.readyState !== 0) {
+    try { await mongoose.disconnect(); } catch(e) {}
   }
-
   mongoose.set('strictQuery', false);
-  mongoose.set('bufferCommands', false);
-
-  cachedConn = await mongoose.connect(process.env.MONGO_URI, {
+  await mongoose.connect(process.env.MONGO_URI, {
     maxPoolSize: 10,
-    minPoolSize: 1,
-    socketTimeoutMS: 30000,
     serverSelectionTimeoutMS: 5000,
     connectTimeoutMS: 5000
   });
-  return cachedConn;
+  return mongoose.connection;
 }
 
 // ─── Helper: send JSON response ───────────────────────────────────
