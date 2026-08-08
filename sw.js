@@ -2,7 +2,7 @@
    KSS Construction PWA Service Worker
    ============================================ */
 
-const CACHE_NAME = 'kss-pwa-v13';
+const CACHE_NAME = 'kss-pwa-v15';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -94,11 +94,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-First with Network Fallback for Static Assets
+  // Network-First for JS and CSS assets to ensure latest code is always served
+  if (url.pathname.endsWith('.js') || url.pathname.endsWith('.css') || url.pathname.startsWith('/js/') || url.pathname.startsWith('/css/')) {
+    event.respondWith(
+      fetch(req)
+        .then((networkRes) => {
+          if (networkRes.status === 200) {
+            const resClone = networkRes.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
+          }
+          return networkRes;
+        })
+        .catch(() => {
+          return caches.match(req);
+        })
+    );
+    return;
+  }
+
+  // Cache-First with Network Fallback for HTML/Images
   event.respondWith(
     caches.match(req).then((cachedRes) => {
       if (cachedRes) {
-        // Fetch background update to keep cache fresh
         fetch(req).then((networkRes) => {
           if (networkRes.status === 200) {
             caches.open(CACHE_NAME).then((cache) => cache.put(req, networkRes));
