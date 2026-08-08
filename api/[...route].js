@@ -96,8 +96,10 @@ async function connectDB() {
   mongoose.set('strictQuery', false);
   await mongoose.connect(process.env.MONGO_URI, {
     maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    connectTimeoutMS: 5000
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    tls: true,
+    tlsAllowInvalidCertificates: true
   });
   return mongoose.connection;
 }
