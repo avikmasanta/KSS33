@@ -1017,6 +1017,46 @@ const Store = (() => {
     return { totalIssued, totalReturned, daily };
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days };
+  // Emergency Recovery: Push any local browser data back to cloud MongoDB Atlas
+  async function pushLocalToCloud() {
+    const collections = [
+      { key: 'bm_sites', url: 'sites' },
+      { key: 'bm_materials', url: 'materials' },
+      { key: 'bm_customers', url: 'customers' },
+      { key: 'bm_incoming', url: 'incoming' },
+      { key: 'bm_outgoing', url: 'outgoing' },
+      { key: 'bm_siteReturns', url: 'siteReturns' },
+      { key: 'bm_siteUsage', url: 'siteUsage' },
+      { key: 'bm_siteDamaged', url: 'siteDamaged' },
+      { key: 'bm_siteExpenses', url: 'siteExpenses' },
+      { key: 'bm_sitePayments', url: 'sitePayments' },
+      { key: 'bm_categories', url: 'categories' },
+      { key: 'bm_separate_billings', url: 'separate_billings' },
+      { key: 'bm_labours', url: 'labours' },
+      { key: 'bm_labourLogs', url: 'labourLogs' }
+    ];
+
+    let totalRestored = 0;
+    for (const col of collections) {
+      const items = getLocal(col.key);
+      if (items && Array.isArray(items) && items.length > 0) {
+        for (const item of items) {
+          try {
+            await fetch(`${API_URL}/${col.url}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(item)
+            });
+            totalRestored++;
+          } catch(e) {}
+        }
+      }
+    }
+    // Re-sync cloud cache after restoring
+    await syncFromCloud();
+    return totalRestored;
+  }
+
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days, pushLocalToCloud };
 
 })();
