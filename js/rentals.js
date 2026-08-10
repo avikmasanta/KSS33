@@ -1,12 +1,26 @@
 /* ============================================
    BuildMate Rental Sites Module (Material Hire)
+   Warehouse Free / Independent Rental Inventory
+   Supports Date-Wise Inclusive Monthly Registers & Reports
    ============================================ */
 
 var RentalsPage = {
   selectedId: null,
   searchTerm: '',
+  activeTab: 'contracts', // 'contracts' or 'monthly-register'
+  selectedMonth: new Date().toISOString().slice(0, 7), // 'YYYY-MM'
   formItems: [{ materialId: '', quantity: '', rate: '' }],
   isEditing: false,
+
+  switchTab(tab) {
+    this.activeTab = tab;
+    this.refresh();
+  },
+
+  onMonthChange(monthVal) {
+    this.selectedMonth = monthVal || new Date().toISOString().slice(0, 7);
+    this.refresh();
+  },
 
   render() {
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
@@ -21,28 +35,44 @@ var RentalsPage = {
     }
 
     return `
-      <div class="page-header" style="background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%); padding: 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
+      <div class="page-header" style="background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-body) 100%); padding: 24px; border-radius: 12px; margin-bottom: 24px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
         <div class="page-header-title" style="display: flex; align-items: center; gap: 16px;">
           <div style="width: 48px; height: 48px; background: rgba(59, 130, 246, 0.1); color: var(--primary); border-radius: 12px; display: flex; align-items: center; justify-content: center;">
             ${Icons.truck}
           </div>
           <div>
             <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Rental Sites</h2>
-            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Track materials leased on daily rates</p>
+            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Warehouse Free Material Hire • Monthly & Date-Wise Inclusive Reports</p>
           </div>
         </div>
-        <div class="page-header-actions">
+        <div class="page-header-actions" style="display: flex; gap: 10px;">
           <button class="btn btn-primary" onclick="RentalsPage.newRecord()" style="display:inline-flex;align-items:center;gap:6px; box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);">
             ${Icons.plus} New Rental Site
           </button>
         </div>
       </div>
 
+      <!-- Navigation Tabs -->
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 24px; padding-bottom: 8px; overflow-x: auto;">
+        <button class="btn ${this.activeTab === 'contracts' ? 'btn-primary' : 'btn-ghost'}" onclick="RentalsPage.switchTab('contracts')">
+          📋 Rental Contracts
+        </button>
+        <button class="btn ${this.activeTab === 'monthly-register' ? 'btn-primary' : 'btn-ghost'}" onclick="RentalsPage.switchTab('monthly-register')">
+          📅 Monthly Dispatch Register (Date-Wise)
+        </button>
+      </div>
+
+      ${this.activeTab === 'monthly-register' ? this.renderMonthlyRegister() : this.renderContractsLayout(records)}
+    `;
+  },
+
+  renderContractsLayout(records) {
+    return `
       <div class="split-layout">
         <!-- Left: List -->
         <div class="card side-list">
           <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 16px;">
-            <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--text-primary);">Active Rentals</h3>
+            <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--text-primary);">Active & Past Rentals</h3>
             <div style="position: relative;">
               <input type="text" class="form-control" placeholder="Search customer or site..." 
                      value="${this.searchTerm}" onkeyup="RentalsPage.onSearch(event)" style="background: var(--bg-body); padding-left: 36px;">
@@ -63,7 +93,7 @@ var RentalsPage = {
                   </div>
                   <div class="item-sub" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Site: ${r.siteName || '-'}</div>
                   <div class="item-sub" style="font-size: 0.8rem; color: var(--text-tertiary); display:flex; justify-content:space-between; align-items:center;">
-                    <span>Qty: ${totalItems} • ${days} Days</span>
+                    <span>Qty: ${totalItems} • ${days} Days (Inclusive)</span>
                     <strong style="color: var(--success); font-size: 0.95rem;">₹${totalVal.toLocaleString('en-IN')}</strong>
                   </div>
                 </div>
@@ -86,8 +116,140 @@ var RentalsPage = {
     `;
   },
 
+  renderMonthlyRegister() {
+    const allRecords = Store.RentalSites.getAll();
+    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
+
+    // Filter records by selected month (YYYY-MM)
+    const monthRecords = allRecords.filter(r => {
+      if (!r.goingDate) return false;
+      return r.goingDate.startsWith(this.selectedMonth) || (r.comingDate && r.comingDate.startsWith(this.selectedMonth));
+    }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate)); // Date-wise chronological
+
+    // Summary calculations
+    let totalDispatches = monthRecords.length;
+    let totalItemsLeased = 0;
+    let totalMonthlyBill = 0;
+
+    monthRecords.forEach(r => {
+      const days = this.getInclusiveDays(r.goingDate, r.comingDate);
+      if (r.items) {
+        r.items.forEach(i => {
+          totalItemsLeased += parseFloat(i.quantity || 0);
+          totalMonthlyBill += parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days;
+        });
+      }
+    });
+
+    const monthLabel = new Date(this.selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    return `
+      <!-- Monthly Header & Selector Bar -->
+      <div class="card" style="margin-bottom: 24px;">
+        <div class="card-body" style="padding: 20px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+            <div>
+              <h3 style="margin:0; font-size: 1.25rem; color: var(--text-primary);">Monthly Rental Dispatch Register</h3>
+              <p style="margin:4px 0 0 0; color: var(--text-tertiary); font-size: 0.85rem;">Date-wise inclusive statement of materials dispatched in <strong>${monthLabel}</strong></p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <label for="rental-month-select" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;">Select Month:</label>
+              <input type="month" id="rental-month-select" class="form-control" value="${this.selectedMonth}" onchange="RentalsPage.onMonthChange(this.value)" style="width: 180px;">
+              <button class="btn btn-outline" onclick="RentalsPage.printMonthlyRegister()" style="display:inline-flex; align-items:center; gap:6px;">
+                ${Icons.printer} Print Monthly Statement
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Summary Metrics -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+        <div class="card" style="padding: 20px; border-left: 4px solid var(--primary-500);">
+          <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Dispatches This Month</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">${totalDispatches}</div>
+        </div>
+        <div class="card" style="padding: 20px; border-left: 4px solid #3b82f6;">
+          <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Total Material Quantity</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #2563eb; margin-top: 4px;">${totalItemsLeased.toLocaleString('en-IN')} units</div>
+        </div>
+        <div class="card" style="padding: 20px; border-left: 4px solid #10b981;">
+          <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Monthly Billing Generated</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #059669; margin-top: 4px;">₹${totalMonthlyBill.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+
+      <!-- Date-Wise Register Table -->
+      <div class="card">
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Going Date (Dispatch)</th>
+                <th>Customer & Site</th>
+                <th>Materials Dispatched</th>
+                <th>Inclusive Lease Period</th>
+                <th>Duration</th>
+                <th style="text-align: right;">Total Bill</th>
+                <th>Status</th>
+                <th style="text-align: right;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${monthRecords.length === 0 ? `
+                <tr><td colspan="8" style="text-align:center; padding: 48px; color: var(--text-tertiary);">No rental dispatches found for ${monthLabel}.</td></tr>
+              ` : monthRecords.map(r => {
+                const days = this.getInclusiveDays(r.goingDate, r.comingDate);
+                const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
+                
+                const itemsSummary = (r.items || []).map(i => {
+                  const m = materials.find(x => x.id === i.materialId);
+                  return `<div style="font-size:0.85rem;">• <strong>${m ? m.name : 'Item'}</strong>: ${i.quantity} ${m ? m.unit : ''} @ ₹${i.rate}/day</div>`;
+                }).join('');
+
+                return `
+                  <tr>
+                    <td>
+                      <strong style="color: var(--text-primary); font-size:0.95rem;">📅 ${r.goingDate}</strong>
+                    </td>
+                    <td>
+                      <strong style="color: var(--text-primary);">${r.customerName}</strong>
+                      <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-top:2px;">📍 Site: ${r.siteName || '-'}</div>
+                    </td>
+                    <td>
+                      ${itemsSummary}
+                    </td>
+                    <td style="font-size: 0.85rem; color: var(--text-secondary);">
+                      <div>Going: <strong>${r.goingDate}</strong></div>
+                      <div>Coming: <strong>${r.comingDate || 'Active'}</strong></div>
+                    </td>
+                    <td>
+                      <span class="badge badge-info" style="font-size:0.8rem; padding: 4px 8px;">
+                        ${days} Days (Inclusive)
+                      </span>
+                    </td>
+                    <td style="text-align: right; font-weight: 800; color: #059669; font-size: 1.05rem;">
+                      ₹${totalVal.toLocaleString('en-IN')}
+                    </td>
+                    <td>
+                      <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
+                    </td>
+                    <td style="text-align: right;">
+                      <button class="btn btn-sm btn-ghost" onclick="RentalsPage.selectRecord('${r.id}'); RentalsPage.switchTab('contracts');" title="View Contract Details">
+                        View Details →
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  },
+
   init() {
-    // Row hover styles
     const items = document.querySelectorAll('#rentals-list .list-item');
     items.forEach(item => {
       item.addEventListener('mouseenter', () => {
@@ -101,16 +263,7 @@ var RentalsPage = {
 
   onSearch(e) {
     this.searchTerm = e.target.value;
-    const container = document.getElementById('page-container');
-    if (container) {
-      container.innerHTML = this.render();
-      const searchInput = container.querySelector('.side-list input[type="text"]');
-      if (searchInput) {
-        searchInput.focus();
-        searchInput.setSelectionRange(this.searchTerm.length, this.searchTerm.length);
-      }
-      this.init();
-    }
+    this.refresh();
   },
 
   refresh() {
@@ -270,18 +423,18 @@ var RentalsPage = {
         <div class="form-row">
           <div class="form-group">
             <label>Going Date (Lease Start) *</label>
-            <input type="date" class="form-control" id="rental-going-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.goingDate : localDateStr()}" style="background: var(--bg-body);">
+            <input type="date" class="form-control" id="rental-going-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.goingDate : window.localDateStr()}" style="background: var(--bg-body);">
           </div>
           <div class="form-group">
             <label>Coming Date (Lease End) *</label>
-            <input type="date" class="form-control" id="rental-coming-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.comingDate : localDateStr()}" style="background: var(--bg-body);">
+            <input type="date" class="form-control" id="rental-coming-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.comingDate : window.localDateStr()}" style="background: var(--bg-body);">
           </div>
         </div>
 
         <div class="stock-form-section mt-4">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary);">Leased Materials</h4>
-            <div style="font-size:0.9rem; color:var(--text-secondary); font-weight:600;" id="rental-form-days-label">Duration: 1 Day</div>
+            <div style="font-size:0.9rem; color:var(--text-secondary); font-weight:600;" id="rental-form-days-label">Duration: 1 Day (Inclusive)</div>
           </div>
           <div class="table-container" style="border:1px solid var(--border-color); border-radius:8px; overflow:hidden;">
             <table class="inline-table">
@@ -298,8 +451,6 @@ var RentalsPage = {
               <tbody id="rental-items-body">
                 ${this.formItems.map((item, idx) => {
                   const prod = materials.find(p => p.id === item.materialId);
-                  const currentAllocated = record ? (record.items.find(i => i.materialId === item.materialId)?.quantity || 0) : 0;
-                  const available = prod ? (Store.Inventory.getWarehouseCurrentBalance(prod.id) + parseFloat(currentAllocated)) : 0;
                   
                   return `
                     <tr>
@@ -317,7 +468,6 @@ var RentalsPage = {
                             </optgroup>
                           `).join('')}
                         </select>
-                        ${prod ? `<div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 4px;">Available stock: <strong style="color:var(--primary);">${available}</strong> ${prod.unit}</div>` : ''}
                       </td>
                       <td>
                         <input type="number" class="form-control r-qty" value="${item.quantity || ''}" placeholder="0" min="1" oninput="RentalsPage.onItemChange(${idx}, 'quantity', this.value)" style="background: var(--bg-body);">
@@ -360,6 +510,7 @@ var RentalsPage = {
   newRecord() {
     this.selectedId = null;
     this.isEditing = true;
+    this.activeTab = 'contracts';
     this.formItems = [{ materialId: '', quantity: '', rate: '' }];
     this.refresh();
     setTimeout(() => RentalsPage.calculateFormTotals(), 50);
@@ -370,6 +521,7 @@ var RentalsPage = {
     const r = Store.RentalSites.getById(this.selectedId);
     if (!r) return;
     this.isEditing = true;
+    this.activeTab = 'contracts';
     this.formItems = r.items.map(i => ({ materialId: i.materialId, quantity: i.quantity, rate: i.rate }));
     this.refresh();
     setTimeout(() => RentalsPage.calculateFormTotals(), 50);
@@ -465,7 +617,6 @@ var RentalsPage = {
       return;
     }
 
-    // Filter valid items
     const items = this.formItems.filter(i => i.materialId && parseFloat(i.quantity) > 0);
     if (items.length === 0) {
       alert('Please add at least one material with a quantity greater than 0.');
@@ -473,7 +624,6 @@ var RentalsPage = {
     }
 
     const record = this.selectedId ? Store.RentalSites.getById(this.selectedId) : null;
-
 
     const data = {
       customerName,
@@ -502,18 +652,18 @@ var RentalsPage = {
     this.refresh();
   },
 
-  async markReturned() {
+  markReturned() {
     if (!this.selectedId) return;
-    if (confirm('Are you sure you want to mark this rental contract as fully returned?\nThis will add all materials back to the warehouse stock.')) {
+    if (confirm('Are you sure you want to mark this rental contract as returned?')) {
       Store.RentalSites.update(this.selectedId, { status: 'Returned' });
-      alert('Stock successfully returned to warehouse!');
+      alert('Rental contract status updated to Returned!');
       this.refresh();
     }
   },
 
-  async deleteRecord() {
+  deleteRecord() {
     if (!this.selectedId) return;
-    if (confirm('Are you absolutely sure you want to delete this rental contract?\nThis action cannot be undone.')) {
+    if (confirm('Are you absolutely sure you want to delete this rental contract?')) {
       Store.RentalSites.remove(this.selectedId);
       this.selectedId = null;
       alert('Rental contract deleted successfully!');
@@ -647,6 +797,114 @@ var RentalsPage = {
         </script>
       </body></html>
     `);
+    printWindow.document.close();
+  },
+
+  printMonthlyRegister() {
+    const allRecords = Store.RentalSites.getAll();
+    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
+
+    const monthRecords = allRecords.filter(r => {
+      if (!r.goingDate) return false;
+      return r.goingDate.startsWith(this.selectedMonth) || (r.comingDate && r.comingDate.startsWith(this.selectedMonth));
+    }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
+
+    const monthLabel = new Date(this.selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+    let grandMonthlyBill = 0;
+    const tableRows = monthRecords.map((r, idx) => {
+      const days = this.getInclusiveDays(r.goingDate, r.comingDate);
+      const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
+      grandMonthlyBill += totalVal;
+
+      const itemsStr = (r.items || []).map(i => {
+        const m = materials.find(x => x.id === i.materialId);
+        return `${m ? m.name : 'Item'}: ${i.quantity} ${m ? m.unit : ''} @ ₹${i.rate}/day`;
+      }).join('<br>');
+
+      return `
+        <tr>
+          <td style="padding:8px; border:1px solid #cbd5e1; text-align:center;">${idx + 1}</td>
+          <td style="padding:8px; border:1px solid #cbd5e1;"><strong>${r.goingDate}</strong></td>
+          <td style="padding:8px; border:1px solid #cbd5e1;">
+            <strong>${r.customerName}</strong><br>
+            <span style="font-size:10px; color:#475569;">Site: ${r.siteName || '-'}</span>
+          </td>
+          <td style="padding:8px; border:1px solid #cbd5e1; font-size:11px;">${itemsStr}</td>
+          <td style="padding:8px; border:1px solid #cbd5e1;">${r.goingDate} to ${r.comingDate || 'Active'}</td>
+          <td style="padding:8px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${days} Days</td>
+          <td style="padding:8px; border:1px solid #cbd5e1; text-align:right; font-weight:700; color:#059669;">₹${totalVal.toLocaleString('en-IN')}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>KSS Monthly Rental Register - ${monthLabel}</title>
+        <style>
+          @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+          @page { size: A4 portrait; margin: 12mm; }
+          body { font-family: 'Inter', sans-serif; color: #0f172a; padding: 10px; background: #fff; line-height: 1.4; }
+          .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .title { font-size: 20px; font-weight: 800; color: #1e40af; text-transform: uppercase; }
+          .sub { font-size: 11px; color: #475569; margin-top: 4px; }
+          .table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 11px; }
+          .table th { background: #0f172a; color: white; padding: 8px; text-align: left; font-size: 10px; text-transform: uppercase; }
+          .table td { padding: 8px; border: 1px solid #cbd5e1; }
+          .summary-box { display: flex; justify-content: space-between; background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px 16px; border-radius: 8px; margin-top: 20px; font-size: 14px; font-weight: 800; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="title">KSS CONSTRUCTION MATERIALS</div>
+            <div class="sub">Monthly Rental Dispatch Register (Date-Wise Inclusive Statement) | Month: <strong>${monthLabel}</strong></div>
+          </div>
+          <div style="text-align:right; font-size:10px; color:#64748b;">
+            <div>Printed on: ${new Date().toLocaleString('en-IN')}</div>
+            <div>Mode: Independent Warehouse Free Rental</div>
+          </div>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th style="width: 30px; text-align: center;">#</th>
+              <th>Dispatch Date</th>
+              <th>Customer & Site</th>
+              <th>Leased Materials & Qty</th>
+              <th>Lease Period</th>
+              <th style="text-align: center;">Inclusive Duration</th>
+              <th style="text-align: right;">Total Rental Bill</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRows.length > 0 ? tableRows : '<tr><td colspan="7" style="text-align:center; padding:20px;">No rental dispatches found for this month</td></tr>'}
+          </tbody>
+        </table>
+
+        <div class="summary-box">
+          <div>Total Dispatches: <strong>${monthRecords.length}</strong></div>
+          <div style="color: #1e40af;">Total Monthly Rental Earnings: <strong>₹${grandMonthlyBill.toLocaleString('en-IN')}</strong></div>
+        </div>
+
+        <div style="margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; color: #475569;">
+          <div>Prepared By: KSS System</div>
+          <div>Authorized Signatory: __________________</div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() { window.print(); }, 300);
+          }
+        </script>
+      </body>
+      </html>
+    `);
+
     printWindow.document.close();
   }
 };
