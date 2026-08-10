@@ -164,7 +164,7 @@ var RentalsPage = {
               <label for="rental-month-select" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;">Select Month:</label>
               <input type="month" id="rental-month-select" class="form-control" value="${this.selectedMonth}" onchange="RentalsPage.onMonthChange(this.value)" style="width: 180px;">
               <button class="btn btn-outline" onclick="RentalsPage.printMonthlyRegister()" style="display:inline-flex; align-items:center; gap:6px;">
-                ${Icons.printer} Print Monthly Statement
+                ${Icons.printer} Print Monthly Bill Statement
               </button>
             </div>
           </div>
@@ -331,7 +331,7 @@ var RentalsPage = {
             </button>
           ` : ''}
           <button class="btn btn-outline" onclick="RentalsPage.printChallan()" style="display:inline-flex;align-items:center;gap:6px;">
-            ${Icons.fileText} Print Challan
+            ${Icons.fileText} Print Bill / Slip
           </button>
           <button class="btn btn-outline" onclick="RentalsPage.editRecord()" style="display:inline-flex;align-items:center;gap:6px;">
             ${Icons.edit} Edit
@@ -734,20 +734,14 @@ var RentalsPage = {
       const total = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
       return `
         <tr>
-          <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">${idx + 1}</td>
-          <td style="border: 1px solid #ddd; padding: 10px;">
-            <strong>${mat ? mat.name : 'Unknown Material'}</strong><br>
-            <span style="font-size: 11px; color: #666;">SKU: ${mat ? mat.sku : '-'}</span>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${idx + 1}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px;">
+            <strong>${mat ? mat.name : 'Unknown Material'}</strong> (${i.quantity} ${mat ? mat.unit : ''})
           </td>
-          <td style="border: 1px solid #ddd; padding: 10px; text-align: center; font-weight: bold;">
-            ${i.quantity} ${mat ? mat.unit : ''}
-          </td>
-          <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">
-            ₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'month' : 'day'}
-          </td>
-          <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-weight: bold; color: #10b981;">
-            ₹${total.toLocaleString('en-IN')}
-          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${r.goingDate}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center; font-weight: bold;">${days} Days</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-weight: bold; color: #059669;">₹${total.toLocaleString('en-IN')}</td>
         </tr>
       `;
     }).join('');
@@ -755,23 +749,23 @@ var RentalsPage = {
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`<!DOCTYPE html>
       <html><head>
-        <title>Rental Delivery Challan - ${r.customerName}</title>
+        <title>Rental Delivery Bill / Slip - ${r.customerName}</title>
         <style>
           @page { size: A4 portrait; margin: 15mm; }
           * { box-sizing: border-box; margin: 0; padding: 0; }
-          body { font-family: Arial, sans-serif; color: #333; line-height: 1.5; padding: 20px; background: #fff; }
-          .header { border-bottom: 2px solid #3b82f6; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; }
-          .title { font-size: 24px; font-weight: bold; color: #1e3a8a; }
-          .info-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+          body { font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5; padding: 20px; background: #fff; }
+          .header { border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+          .title { font-size: 24px; font-weight: bold; color: #1e40af; }
+          .info-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
           .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
-          .card h4 { color: #1e3a8a; margin-bottom: 8px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .card h4 { color: #1e40af; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
           .card p { font-size: 13px; margin-bottom: 4px; }
           table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-          th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 12px 10px; text-align: left; font-size: 13px; color: #334155; }
-          td { border: 1px solid #e2e8f0; padding: 10px; font-size: 13px; }
-          .total-section { display: flex; justify-content: flex-end; margin-bottom: 40px; }
-          .total-card { border: 2px solid #10b981; background: #f0fdf4; border-radius: 8px; padding: 16px; min-width: 250px; text-align: right; }
-          .footer { margin-top: 60px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+          th { background: #0f172a; color: white; border: 1px solid #0f172a; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; }
+          td { border: 1px solid #cbd5e1; padding: 10px; font-size: 13px; }
+          .total-section { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
+          .total-card { border: 2px solid #10b981; background: #ecfdf5; border-radius: 8px; padding: 16px; min-width: 250px; text-align: right; }
+          .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
           .sig-line { border-top: 1px solid #94a3b8; width: 200px; margin-top: 40px; text-align: center; padding-top: 8px; }
         </style>
       </head>
@@ -779,11 +773,11 @@ var RentalsPage = {
         <div class="header">
           <div>
             <div class="title">KSS CONSTRUCTION MATERIALS</div>
-            <p style="font-size: 12px; color: #64748b; margin-top: 4px;">Material Rental & Delivery Challan</p>
+            <p style="font-size: 12px; color: #64748b; margin-top: 4px;">Material Rental Bill & Delivery Slip</p>
           </div>
           <div style="text-align: right;">
-            <p style="font-weight: bold;">Challan Date: ${today}</p>
-            <p style="font-size: 12px; color: #64748b;">Contract ID: ${r.id}</p>
+            <p style="font-weight: bold;">Date: ${today}</p>
+            <p style="font-size: 12px; color: #64748b;">Ref: ${r.id}</p>
           </div>
         </div>
 
@@ -797,20 +791,20 @@ var RentalsPage = {
             <h4>Rental Lease Details</h4>
             <p><strong>Going Date:</strong> ${r.goingDate}</p>
             <p><strong>Coming Date:</strong> ${r.comingDate}</p>
-            <p><strong>Billing Rate Basis:</strong> ${isMonthly ? 'MONTHLY BASIS' : 'DAILY BASIS'}</p>
-            <p><strong>Lease Duration:</strong> ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})</p>
-            <p><strong>Lease Status:</strong> ${r.status === 'Active' ? 'ACTIVE LEASE' : 'RETURNED'}</p>
+            <p><strong>Billing Basis:</strong> ${isMonthly ? 'MONTHLY BASIS' : 'DAILY BASIS'}</p>
+            <p><strong>Duration:</strong> ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})</p>
           </div>
         </div>
 
         <table>
           <thead>
             <tr>
-              <th style="width: 8%; text-align: center;">S.No</th>
-              <th>Material Description</th>
-              <th style="width: 15%; text-align: center;">Qty Leased</th>
-              <th style="width: 18%; text-align: right;">Rate (${isMonthly ? 'per Month' : 'per Day'})</th>
-              <th style="width: 20%; text-align: right;">Total Amount</th>
+              <th style="width: 60px; text-align: center;">S.No</th>
+              <th>ITEM Description</th>
+              <th style="width: 120px; text-align: center;">Date</th>
+              <th style="width: 90px; text-align: center;">Days</th>
+              <th style="width: 110px; text-align: right;">Rate (₹)</th>
+              <th style="width: 130px; text-align: right;">Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
@@ -819,8 +813,11 @@ var RentalsPage = {
         </table>
 
         <div class="total-section">
+          <div style="font-weight: 700; font-size: 14px; color: #1e40af; border: 1px solid #93c5fd; background: #eff6ff; padding: 10px 16px; border-radius: 6px;">
+            Statement Period: <strong>${r.goingDate} TO ${r.comingDate}</strong>
+          </div>
           <div class="total-card">
-            <span style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: bold; display: block; margin-bottom: 4px;">Estimated Rental Charge</span>
+            <span style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: bold; display: block; margin-bottom: 4px;">Grand Total Rental Charge</span>
             <span style="font-size: 22px; font-weight: 800; color: #065f46;">₹${Math.round(grandTotal).toLocaleString('en-IN')}</span>
           </div>
         </div>
@@ -859,35 +856,42 @@ var RentalsPage = {
     }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
 
     const monthLabel = new Date(this.selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const yearStr = this.selectedMonth.split('-')[0];
+    const monthStr = this.selectedMonth.split('-')[1];
+
+    // Compute last day of selected month
+    const lastDay = new Date(yearStr, monthStr, 0).getDate();
+    const dateRangeStr = `01-${monthStr}-${yearStr} TO ${lastDay}-${monthStr}-${yearStr}`;
 
     let grandMonthlyBill = 0;
-    const tableRows = monthRecords.map((r, idx) => {
+    let sNoCounter = 1;
+    let tableRowsHtml = '';
+
+    monthRecords.forEach(r => {
       const days = this.getInclusiveDays(r.goingDate, r.comingDate);
       const isMonthly = r.billingBasis === 'Monthly';
       const durationMultiplier = isMonthly ? (days / 30) : days;
-      const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
-      grandMonthlyBill += totalVal;
 
-      const itemsStr = (r.items || []).map(i => {
-        const m = materials.find(x => x.id === i.materialId);
-        return `${m ? m.name : 'Item'}: ${i.quantity} ${m ? m.unit : ''} @ ₹${i.rate}/${isMonthly ? 'mo' : 'day'}`;
-      }).join('<br>');
+      (r.items || []).forEach(i => {
+        const mat = materials.find(x => x.id === i.materialId);
+        const lineTotal = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
+        grandMonthlyBill += lineTotal;
 
-      return `
-        <tr>
-          <td style="padding:8px; border:1px solid #cbd5e1; text-align:center;">${idx + 1}</td>
-          <td style="padding:8px; border:1px solid #cbd5e1;"><strong>${r.goingDate}</strong></td>
-          <td style="padding:8px; border:1px solid #cbd5e1;">
-            <strong>${r.customerName}</strong><br>
-            <span style="font-size:10px; color:#475569;">Site: ${r.siteName || '-'}</span>
-          </td>
-          <td style="padding:8px; border:1px solid #cbd5e1; font-size:11px;">${itemsStr}</td>
-          <td style="padding:8px; border:1px solid #cbd5e1;">${r.goingDate} to ${r.comingDate || 'Active'}</td>
-          <td style="padding:8px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${days} Days (${isMonthly ? (days/30).toFixed(1) + ' mos' : 'Daily'})</td>
-          <td style="padding:8px; border:1px solid #cbd5e1; text-align:right; font-weight:700; color:#059669;">₹${Math.round(totalVal).toLocaleString('en-IN')}</td>
-        </tr>
-      `;
-    }).join('');
+        tableRowsHtml += `
+          <tr>
+            <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-weight:600;">${sNoCounter++}</td>
+            <td style="padding:10px; border:1px solid #cbd5e1;">
+              <strong style="color:#0f172a;">${mat ? mat.name : 'Rental Material'}</strong> (${i.quantity} ${mat ? mat.unit : ''})<br>
+              <span style="font-size:10px; color:#64748b;">Customer: ${r.customerName} | Site: ${r.siteName || '-'}</span>
+            </td>
+            <td style="padding:10px; border:1px solid #cbd5e1; text-align:center;">${r.goingDate}</td>
+            <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${days} Days</td>
+            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}</td>
+            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:700; color:#059669;">₹${lineTotal.toLocaleString('en-IN')}</td>
+          </tr>
+        `;
+      });
+    });
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`
@@ -900,50 +904,55 @@ var RentalsPage = {
           @page { size: A4 portrait; margin: 12mm; }
           body { font-family: 'Inter', sans-serif; color: #0f172a; padding: 10px; background: #fff; line-height: 1.4; }
           .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
-          .title { font-size: 20px; font-weight: 800; color: #1e40af; text-transform: uppercase; }
+          .title { font-size: 22px; font-weight: 800; color: #1e40af; text-transform: uppercase; }
           .sub { font-size: 11px; color: #475569; margin-top: 4px; }
-          .table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 11px; }
-          .table th { background: #0f172a; color: white; padding: 8px; text-align: left; font-size: 10px; text-transform: uppercase; }
-          .table td { padding: 8px; border: 1px solid #cbd5e1; }
-          .summary-box { display: flex; justify-content: space-between; background: #eff6ff; border: 1px solid #bfdbfe; padding: 12px 16px; border-radius: 8px; margin-top: 20px; font-size: 14px; font-weight: 800; }
+          .table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
+          .table th { background: #0f172a; color: white; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; border: 1px solid #0f172a; }
+          .table td { padding: 10px; border: 1px solid #cbd5e1; }
+          .footer-box { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding: 16px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; }
+          .date-range-box { font-size: 15px; font-weight: 800; color: #1e40af; border-bottom: 2px underline #1e40af; }
+          .total-box { font-size: 18px; font-weight: 800; color: #059669; border: 2px solid #10b981; background: #ecfdf5; padding: 10px 20px; border-radius: 6px; }
         </style>
       </head>
       <body>
         <div class="header">
           <div>
             <div class="title">KSS CONSTRUCTION MATERIALS</div>
-            <div class="sub">Monthly Rental Dispatch Register (Date-Wise Inclusive Statement) | Month: <strong>${monthLabel}</strong></div>
+            <div class="sub">Monthly Rental Bill & Dispatch Register | Month: <strong>${monthLabel}</strong></div>
           </div>
           <div style="text-align:right; font-size:10px; color:#64748b;">
             <div>Printed on: ${new Date().toLocaleString('en-IN')}</div>
-            <div>Mode: Independent Warehouse Free Rental</div>
+            <div>Independent Rental Statement</div>
           </div>
         </div>
 
         <table class="table">
           <thead>
             <tr>
-              <th style="width: 30px; text-align: center;">#</th>
-              <th>Dispatch Date</th>
-              <th>Customer & Site</th>
-              <th>Leased Materials & Qty</th>
-              <th>Lease Period</th>
-              <th style="text-align: center;">Inclusive Duration</th>
-              <th style="text-align: right;">Total Rental Bill</th>
+              <th style="width: 50px; text-align: center;">S.No</th>
+              <th>ITEM Description</th>
+              <th style="width: 110px; text-align: center;">Date</th>
+              <th style="width: 90px; text-align: center;">Days</th>
+              <th style="width: 100px; text-align: right;">Rate (₹)</th>
+              <th style="width: 120px; text-align: right;">Amount (₹)</th>
             </tr>
           </thead>
           <tbody>
-            ${tableRows.length > 0 ? tableRows : '<tr><td colspan="7" style="text-align:center; padding:20px;">No rental dispatches found for this month</td></tr>'}
+            ${tableRowsHtml.length > 0 ? tableRowsHtml : '<tr><td colspan="6" style="text-align:center; padding:20px;">No rental dispatches found for this month</td></tr>'}
           </tbody>
         </table>
 
-        <div class="summary-box">
-          <div>Total Dispatches: <strong>${monthRecords.length}</strong></div>
-          <div style="color: #1e40af;">Total Monthly Rental Earnings: <strong>₹${Math.round(grandMonthlyBill).toLocaleString('en-IN')}</strong></div>
+        <div class="footer-box">
+          <div class="date-range-box">
+            ${dateRangeStr}
+          </div>
+          <div class="total-box">
+            Total Amount: ₹${grandMonthlyBill.toLocaleString('en-IN')}
+          </div>
         </div>
 
-        <div style="margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; color: #475569;">
-          <div>Prepared By: KSS System</div>
+        <div style="margin-top: 60px; display: flex; justify-content: space-between; font-size: 12px; color: #475569;">
+          <div>Customer Signature: __________________</div>
           <div>Authorized Signatory: __________________</div>
         </div>
 
