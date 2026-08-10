@@ -1,6 +1,7 @@
 /* ============================================
    BuildMate Labour Contracts Module
    Supports Monthly & Square Feet (Sq Ft) Wise Contracts
+   Includes complete Money Given (Advance/Payment) Tracking
    ============================================ */
 
 var LabourContractsPage = {
@@ -9,6 +10,7 @@ var LabourContractsPage = {
   statusFilter: 'Active', // '', 'Active', 'Completed', 'Suspended'
   selectedContractId: null,
   paymentModalContractId: null,
+  historyModalContractId: null,
 
   init() {
     this.bindEvents();
@@ -35,17 +37,17 @@ var LabourContractsPage = {
     // Summary calculations
     let totalContracts = filtered.length;
     let totalValue = 0;
-    let totalPaid = 0;
+    let totalMoneyGiven = 0;
 
     filtered.forEach(c => {
       totalValue += (parseFloat(c.totalAmount) || 0);
       const payments = Array.isArray(c.receivedPayments) ? c.receivedPayments : [];
       payments.forEach(p => {
-        totalPaid += (parseFloat(p.amount) || 0);
+        totalMoneyGiven += (parseFloat(p.amount) || 0);
       });
     });
 
-    let totalBalance = totalValue - totalPaid;
+    let totalBalance = totalValue - totalMoneyGiven;
 
     return `
       <div class="page-header" style="background: var(--card-bg); padding: 24px; border-radius: var(--card-radius); margin-bottom: 24px; border: 1px solid var(--card-border); box-shadow: var(--card-shadow); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
@@ -61,7 +63,7 @@ var LabourContractsPage = {
           </div>
           <div>
             <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Labour Contracts</h2>
-            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Manage Monthly & Square Feet (Sq Ft) wise site labour contracts</p>
+            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Manage Monthly & Square Feet (Sq Ft) wise site labour contracts & Money Given</p>
           </div>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px;">
@@ -82,8 +84,8 @@ var LabourContractsPage = {
           <div style="font-size: 1.8rem; font-weight: 800; color: #2563eb; margin-top: 4px;">₹${totalValue.toLocaleString('en-IN')}</div>
         </div>
         <div class="card" style="padding: 20px; border-left: 4px solid #10b981;">
-          <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Total Paid / Advance</div>
-          <div style="font-size: 1.8rem; font-weight: 800; color: #059669; margin-top: 4px;">₹${totalPaid.toLocaleString('en-IN')}</div>
+          <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Total Money Given</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #059669; margin-top: 4px;">₹${totalMoneyGiven.toLocaleString('en-IN')}</div>
         </div>
         <div class="card" style="padding: 20px; border-left: 4px solid ${totalBalance > 0 ? '#ef4444' : '#6b7280'};">
           <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Balance To Pay</div>
@@ -123,11 +125,11 @@ var LabourContractsPage = {
             <thead>
               <tr>
                 <th>Contract & Site</th>
-                <th>Contractor</th>
+                <th>Contractor / Labour</th>
                 <th>Type</th>
                 <th>Rate & Scope Details</th>
                 <th>Total Value</th>
-                <th>Paid</th>
+                <th>Money Given</th>
                 <th>Balance Due</th>
                 <th>Status</th>
                 <th style="text-align: right;">Actions</th>
@@ -139,9 +141,9 @@ var LabourContractsPage = {
               ` : filtered.map(c => {
                 const total = parseFloat(c.totalAmount) || 0;
                 const payments = Array.isArray(c.receivedPayments) ? c.receivedPayments : [];
-                const paid = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
-                const bal = total - paid;
-                const pct = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
+                const moneyGiven = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+                const bal = total - moneyGiven;
+                const pct = total > 0 ? Math.min(100, Math.round((moneyGiven / total) * 100)) : 0;
 
                 let rateDetailHtml = '';
                 if (c.basisType === 'SqFt') {
@@ -177,11 +179,18 @@ var LabourContractsPage = {
                       ₹${total.toLocaleString('en-IN')}
                     </td>
                     <td>
-                      <div style="font-weight:700; color: #059669;">₹${paid.toLocaleString('en-IN')}</div>
-                      <div style="width: 100px; height: 5px; background: rgba(0,0,0,0.08); border-radius: 3px; margin-top: 4px; overflow: hidden;">
+                      <div style="display:flex; align-items:center; gap:6px;">
+                        <div style="font-weight:800; color: #059669; font-size:0.95rem;">₹${moneyGiven.toLocaleString('en-IN')}</div>
+                        ${payments.length > 0 ? `
+                          <button class="btn btn-sm btn-ghost" onclick="LabourContractsPage.openHistoryModal('${c.id}')" title="View Money Given History" style="font-size:0.7rem; padding:2px 6px; background:rgba(16,185,129,0.1); color:#059669; border-radius:4px;">
+                            ${payments.length} paid
+                          </button>
+                        ` : ''}
+                      </div>
+                      <div style="width: 110px; height: 5px; background: rgba(0,0,0,0.08); border-radius: 3px; margin-top: 4px; overflow: hidden;">
                         <div style="width: ${pct}%; height: 100%; background: #10b981; border-radius: 3px;"></div>
                       </div>
-                      <div style="font-size: 0.7rem; color: var(--text-tertiary); margin-top:2px;">${pct}% paid</div>
+                      <div style="font-size: 0.7rem; color: var(--text-tertiary); margin-top:2px;">${pct}% cleared</div>
                     </td>
                     <td>
                       <strong style="color: ${bal > 0 ? '#dc2626' : '#16a34a'};">₹${bal.toLocaleString('en-IN')}</strong>
@@ -190,9 +199,9 @@ var LabourContractsPage = {
                       <span class="badge ${badgeClass}">${c.status}</span>
                     </td>
                     <td style="text-align: right;">
-                      <div style="display: flex; gap: 6px; justify-content: flex-end;">
-                        <button class="btn btn-sm btn-ghost" onclick="LabourContractsPage.openPaymentModal('${c.id}')" title="Record Payment" style="color:#059669;">
-                          💰 Pay
+                      <div style="display: flex; gap: 6px; justify-content: flex-end; flex-wrap:wrap;">
+                        <button class="btn btn-sm" onclick="LabourContractsPage.openPaymentModal('${c.id}')" title="Record Money Given" style="background:#10b981; color:white; border:none; font-weight:600; padding:4px 10px; border-radius:6px; display:inline-flex; align-items:center; gap:4px;">
+                          💸 Money Given
                         </button>
                         <button class="btn btn-sm btn-ghost" onclick="LabourContractsPage.printStatement('${c.id}')" title="Print Contract Statement">
                           ${Icons.printer}
@@ -225,8 +234,8 @@ var LabourContractsPage = {
               <input type="hidden" id="lc-id">
 
               <div class="form-group" style="margin-bottom: 16px;">
-                <label for="lc-title">Contract Title / Description <span style="color:var(--danger)">*</span></label>
-                <input type="text" id="lc-title" class="form-control" placeholder="e.g. Shuttering Contract / Masonry Contract" required>
+                <label for="lc-title">Contract Title / Work Description <span style="color:var(--danger)">*</span></label>
+                <input type="text" id="lc-title" class="form-control" placeholder="e.g. Shuttering Contract / Masonry Contract / Structure Work" required>
               </div>
 
               <div class="form-row" style="display:flex; gap:12px; margin-bottom:16px;">
@@ -305,6 +314,11 @@ var LabourContractsPage = {
                 </div>
               </div>
 
+              <div id="lc-initial-advance-container" class="form-group" style="margin-bottom: 16px; background:#ecfdf5; border:1px solid #a7f3d0; padding:12px; border-radius:8px;">
+                <label for="lc-initial-advance" style="color:#065f46; font-weight:700;">Initial Money Given / Advance Paid (₹) <span style="font-weight:400; font-size:0.8em; color:#047857;">(Optional)</span></label>
+                <input type="number" id="lc-initial-advance" class="form-control" placeholder="e.g. 10000" min="0" step="1" style="background:white; border-color:#6ee7b7; margin-top:4px;">
+              </div>
+
               <div class="form-group" style="margin-bottom: 24px;">
                 <label for="lc-notes">Special Terms / Remarks</label>
                 <textarea id="lc-notes" class="form-control" placeholder="Enter any payment schedule, lintel dates, or specific terms..." rows="2"></textarea>
@@ -319,36 +333,49 @@ var LabourContractsPage = {
         </div>
       </div>
 
-      <!-- Payment Modal -->
+      <!-- Money Given Modal -->
       <div class="modal-backdrop" id="lc-pay-modal-backdrop" onclick="LabourContractsPage.closePaymentModal()">
         <div class="modal" id="lc-pay-modal" style="max-width: 460px;" onclick="event.stopPropagation()">
           <div class="modal-header">
-            <h3>Record Contract Payment / Advance</h3>
+            <h3>💸 Record Money Given to Contractor</h3>
             <button type="button" class="modal-close" onclick="LabourContractsPage.closePaymentModal()">${Icons.x}</button>
           </div>
           <div class="modal-body">
             <form id="lc-pay-form" onsubmit="LabourContractsPage.handlePaymentSubmit(event)">
               <div class="form-group" style="margin-bottom: 14px;">
-                <label for="lc-pay-date">Payment Date <span style="color:var(--danger)">*</span></label>
+                <label for="lc-pay-date">Money Given Date <span style="color:var(--danger)">*</span></label>
                 <input type="date" id="lc-pay-date" class="form-control" value="${window.localDateStr()}" required>
               </div>
               <div class="form-group" style="margin-bottom: 14px;">
-                <label for="lc-pay-amount">Amount Paid (₹) <span style="color:var(--danger)">*</span></label>
+                <label for="lc-pay-amount">Money Given Amount (₹) <span style="color:var(--danger)">*</span></label>
                 <input type="number" id="lc-pay-amount" class="form-control" placeholder="e.g. 25000" min="1" step="1" required>
               </div>
               <div class="form-group" style="margin-bottom: 14px;">
                 <label for="lc-pay-mode">Payment Mode / Reference</label>
-                <input type="text" id="lc-pay-mode" class="form-control" placeholder="e.g. Cash / UPI / Bank Transfer">
+                <input type="text" id="lc-pay-mode" class="form-control" placeholder="e.g. Cash / UPI / Bank Transfer / Cheque">
               </div>
               <div class="form-group" style="margin-bottom: 20px;">
-                <label for="lc-pay-notes">Payment Notes</label>
+                <label for="lc-pay-notes">Notes / Purpose</label>
                 <input type="text" id="lc-pay-notes" class="form-control" placeholder="e.g. 1st Advance payment for shuttering work">
               </div>
               <div style="display: flex; gap: 12px; justify-content: flex-end;">
                 <button type="button" class="btn btn-outline" onclick="LabourContractsPage.closePaymentModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="background:#059669; border-color:#059669;">Save Payment</button>
+                <button type="submit" class="btn btn-primary" style="background:#059669; border-color:#059669;">Save Money Given</button>
               </div>
             </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Money Given History Modal -->
+      <div class="modal-backdrop" id="lc-history-modal-backdrop" onclick="LabourContractsPage.closeHistoryModal()">
+        <div class="modal" id="lc-history-modal" style="max-width: 580px;" onclick="event.stopPropagation()">
+          <div class="modal-header">
+            <h3>📜 Money Given Payment History</h3>
+            <button type="button" class="modal-close" onclick="LabourContractsPage.closeHistoryModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body" id="lc-history-modal-body">
+            <!-- Dynamic history table content -->
           </div>
         </div>
       </div>
@@ -433,6 +460,8 @@ var LabourContractsPage = {
     document.getElementById('lc-rate-sqft').value = '';
     document.getElementById('lc-total-sqft').value = '';
     document.getElementById('lc-total-amount').value = '';
+    document.getElementById('lc-initial-advance').value = '';
+    document.getElementById('lc-initial-advance-container').style.display = 'block';
     document.getElementById('lc-status').value = 'Active';
     document.getElementById('lc-notes').value = '';
 
@@ -460,6 +489,7 @@ var LabourContractsPage = {
     document.getElementById('lc-rate-sqft').value = c.ratePerSqFt || '';
     document.getElementById('lc-total-sqft').value = c.totalSqFt || '';
     document.getElementById('lc-total-amount').value = c.totalAmount || '';
+    document.getElementById('lc-initial-advance-container').style.display = 'none';
     document.getElementById('lc-status').value = c.status || 'Active';
     document.getElementById('lc-notes').value = c.notes || '';
 
@@ -487,6 +517,7 @@ var LabourContractsPage = {
     const ratePerSqFt = parseFloat(document.getElementById('lc-rate-sqft').value) || 0;
     const totalSqFt = parseFloat(document.getElementById('lc-total-sqft').value) || 0;
     const totalAmount = parseFloat(document.getElementById('lc-total-amount').value) || 0;
+    const initialAdvance = parseFloat(document.getElementById('lc-initial-advance')?.value) || 0;
     const status = document.getElementById('lc-status').value;
     const notes = document.getElementById('lc-notes').value.trim();
 
@@ -514,6 +545,14 @@ var LabourContractsPage = {
       Store.LabourContracts.update(id, payload);
     } else {
       payload.receivedPayments = [];
+      if (initialAdvance > 0) {
+        payload.receivedPayments.push({
+          date: window.localDateStr(),
+          amount: initialAdvance,
+          reference: 'Initial Advance',
+          notes: 'Contract Opening Advance'
+        });
+      }
       payload.createdAt = window.localDateStr();
       Store.LabourContracts.add(payload);
     }
@@ -568,6 +607,91 @@ var LabourContractsPage = {
     this.refresh();
   },
 
+  openHistoryModal(contractId) {
+    this.historyModalContractId = contractId;
+    const c = Store.LabourContracts.getById(contractId);
+    if (!c) return;
+
+    const payments = Array.isArray(c.receivedPayments) ? c.receivedPayments : [];
+    const totalGiven = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+
+    const bodyHtml = `
+      <div style="margin-bottom: 16px; background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <strong style="color:var(--text-primary); font-size:1.05rem;">${c.contractTitle}</strong>
+          <div style="font-size:0.85rem; color:var(--text-tertiary);">👤 ${c.contractorName} | 📍 ${c.siteName || '—'}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:0.75rem; text-transform:uppercase; color:var(--text-tertiary); font-weight:700;">Total Money Given</div>
+          <div style="font-size:1.3rem; font-weight:800; color:#059669;">₹${totalGiven.toLocaleString('en-IN')}</div>
+        </div>
+      </div>
+
+      <div class="table-container" style="max-height:300px; overflow-y:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Date</th>
+              <th>Mode / Ref</th>
+              <th>Notes / Purpose</th>
+              <th style="text-align:right;">Amount (₹)</th>
+              <th style="text-align:right;">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${payments.length === 0 ? `
+              <tr><td colspan="6" style="text-align:center; padding:24px; color:var(--text-tertiary);">No Money Given records found</td></tr>
+            ` : payments.map((p, idx) => `
+              <tr>
+                <td>${idx + 1}</td>
+                <td><strong>${p.date}</strong></td>
+                <td>${p.reference || 'Cash'}</td>
+                <td>${p.notes || '—'}</td>
+                <td style="text-align:right; font-weight:700; color:#059669;">₹${(parseFloat(p.amount) || 0).toLocaleString('en-IN')}</td>
+                <td style="text-align:right;">
+                  <button class="btn btn-sm btn-ghost" onclick="LabourContractsPage.deletePayment('${c.id}', ${idx})" title="Delete payment" style="color:var(--danger); padding:2px 6px;">
+                    ${Icons.trash}
+                  </button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-sm btn-primary" onclick="LabourContractsPage.closeHistoryModal(); LabourContractsPage.openPaymentModal('${c.id}');" style="background:#10b981; border-color:#10b981;">
+          💸 + Add More Money Given
+        </button>
+        <button class="btn btn-outline" onclick="LabourContractsPage.closeHistoryModal()">Close</button>
+      </div>
+    `;
+
+    document.getElementById('lc-history-modal-body').innerHTML = bodyHtml;
+    document.getElementById('lc-history-modal-backdrop').classList.add('active');
+    document.getElementById('lc-history-modal').classList.add('active');
+  },
+
+  closeHistoryModal() {
+    document.getElementById('lc-history-modal-backdrop')?.classList.remove('active');
+    document.getElementById('lc-history-modal')?.classList.remove('active');
+  },
+
+  deletePayment(contractId, paymentIdx) {
+    if (confirm('Are you sure you want to delete this Money Given entry?')) {
+      const c = Store.LabourContracts.getById(contractId);
+      if (!c) return;
+
+      const payments = Array.isArray(c.receivedPayments) ? [...c.receivedPayments] : [];
+      payments.splice(paymentIdx, 1);
+
+      Store.LabourContracts.update(contractId, { receivedPayments: payments });
+      this.closeHistoryModal();
+      this.refresh();
+    }
+  },
+
   deleteContract(id) {
     if (confirm('Are you sure you want to delete this labour contract?')) {
       Store.LabourContracts.delete(id);
@@ -583,9 +707,9 @@ var LabourContractsPage = {
     if (!printWindow) return;
 
     const payments = Array.isArray(c.receivedPayments) ? c.receivedPayments : [];
-    const totalPaid = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
+    const totalGiven = payments.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0);
     const totalVal = parseFloat(c.totalAmount) || 0;
-    const balDue = totalVal - totalPaid;
+    const balDue = totalVal - totalGiven;
 
     let basisText = '';
     if (c.basisType === 'SqFt') {
@@ -629,7 +753,7 @@ var LabourContractsPage = {
         <div class="header">
           <div>
             <div class="title">KSS Construction Materials</div>
-            <div class="sub">Labour Contract Payment Statement</div>
+            <div class="sub">Labour Contract & Money Given Statement</div>
           </div>
           <div style="text-align:right; font-size:10px; color:#64748b;">
             <div>Statement Date: ${window.localDateStr()}</div>
@@ -656,25 +780,25 @@ var LabourContractsPage = {
           </div>
         </div>
 
-        <h4 style="margin: 16px 0 8px 0; color: #0f172a;">Payment & Advance History</h4>
+        <h4 style="margin: 16px 0 8px 0; color: #0f172a;">Money Given / Advance Payment History</h4>
         <table class="table">
           <thead>
             <tr>
               <th style="width: 40px; text-align: center;">#</th>
-              <th>Date</th>
+              <th>Date Given</th>
               <th>Mode / Ref</th>
-              <th>Notes / Remarks</th>
-              <th style="text-align: right;">Amount Paid</th>
+              <th>Notes / Purpose</th>
+              <th style="text-align: right;">Amount Given (₹)</th>
             </tr>
           </thead>
           <tbody>
-            ${paymentRows.length > 0 ? paymentRows : '<tr><td colspan="5" style="text-align:center; padding:16px; color:#64748b;">No advance/payments logged yet</td></tr>'}
+            ${paymentRows.length > 0 ? paymentRows : '<tr><td colspan="5" style="text-align:center; padding:16px; color:#64748b;">No Money Given entries recorded yet</td></tr>'}
           </tbody>
         </table>
 
         <div class="summary-box">
           <div>Total Contract Value: <strong>₹${totalVal.toLocaleString('en-IN')}</strong></div>
-          <div style="color: #059669;">Total Paid: <strong>₹${totalPaid.toLocaleString('en-IN')}</strong></div>
+          <div style="color: #059669;">Total Money Given: <strong>₹${totalGiven.toLocaleString('en-IN')}</strong></div>
           <div style="color: ${balDue > 0 ? '#dc2626' : '#16a34a'};">Net Balance Due: <strong>₹${balDue.toLocaleString('en-IN')}</strong></div>
         </div>
 
