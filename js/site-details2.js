@@ -248,10 +248,17 @@ var SiteDetailsPage = {
             </div>
             <div style="max-height: 340px; overflow-y: auto; margin-top: 8px;">
               ${(() => {
-                const dispatchedMaterials = materials.filter(m => Store.Inventory.getSiteTotalSent(m.id, site.id) > 0);
-                if (dispatchedMaterials.length === 0) {
-                  return '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials dispatched to this site yet.</p>';
+                if (materials.length === 0) {
+                  return '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials available in catalog.</p>';
                 }
+
+                // Sort: materials with site balance or sent first, then remaining materials
+                const sortedMatList = [...materials].sort((a, b) => {
+                  const sentA = Store.Inventory.getSiteTotalSent(a.id, site.id);
+                  const sentB = Store.Inventory.getSiteTotalSent(b.id, site.id);
+                  return sentB - sentA;
+                });
+
                 return `
                   <table class="inline-table w-100">
                     <thead>
@@ -261,15 +268,17 @@ var SiteDetailsPage = {
                       </tr>
                     </thead>
                     <tbody>
-                      ${dispatchedMaterials.map(m => {
+                      ${sortedMatList.map(m => {
                         const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site.id);
                         const totalReturned = Store.Inventory.getSiteReturns(m.id, site.id);
                         const remaining     = totalSent - totalReturned;
+                        const hasHistory    = totalSent > 0 || totalReturned > 0;
+
                         return `
                           <tr>
                             <td>
-                              <div style="font-weight:600;font-size:0.9rem;">${m.name}</div>
-                              <div style="font-size:0.75rem;color:var(--text-tertiary);">${m.unit} &bull; Sent: ${totalSent} | Ret: ${totalReturned} | Left: ${remaining}</div>
+                              <div style="font-weight:600;font-size:0.9rem; color:var(--text-primary);">${m.name}</div>
+                              <div style="font-size:0.75rem;color:var(--text-tertiary);">${m.unit} ${hasHistory ? `&bull; Sent: ${totalSent} | Ret: ${totalReturned} | Left: ${remaining}` : '(Catalog Material)'}</div>
                             </td>
                             <td>
                               <input
@@ -277,9 +286,8 @@ var SiteDetailsPage = {
                                 class="form-control"
                                 placeholder="0"
                                 min="0"
-                                step="1"
+                                step="any"
                                 data-material-id="${m.id}"
-                                oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                               >
                             </td>
                           </tr>
@@ -402,6 +410,7 @@ var SiteDetailsPage = {
       totalReturned += qty;
       totalSqFtReturned += sqFt;
       rows.push({
+        returnId: record.id,
         date: record.date,
         type: 'Outgoing',
         material: matName,
@@ -469,12 +478,19 @@ var SiteDetailsPage = {
             </div>
           </div>
 
-          <!-- Right: qty + date -->
-          <div style="text-align:right; flex-shrink:0;">
-            <div style="font-weight:800; font-size:1.1rem; color:${color}; white-space:nowrap;">
-              ${sign}${r.qty.toLocaleString('en-IN')} <span style="font-size:0.78rem; font-weight:500; color:var(--text-secondary);">${r.unit}</span>
+          <!-- Right: qty + date + action -->
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="text-align:right; flex-shrink:0;">
+              <div style="font-weight:800; font-size:1.1rem; color:${color}; white-space:nowrap;">
+                ${sign}${r.qty.toLocaleString('en-IN')} <span style="font-size:0.78rem; font-weight:500; color:var(--text-secondary);">${r.unit}</span>
+              </div>
+              <div style="font-size:0.72rem; color:var(--text-tertiary); margin-top:3px;">${safeFormatDate(r.date)}</div>
             </div>
-            <div style="font-size:0.72rem; color:var(--text-tertiary); margin-top:3px;">${safeFormatDate(r.date)}</div>
+            ${r.returnId ? `
+              <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteReturn('${r.returnId}')" title="Delete Return Record" style="color:var(--danger); padding:4px;">
+                ${Icons.trash}
+              </button>
+            ` : ''}
           </div>
         </div>
       `;
@@ -667,6 +683,13 @@ var SiteDetailsPage = {
 
     this.closeReturnModal();
     this.refresh();
+  },
+
+  deleteReturn(returnId) {
+    if (confirm('Are you sure you want to delete this material return entry?')) {
+      Store.SiteReturns.delete(returnId);
+      this.refresh();
+    }
   },
 
   exportExcel() {
