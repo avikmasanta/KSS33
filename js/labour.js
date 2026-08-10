@@ -456,6 +456,22 @@ var LabourPage = {
     };
 
     return `
+      <!-- Worker Header & Actions -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:16px;">
+        <div>
+          <h3 style="margin:0; font-size:1.35rem; color:var(--text-primary); font-weight:800;">${labour.name}</h3>
+          <p style="margin:2px 0 0 0; color:var(--text-tertiary); font-size:0.85rem;">Registered Worker Profile & Financial Ledger</p>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="LabourPage.printPDF('${labour.id}')" style="display:inline-flex; align-items:center; gap:6px;">
+            ${Icons.printer || Icons.fileText} Print Worker Statement / Payslip
+          </button>
+          <button class="btn btn-outline" onclick="LabourPage.openEditLabourModal('${labour.id}')" style="display:inline-flex; align-items:center; gap:6px;">
+            ${Icons.edit} Edit Details
+          </button>
+        </div>
+      </div>
+
       <!-- Personal Info Grid -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color);">
         <div>
@@ -702,7 +718,10 @@ var LabourPage = {
               ${sites.map(s => `<option value="${s.id}" ${this.globalSiteId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
           </div>
-          <div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+            <button class="btn btn-outline" onclick="LabourPage.printDailyAttendanceSheet()" style="height:42px; display:inline-flex; align-items:center; gap:6px;">
+              ${Icons.printer || Icons.fileText} Print Daily Attendance Sheet
+            </button>
             <button class="btn btn-success" onclick="LabourPage.saveDailyLogs()" style="height:42px; display:inline-flex; align-items:center; gap:6px;">
               ${Icons.check} Save All logs
             </button>
@@ -943,6 +962,170 @@ var LabourPage = {
     });
   },
 
+  printDailyAttendanceSheet() {
+    const activeLabours = Store.Labours.getAll().filter(l => l.status === 'Active');
+    const sites = Store.Sites.getAll();
+    const globalSite = this.globalSiteId ? Store.Sites.getById(this.globalSiteId) : null;
+    const printDate = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+
+    let presentCount = 0;
+    let halfDayCount = 0;
+    let absentCount = 0;
+    let totalGrossWage = 0;
+    let totalPaid = 0;
+    let totalOtHours = 0;
+
+    let rowsHtml = activeLabours.map((l, idx) => {
+      const log = this.dailyLogsData[l.id] || {};
+      const att = log.attendance || 'Absent';
+
+      if (att === 'Present') presentCount++;
+      else if (att === 'Half Day') halfDayCount++;
+      else absentCount++;
+
+      const masterLabour = Store.Labours.getById(l.id) || l;
+      let wage = log.dailyWage;
+      if (wage === undefined) {
+        wage = masterLabour.defaultWage || 500;
+      }
+
+      const attVal = att === 'Present' ? 1.0 : (att === 'Half Day' ? 0.5 : 0);
+      const earnedWage = Math.round(wage * attVal);
+      const otHours = parseFloat(log.overtimeHours) || 0;
+      const otPay = otHours > 0 ? Math.round((wage / 8) * otHours) : 0;
+      const moneyPaid = Math.round(log.moneyGiven || 0);
+      const netEarned = earnedWage + otPay;
+
+      totalGrossWage += netEarned;
+      totalPaid += moneyPaid;
+      totalOtHours += otHours;
+
+      const siteObj = log.siteId ? Store.Sites.getById(log.siteId) : globalSite;
+      const siteName = siteObj ? siteObj.name : '—';
+
+      let attBadgeBg = '#dcfce7'; let attColor = '#15803d';
+      if (att === 'Half Day') { attBadgeBg = '#fef9c3'; attColor = '#a16207'; }
+      if (att === 'Absent') { attBadgeBg = '#fee2e2'; attColor = '#b91c1c'; }
+
+      return `
+        <tr>
+          <td style="text-align:center; padding:8px; border:1px solid #cbd5e1;">${idx + 1}</td>
+          <td style="padding:8px; border:1px solid #cbd5e1;">
+            <strong style="color:#0f172a; font-size:13px;">${l.name}</strong>
+            ${l.nickname ? `<span style="font-size:11px; color:#64748b;">(${l.nickname})</span>` : ''}
+            <div style="font-size:10px; color:#64748b;">📞 ${l.phone || 'N/A'}</div>
+          </td>
+          <td style="text-align:center; padding:8px; border:1px solid #cbd5e1;">
+            <span style="background:${attBadgeBg}; color:${attColor}; padding:3px 8px; border-radius:4px; font-weight:700; font-size:11px;">
+              ${att}
+            </span>
+          </td>
+          <td style="padding:8px; border:1px solid #cbd5e1; font-size:12px;">${siteName}</td>
+          <td style="text-align:right; padding:8px; border:1px solid #cbd5e1; font-weight:600;">₹${wage.toLocaleString('en-IN')}</td>
+          <td style="text-align:center; padding:8px; border:1px solid #cbd5e1; color:#6b21a8; font-weight:600;">${otHours > 0 ? otHours + ' hrs (₹' + otPay + ')' : '—'}</td>
+          <td style="text-align:right; padding:8px; border:1px solid #cbd5e1; font-weight:700; color:#059669;">₹${moneyPaid.toLocaleString('en-IN')}</td>
+          <td style="text-align:right; padding:8px; border:1px solid #cbd5e1; font-weight:800; color:#1e40af;">₹${netEarned.toLocaleString('en-IN')}</td>
+          <td style="border:1px solid #cbd5e1; width:100px;"></td>
+        </tr>
+      `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>KSS Labour Daily Attendance Sheet - ${this.logDate}</title>
+        <style>
+          @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+          @page { size: A4 portrait; margin: 12mm; }
+          body { font-family: 'Inter', sans-serif; color: #0f172a; padding: 10px; background: #fff; line-height: 1.4; }
+          .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
+          .title { font-size: 22px; font-weight: 800; color: #1e40af; text-transform: uppercase; }
+          .sub { font-size: 11px; color: #475569; margin-top: 4px; }
+          .metrics-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; }
+          .m-box { text-align: center; border-right: 1px solid #e2e8f0; }
+          .m-box:last-child { border-right: none; }
+          .m-lbl { font-size: 9px; text-transform: uppercase; font-weight: 700; color: #64748b; }
+          .m-num { font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 2px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+          th { background: #0f172a; color: white; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; border: 1px solid #0f172a; }
+          td { border: 1px solid #cbd5e1; }
+          .footer-sig { margin-top: 40px; display: flex; justify-content: space-between; font-size: 12px; color: #475569; }
+          .sig-line { border-top: 1px solid #94a3b8; width: 180px; text-align: center; padding-top: 6px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="title">KSS CONSTRUCTION MATERIALS</div>
+            <div class="sub">Daily Labour Attendance & Wage Log | Date: <strong>${this.logDate}</strong> ${globalSite ? '| Site: ' + globalSite.name : ''}</div>
+          </div>
+          <div style="text-align:right; font-size:10px; color:#64748b;">
+            <div>Printed on: ${printDate}</div>
+            <div>Daily Muster Roll</div>
+          </div>
+        </div>
+
+        <div class="metrics-bar">
+          <div class="m-box">
+            <div class="m-lbl">Total Workers</div>
+            <div class="m-num">${activeLabours.length}</div>
+          </div>
+          <div class="m-box">
+            <div class="m-lbl" style="color:#15803d;">Present</div>
+            <div class="m-num" style="color:#15803d;">${presentCount}</div>
+          </div>
+          <div class="m-box">
+            <div class="m-lbl" style="color:#a16207;">Half Day</div>
+            <div class="m-num" style="color:#a16207;">${halfDayCount}</div>
+          </div>
+          <div class="m-box">
+            <div class="m-lbl" style="color:#b91c1c;">Absent</div>
+            <div class="m-num" style="color:#b91c1c;">${absentCount}</div>
+          </div>
+          <div class="m-box">
+            <div class="m-lbl" style="color:#2563eb;">Total Net Earned</div>
+            <div class="m-num" style="color:#2563eb;">₹${totalGrossWage.toLocaleString('en-IN')}</div>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 40px; text-align: center;">S.No</th>
+              <th>Labour Name</th>
+              <th style="width: 110px; text-align: center;">Status</th>
+              <th style="width: 120px;">Site Location</th>
+              <th style="width: 100px; text-align: right;">Wage Rate</th>
+              <th style="width: 110px; text-align: center;">Overtime</th>
+              <th style="width: 110px; text-align: right;">Money Paid</th>
+              <th style="width: 110px; text-align: right;">Net Wage</th>
+              <th style="width: 100px; text-align: center;">Signature</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml.length > 0 ? rowsHtml : '<tr><td colspan="9" style="text-align:center; padding:20px;">No labour attendance recorded for this date</td></tr>'}
+          </tbody>
+        </table>
+
+        <div class="footer-sig">
+          <div class="sig-line">Supervisor Signature</div>
+          <div class="sig-line">Authorized Signatory</div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() { window.print(); }, 300);
+          }
+        </script>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  },
+
   // ==========================================
   // REPORTS TAB
   // ==========================================
@@ -992,7 +1175,7 @@ var LabourPage = {
           ${Icons.download} Export Excel
         </button>
         <button class="btn btn-primary" onclick="LabourPage.printPDF()" style="display:inline-flex; align-items:center; gap:6px;">
-          ${Icons.fileText} Export PDF
+          ${Icons.printer || Icons.fileText} Print Payroll Summary Report
         </button>
       </div>
 
