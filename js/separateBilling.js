@@ -1523,7 +1523,6 @@ var SeparateBillingPage = (function() {
       }
     }
     html += '<div class="summary-row bold-total" style="color:#0f3c7a;"><span>Grand Total' + (isGstDisabled ? '' : ' (Incl. GST)') + '</span><span>₹ ' + grandTotal.toFixed(2) + '</span></div>';
-    }
 
     if (payments.length > 0) {
       payments.forEach(function(p) {
