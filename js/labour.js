@@ -1385,32 +1385,83 @@ var LabourPage = {
 
   // EXPORT PRINTABLE PDF
   printPDF(targetLabourId = null) {
-    let laboursToPrint = this.summaryData.labours || [];
+    let rawLabours = Store.Labours ? Store.Labours.getAll() : [];
     if (targetLabourId) {
-      laboursToPrint = laboursToPrint.filter(l => String(l.id || l._id) === String(targetLabourId));
-      if (laboursToPrint.length === 0) {
-        const masterL = Store.Labours ? Store.Labours.getById(targetLabourId) : null;
-        if (masterL) {
-          laboursToPrint = [{
-            id: masterL.id || masterL._id,
-            _id: masterL._id || masterL.id,
-            name: masterL.name,
-            nickname: masterL.nickname,
-            phone: masterL.phone,
-            presentDays: 0, halfDays: 0, absentDays: 0,
-            grossWages: 0, totalOvertime: 0, totalOvertimeHours: 0, totalMoneyGiven: 0,
-            payableAmount: 0, advanceBalance: 0,
-            presentDates: [], halfDayDates: [], absentDates: [],
-            overtimeLogs: [], paymentLogs: []
-          }];
-        }
-      }
+      rawLabours = rawLabours.filter(l => String(l.id || l._id) === String(targetLabourId));
+    }
+    if (rawLabours.length === 0 && this.summaryData.labours && this.summaryData.labours.length > 0) {
+      rawLabours = this.summaryData.labours;
     }
 
-    if (laboursToPrint.length === 0) {
-      alert("No labour data available to export.");
+    if (rawLabours.length === 0) {
+      alert("No labour records found in system.");
       return;
     }
+
+    const allLogs = Store.LabourLogs ? Store.LabourLogs.getAll() : [];
+
+    const laboursToPrint = rawLabours.map(labour => {
+      if (labour.presentDays !== undefined && labour.overtimeLogs !== undefined) {
+        return labour;
+      }
+
+      const lId = String(labour.id || labour._id);
+      const logs = allLogs.filter(log => String(log.labourId) === lId);
+
+      let presentDays = 0, halfDays = 0, absentDays = 0;
+      let grossWages = 0, totalOtHours = 0, totalOtPay = 0, totalMoneyGiven = 0;
+      const overtimeLogs = [], paymentLogs = [];
+
+      logs.forEach(log => {
+        const att = log.attendance || 'Absent';
+        if (att === 'Present') presentDays++;
+        else if (att === 'Half Day') halfDays++;
+        else absentDays++;
+
+        const attVal = att === 'Present' ? 1.0 : (att === 'Half Day' ? 0.5 : 0);
+        const wage = parseFloat(log.dailyWage) || (labour.defaultWage || 500);
+        grossWages += wage * attVal;
+
+        const otH = parseFloat(log.overtimeHours) || 0;
+        const otP = parseFloat(log.overtime) || 0;
+        const otPay = otH > 0 ? (wage / 8) * otH : otP;
+        totalOtHours += otH;
+        totalOtPay += otPay;
+
+        if (otH > 0 || otP > 0) {
+          overtimeLogs.push({ date: log.date, hours: otH, pay: otPay, time: log.overtimeTime || '' });
+        }
+
+        const mg = parseFloat(log.moneyGiven) || 0;
+        totalMoneyGiven += mg;
+        if (mg > 0) {
+          paymentLogs.push({ date: log.date, amount: mg, notes: log.notes || '' });
+        }
+      });
+
+      const totalEarned = grossWages + totalOtPay;
+      const payableAmount = totalEarned > totalMoneyGiven ? (totalEarned - totalMoneyGiven) : 0;
+      const advanceBalance = totalMoneyGiven > totalEarned ? (totalMoneyGiven - totalEarned) : 0;
+
+      return {
+        id: labour.id || labour._id,
+        name: labour.name,
+        nickname: labour.nickname || '',
+        phone: labour.phone || '',
+        presentDays,
+        halfDays,
+        absentDays,
+        grossWages: Math.round(grossWages),
+        totalOvertimeHours: Number(totalOtHours.toFixed(1)),
+        totalOvertime: Math.round(totalOtPay),
+        totalMoneyGiven: Math.round(totalMoneyGiven),
+        payableAmount: Math.round(payableAmount),
+        advanceBalance: Math.round(advanceBalance),
+        overtimeLogs,
+        paymentLogs,
+        periodLogs: logs
+      };
+    });
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
