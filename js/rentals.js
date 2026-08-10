@@ -142,11 +142,11 @@ var RentalsPage = {
     let totalMonthlyBill = 0;
 
     monthRecords.forEach(r => {
-      const days = this.getInclusiveDays(r.goingDate, r.comingDate);
+      const days = this.getDaysInMonth(r.goingDate, r.comingDate, this.selectedMonth);
       const isMonthly = r.billingBasis === 'Monthly';
       const durationMultiplier = isMonthly ? (days / 30) : days;
 
-      if (r.items) {
+      if (r.items && days > 0) {
         r.items.forEach(i => {
           totalItemsLeased += parseFloat(i.quantity || 0);
           totalMonthlyBill += parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier;
@@ -202,8 +202,8 @@ var RentalsPage = {
                 <th>Customer & Site</th>
                 <th>Materials Dispatched</th>
                 <th>Rate Basis</th>
-                <th>Lease Duration</th>
-                <th style="text-align: right;">Total Bill</th>
+                <th>Lease Duration (${monthLabel})</th>
+                <th style="text-align: right;">Total Bill (${monthLabel})</th>
                 <th>Status</th>
                 <th style="text-align: right;">Action</th>
               </tr>
@@ -212,7 +212,7 @@ var RentalsPage = {
               ${monthRecords.length === 0 ? `
                 <tr><td colspan="8" style="text-align:center; padding: 48px; color: var(--text-tertiary);">No rental dispatches found for ${monthLabel}.</td></tr>
               ` : monthRecords.map(r => {
-                const days = this.getInclusiveDays(r.goingDate, r.comingDate);
+                const days = this.getDaysInMonth(r.goingDate, r.comingDate, this.selectedMonth);
                 const isMonthly = r.billingBasis === 'Monthly';
                 const durationMultiplier = isMonthly ? (days / 30) : days;
                 const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
@@ -241,7 +241,7 @@ var RentalsPage = {
                     </td>
                     <td>
                       <span class="badge badge-info" style="font-size:0.8rem; padding: 4px 8px;">
-                        ${days} Days ${r.comingDate ? '' : '(Active)'}
+                        ${days} Days in ${monthLabel} ${r.comingDate ? '' : '(Active)'}
                       </span>
                     </td>
                     <td style="text-align: right; font-weight: 800; color: #059669; font-size: 1.05rem;">
@@ -301,6 +301,59 @@ var RentalsPage = {
     return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
   },
 
+  getDaysInMonth(goingDate, comingDate, targetMonthStr) {
+    if (!goingDate || !targetMonthStr) return 0;
+
+    const parts = targetMonthStr.split('-');
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+
+    const mStart = new Date(year, month, 1, 0, 0, 0, 0);
+    const mEnd = new Date(year, month + 1, 0, 23, 59, 59, 999);
+
+    const gDate = new Date(goingDate + 'T00:00:00');
+    if (gDate > mEnd) return 0;
+
+    let cDate;
+    if (comingDate) {
+      cDate = new Date(comingDate + 'T23:59:59');
+    } else {
+      cDate = new Date();
+    }
+
+    if (cDate < mStart) return 0;
+
+    const effectiveStart = gDate > mStart ? gDate : mStart;
+    const effectiveEnd = cDate < mEnd ? cDate : mEnd;
+
+    if (effectiveStart > effectiveEnd) return 0;
+
+    const utc1 = Date.UTC(effectiveStart.getFullYear(), effectiveStart.getMonth(), effectiveStart.getDate());
+    const utc2 = Date.UTC(effectiveEnd.getFullYear(), effectiveEnd.getMonth(), effectiveEnd.getDate());
+    const diffMs = utc2 - utc1;
+    if (diffMs < 0) return 0;
+
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1;
+  },
+
+  getContractMonths(goingDate, comingDate) {
+    if (!goingDate) return [];
+    const start = new Date(goingDate + 'T00:00:00');
+    const end = comingDate ? new Date(comingDate + 'T00:00:00') : new Date();
+
+    const months = [];
+    let cur = new Date(start.getFullYear(), start.getMonth(), 1);
+    const last = new Date(end.getFullYear(), end.getMonth(), 1);
+
+    while (cur <= last) {
+      const yyyy = cur.getFullYear();
+      const mm = String(cur.getMonth() + 1).padStart(2, '0');
+      months.push(`${yyyy}-${mm}`);
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    return months;
+  },
+
   renderDetails() {
     if (!this.selectedId) {
       return `
@@ -320,6 +373,7 @@ var RentalsPage = {
     const isMonthly = r.billingBasis === 'Monthly';
     const durationMultiplier = isMonthly ? (days / 30) : days;
     const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+    const contractMonths = this.getContractMonths(r.goingDate, r.comingDate);
 
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:24px; border-bottom: 1px solid var(--border-color); padding-bottom:20px;">
@@ -339,7 +393,7 @@ var RentalsPage = {
             </button>
           ` : ''}
           <button class="btn btn-outline" onclick="RentalsPage.printChallan()" style="display:inline-flex;align-items:center;gap:6px;">
-            ${Icons.fileText} Print Bill / Slip
+            ${Icons.fileText} Print Cumulative Slip
           </button>
           <button class="btn btn-outline" onclick="RentalsPage.editRecord()" style="display:inline-flex;align-items:center;gap:6px;">
             ${Icons.edit} Edit
@@ -364,7 +418,7 @@ var RentalsPage = {
           </div>
         </div>
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
-          <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Rental Duration</div>
+          <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Total Lifetime Duration</div>
           <div style="font-weight: 700; color: var(--primary); font-size: 1.1rem;">
             ${days} Days ${r.comingDate ? `(${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})` : '(Till Today)'}
           </div>
@@ -414,12 +468,61 @@ var RentalsPage = {
         </table>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; align-items: center; background: var(--bg-body); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
+      <div style="display: flex; justify-content: flex-end; align-items: center; background: var(--bg-body); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 24px;">
         <div style="text-align: right;">
           <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Grand Total Revenue</div>
           <div style="font-size: 2rem; font-weight: 800; color: var(--success); line-height: 1;">
             ₹${Math.round(grandTotal).toLocaleString('en-IN')}
           </div>
+        </div>
+      </div>
+
+      <!-- Month-Wise Rental Breakdown Card -->
+      <div class="card" style="padding: 20px; border: 1px solid var(--border-color);">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+          <div>
+            <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary); font-weight:700;">📅 Month-Wise Rental Breakdown & Slips</h4>
+            <p style="margin:2px 0 0 0; font-size:0.85rem; color:var(--text-tertiary);">Separate month-by-month billing statements for this contract</p>
+          </div>
+        </div>
+        <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+          <table class="data-table" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--bg-body);">
+                <th align="left" style="padding: 12px 16px;">Billing Month</th>
+                <th align="center" style="padding: 12px 16px; text-align:center;">Active Days in Month</th>
+                <th align="right" style="padding: 12px 16px; text-align:right;">Monthly Bill Total</th>
+                <th align="right" style="padding: 12px 16px; text-align:right;">Print Slip</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${contractMonths.map(mStr => {
+                const mDays = RentalsPage.getDaysInMonth(r.goingDate, r.comingDate, mStr);
+                const mMultiplier = isMonthly ? (mDays / 30) : mDays;
+                const mTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * mMultiplier), 0) : 0;
+                const mLabel = new Date(mStr + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+                return `
+                  <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 14px 16px; font-weight: 700; color: var(--text-primary);">
+                      📅 ${mLabel}
+                    </td>
+                    <td align="center" style="padding: 14px 16px; text-align:center;">
+                      <span class="badge badge-info" style="font-size:0.85rem; padding: 4px 10px;">${mDays} Days</span>
+                    </td>
+                    <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 800; color: #059669; font-size:1.05rem;">
+                      ₹${Math.round(mTotal).toLocaleString('en-IN')}
+                    </td>
+                    <td align="right" style="padding: 14px 16px; text-align:right;">
+                      <button class="btn btn-sm btn-outline" onclick="RentalsPage.printMonthlyChallan('${r.id}', '${mStr}')" style="display:inline-flex; align-items:center; gap:6px;">
+                        ${Icons.printer} Print ${mLabel} Slip
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
         </div>
       </div>
     `;
@@ -870,6 +973,145 @@ var RentalsPage = {
     printWindow.document.close();
   },
 
+  printMonthlyChallan(contractId, targetMonthStr) {
+    contractId = contractId || this.selectedId;
+    if (!contractId) return;
+    const r = Store.RentalSites.getById(contractId);
+    if (!r) return;
+
+    targetMonthStr = targetMonthStr || this.selectedMonth || new Date().toISOString().slice(0, 7);
+
+    const materials = Store.Materials.getAll();
+    const daysInMonth = this.getDaysInMonth(r.goingDate, r.comingDate, targetMonthStr);
+    const isMonthly = r.billingBasis === 'Monthly';
+    const durationMultiplier = isMonthly ? (daysInMonth / 30) : daysInMonth;
+
+    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const monthLabel = new Date(targetMonthStr + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const yearStr = targetMonthStr.split('-')[0];
+    const monthStr = targetMonthStr.split('-')[1];
+    const lastDayNum = new Date(yearStr, monthStr, 0).getDate();
+    const monthRangeStr = `01-${monthStr}-${yearStr} TO ${lastDayNum}-${monthStr}-${yearStr}`;
+
+    const rows = (r.items || []).map((i, idx) => {
+      const mat = materials.find(m => m.id === i.materialId);
+      const total = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
+      return `
+        <tr>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${idx + 1}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px;">
+            <strong>${mat ? mat.name : 'Unknown Material'}</strong> (${i.quantity} ${mat ? mat.unit : ''})
+          </td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${r.goingDate}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center; font-weight: bold;">${daysInMonth} Days</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'mo' : 'day'}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-weight: bold; color: #059669;">₹${total.toLocaleString('en-IN')}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html>
+      <html><head>
+        <title>Monthly Rental Bill Slip - ${r.customerName} (${monthLabel})</title>
+        <style>
+          @page { size: A4 portrait; margin: 15mm; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5; padding: 20px; background: #fff; }
+          .header { border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 20px; display: flex; justify-content: space-between; }
+          .title { font-size: 24px; font-weight: bold; color: #1e40af; }
+          .info-block { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+          .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
+          .card h4 { color: #1e40af; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
+          .card p { font-size: 13px; margin-bottom: 4px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          th { background: #0f172a; color: white; border: 1px solid #0f172a; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; }
+          td { border: 1px solid #cbd5e1; padding: 10px; font-size: 13px; }
+          .total-section { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
+          .total-card { border: 2px solid #10b981; background: #ecfdf5; border-radius: 8px; padding: 16px; min-width: 250px; text-align: right; }
+          .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+          .sig-line { border-top: 1px solid #94a3b8; width: 200px; margin-top: 40px; text-align: center; padding-top: 8px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div>
+            <div class="title">KSS CONSTRUCTION MATERIALS</div>
+            <p style="font-size: 12px; color: #64748b; margin-top: 4px;">Month-Wise Rental Bill & Delivery Slip | <strong>${monthLabel}</strong></p>
+          </div>
+          <div style="text-align: right;">
+            <p style="font-weight: bold;">Date: ${today}</p>
+            <p style="font-size: 12px; color: #64748b;">Ref: ${r.id}</p>
+          </div>
+        </div>
+
+        <div class="info-block">
+          <div class="card">
+            <h4>Customer & Site Info</h4>
+            <p><strong>Customer Name:</strong> ${r.customerName}</p>
+            <p><strong>Site Location:</strong> ${r.siteName || '-'}</p>
+          </div>
+          <div class="card">
+            <h4>Monthly Rental Statement Details</h4>
+            <p><strong>Billing Month:</strong> <span style="color:#1e40af; font-weight:bold;">${monthLabel}</span></p>
+            <p><strong>Dispatch Start Date:</strong> ${r.goingDate}</p>
+            <p><strong>Billing Basis:</strong> ${isMonthly ? 'MONTHLY BASIS' : 'DAILY BASIS'}</p>
+            <p><strong>Active Days in ${monthLabel}:</strong> ${daysInMonth} Days</p>
+          </div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 60px; text-align: center;">S.No</th>
+              <th>ITEM Description</th>
+              <th style="width: 120px; text-align: center;">Going Date</th>
+              <th style="width: 110px; text-align: center;">Days (${monthLabel})</th>
+              <th style="width: 110px; text-align: right;">Rate (₹)</th>
+              <th style="width: 130px; text-align: right;">Amount (₹)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+
+        <div class="total-section">
+          <div style="font-weight: 700; font-size: 14px; color: #1e40af; border: 1px solid #93c5fd; background: #eff6ff; padding: 10px 16px; border-radius: 6px;">
+            Statement Month Period: <strong>${monthRangeStr}</strong>
+          </div>
+          <div class="total-card">
+            <span style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: bold; display: block; margin-bottom: 4px;">Total Bill Amount (${monthLabel})</span>
+            <span style="font-size: 22px; font-weight: 800; color: #065f46;">₹${Math.round(grandTotal).toLocaleString('en-IN')}</span>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div>
+            <p>Printed on: ${new Date().toLocaleString('en-IN')}</p>
+            <p>Thank you for your business!</p>
+          </div>
+          <div style="display: flex; gap: 40px;">
+            <div class="sig-line">Customer Signature</div>
+            <div class="sig-line">Authorized Signatory</div>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              window.close();
+            }, 300);
+          }
+        </script>
+      </body></html>
+    `);
+    printWindow.document.close();
+  },
+
   printMonthlyRegister() {
     const allRecords = Store.RentalSites.getAll();
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
@@ -897,29 +1139,31 @@ var RentalsPage = {
     let tableRowsHtml = '';
 
     monthRecords.forEach(r => {
-      const days = this.getInclusiveDays(r.goingDate, r.comingDate);
+      const days = this.getDaysInMonth(r.goingDate, r.comingDate, this.selectedMonth);
       const isMonthly = r.billingBasis === 'Monthly';
       const durationMultiplier = isMonthly ? (days / 30) : days;
 
-      (r.items || []).forEach(i => {
-        const mat = materials.find(x => x.id === i.materialId);
-        const lineTotal = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
-        grandMonthlyBill += lineTotal;
+      if (days > 0) {
+        (r.items || []).forEach(i => {
+          const mat = materials.find(x => x.id === i.materialId);
+          const lineTotal = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
+          grandMonthlyBill += lineTotal;
 
-        tableRowsHtml += `
-          <tr>
-            <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-weight:600;">${sNoCounter++}</td>
-            <td style="padding:10px; border:1px solid #cbd5e1;">
-              <strong style="color:#0f172a;">${mat ? mat.name : 'Rental Material'}</strong> (${i.quantity} ${mat ? mat.unit : ''})<br>
-              <span style="font-size:10px; color:#64748b;">Customer: ${r.customerName} | Site: ${r.siteName || '-'}</span>
-            </td>
-            <td style="padding:10px; border:1px solid #cbd5e1; text-align:center;">${r.goingDate}</td>
-            <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${days} Days</td>
-            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}</td>
-            <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:700; color:#059669;">₹${lineTotal.toLocaleString('en-IN')}</td>
-          </tr>
-        `;
-      });
+          tableRowsHtml += `
+            <tr>
+              <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-weight:600;">${sNoCounter++}</td>
+              <td style="padding:10px; border:1px solid #cbd5e1;">
+                <strong style="color:#0f172a;">${mat ? mat.name : 'Rental Material'}</strong> (${i.quantity} ${mat ? mat.unit : ''})<br>
+                <span style="font-size:10px; color:#64748b;">Customer: ${r.customerName} | Site: ${r.siteName || '-'}</span>
+              </td>
+              <td style="padding:10px; border:1px solid #cbd5e1; text-align:center;">${r.goingDate}</td>
+              <td style="padding:10px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${days} Days (${monthLabel})</td>
+              <td style="padding:10px; border:1px solid #cbd5e1; text-align:right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'mo' : 'day'}</td>
+              <td style="padding:10px; border:1px solid #cbd5e1; text-align:right; font-weight:700; color:#059669;">₹${lineTotal.toLocaleString('en-IN')}</td>
+            </tr>
+          `;
+        });
+      }
     });
 
     const printWindow = window.open('', '_blank');
