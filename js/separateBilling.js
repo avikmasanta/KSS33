@@ -35,17 +35,19 @@ var SeparateBillingPage = (function() {
       taxInvoiceNo: invNo,
       taxInvoiceDate: today,
       supplierName: localStorage.getItem('bm_supplierName') || 'KSS Construction Materials',
-      supplierAddress: localStorage.getItem('bm_supplierAddr') || 'Main Road, Kolkata, West Bengal 700001',
+      supplierAddress: localStorage.getItem('bm_supplierAddr') || 'VPO Reru, Jalandhar City, Punjab - 144012',
       supplierGstin: localStorage.getItem('bm_supplierGstin') || '',
-      supplierState: localStorage.getItem('bm_supplierState') || 'West Bengal',
-      supplierStateCode: localStorage.getItem('bm_supplierStateCode') || '19',
+      supplierState: localStorage.getItem('bm_supplierState') || 'Punjab',
+      supplierStateCode: localStorage.getItem('bm_supplierStateCode') || '03',
       clientGstin: '',
       clientAddress: '',
-      clientState: 'West Bengal',
-      clientStateCode: '19',
-      placeOfSupply: 'West Bengal (19)',
+      clientState: 'Punjab',
+      clientStateCode: '03',
+      placeOfSupply: 'Punjab (03)',
       sacCode: '995411',
+      gstMode: 'extra', // 'none', 'extra', 'inclusive'
       gstRate: '18',
+      enableGst: true,
       customTaxAmount: '',
       gstInclusive: false,
       isInterstate: false,
@@ -123,17 +125,23 @@ var SeparateBillingPage = (function() {
     }
 
     // GST Taxes calculation
-    var isInclusive = (dataObj.gstInclusive === 'true' || dataObj.gstInclusive === true);
+    var isGstDisabled = dataObj.gstMode === 'none' || dataObj.enableGst === false || dataObj.gstRate === '0' || dataObj.gstRate === 0;
+    var isInclusive = !isGstDisabled && (dataObj.gstInclusive === 'true' || dataObj.gstInclusive === true || dataObj.gstMode === 'inclusive');
     var rawCustomTax = dataObj.customTaxAmount !== undefined ? dataObj.customTaxAmount : '';
     var customTax = parseFloat(rawCustomTax);
-    var gstRate = (dataObj.gstRate !== undefined && dataObj.gstRate !== null && !isNaN(parseFloat(dataObj.gstRate))) ? parseFloat(dataObj.gstRate) : 18;
+    var gstRate = isGstDisabled ? 0 : ((dataObj.gstRate !== undefined && dataObj.gstRate !== null && !isNaN(parseFloat(dataObj.gstRate))) ? parseFloat(dataObj.gstRate) : 18);
 
     var baseVal = 0;
     var totalTax = 0;
     var grandTotal = null;
 
     if (totalAmount !== null && totalAmount > 0) {
-      if (isInclusive) {
+      if (isGstDisabled) {
+        gstRate = 0;
+        totalTax = 0;
+        baseVal = totalAmount;
+        grandTotal = totalAmount;
+      } else if (isInclusive) {
         grandTotal = totalAmount;
         if (!isNaN(customTax) && customTax >= 0 && rawCustomTax !== '' && rawCustomTax !== null) {
           totalTax = customTax;
@@ -160,13 +168,13 @@ var SeparateBillingPage = (function() {
     }
 
     var isInterstate = !!dataObj.isInterstate;
-    var cgstRate = isInterstate ? 0 : (gstRate / 2);
-    var sgstRate = isInterstate ? 0 : (gstRate / 2);
-    var igstRate = isInterstate ? gstRate : 0;
+    var cgstRate = isGstDisabled ? 0 : (isInterstate ? 0 : (gstRate / 2));
+    var sgstRate = isGstDisabled ? 0 : (isInterstate ? 0 : (gstRate / 2));
+    var igstRate = isGstDisabled ? 0 : (isInterstate ? gstRate : 0);
 
-    var cgstAmount = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
-    var sgstAmount = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
-    var igstAmount = isInterstate ? totalTax : 0;
+    var cgstAmount = isGstDisabled ? 0 : (isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2)));
+    var sgstAmount = isGstDisabled ? 0 : (isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2)));
+    var igstAmount = isGstDisabled ? 0 : (isInterstate ? totalTax : 0);
 
     var netPayable = grandTotal !== null ? Math.max(0, parseFloat((grandTotal - totalReceived).toFixed(2))) : null;
 
@@ -182,6 +190,8 @@ var SeparateBillingPage = (function() {
       totalAmount:    totalAmount,
       baseVal:        baseVal,
       gstRate:        gstRate,
+      isGstDisabled:  isGstDisabled,
+      isInclusive:    isInclusive,
       isInterstate:   isInterstate,
       cgstRate:       cgstRate,
       cgstAmount:     cgstAmount,
@@ -539,12 +549,12 @@ var SeparateBillingPage = (function() {
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Supplier State & Code</label>';
     html += '<div style="display:flex; gap:8px;">';
-    html += '<input type="text" class="sb-input" id="sb-supplierState" placeholder="State" value="' + (state.formData.supplierState || 'West Bengal') + '" oninput="SeparateBillingPage.onFormChange(\'supplierState\',this.value)">';
-    html += '<input type="text" class="sb-input" id="sb-supplierStateCode" placeholder="Code" style="width:75px;" value="' + (state.formData.supplierStateCode || '19') + '" oninput="SeparateBillingPage.onFormChange(\'supplierStateCode\',this.value)">';
+    html += '<input type="text" class="sb-input" id="sb-supplierState" placeholder="State" value="' + (state.formData.supplierState || 'Punjab') + '" oninput="SeparateBillingPage.onFormChange(\'supplierState\',this.value)">';
+    html += '<input type="text" class="sb-input" id="sb-supplierStateCode" placeholder="Code" style="width:75px;" value="' + (state.formData.supplierStateCode || '03') + '" oninput="SeparateBillingPage.onFormChange(\'supplierStateCode\',this.value)">';
     html += '</div></div>';
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Supplier Address</label>';
-    html += '<input type="text" class="sb-input" id="sb-supplierAddress" placeholder="Supplier Address" value="' + (state.formData.supplierAddress || 'Main Road, Kolkata, West Bengal 700001') + '" oninput="SeparateBillingPage.onFormChange(\'supplierAddress\',this.value)">';
+    html += '<input type="text" class="sb-input" id="sb-supplierAddress" placeholder="Supplier Address" value="' + (state.formData.supplierAddress || 'VPO Reru, Jalandhar City, Punjab - 144012') + '" oninput="SeparateBillingPage.onFormChange(\'supplierAddress\',this.value)">';
     html += '</div>';
 
     // Client Header
@@ -552,17 +562,17 @@ var SeparateBillingPage = (function() {
 
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Client GSTIN (Optional for B2C)</label>';
-    html += '<input type="text" class="sb-input" id="sb-clientGstin" placeholder="e.g. 19ABCDE1234F1Z5" value="' + (state.formData.clientGstin || '') + '" oninput="SeparateBillingPage.onFormChange(\'clientGstin\',this.value)">';
+    html += '<input type="text" class="sb-input" id="sb-clientGstin" placeholder="e.g. 03ABCDE1234F1Z5" value="' + (state.formData.clientGstin || '') + '" oninput="SeparateBillingPage.onFormChange(\'clientGstin\',this.value)">';
     html += '</div>';
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Place of Supply (State & Code)</label>';
-    html += '<input type="text" class="sb-input" id="sb-placeOfSupply" placeholder="e.g. West Bengal (19)" value="' + (state.formData.placeOfSupply || 'West Bengal (19)') + '" oninput="SeparateBillingPage.onFormChange(\'placeOfSupply\',this.value)">';
+    html += '<input type="text" class="sb-input" id="sb-placeOfSupply" placeholder="e.g. Punjab (03)" value="' + (state.formData.placeOfSupply || 'Punjab (03)') + '" oninput="SeparateBillingPage.onFormChange(\'placeOfSupply\',this.value)">';
     html += '</div>';
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Client State & Code</label>';
     html += '<div style="display:flex; gap:8px;">';
-    html += '<input type="text" class="sb-input" id="sb-clientState" placeholder="State" value="' + (state.formData.clientState || 'West Bengal') + '" oninput="SeparateBillingPage.onFormChange(\'clientState\',this.value)">';
-    html += '<input type="text" class="sb-input" id="sb-clientStateCode" placeholder="Code" style="width:75px;" value="' + (state.formData.clientStateCode || '19') + '" oninput="SeparateBillingPage.onFormChange(\'clientStateCode\',this.value)">';
+    html += '<input type="text" class="sb-input" id="sb-clientState" placeholder="State" value="' + (state.formData.clientState || 'Punjab') + '" oninput="SeparateBillingPage.onFormChange(\'clientState\',this.value)">';
+    html += '<input type="text" class="sb-input" id="sb-clientStateCode" placeholder="Code" style="width:75px;" value="' + (state.formData.clientStateCode || '03') + '" oninput="SeparateBillingPage.onFormChange(\'clientStateCode\',this.value)">';
     html += '</div></div>';
     html += '<div class="sb-form-group">';
     html += '<label class="sb-label">Client Billing Address</label>';
@@ -572,11 +582,14 @@ var SeparateBillingPage = (function() {
     // SAC & Taxes Header
     html += '<div class="sb-full-span" style="font-weight:700; font-size:12px; color:#0f3c7a; text-transform:uppercase; border-bottom:1px solid #e2e8f0; padding-bottom:4px; margin-top:8px;">3. Service SAC Code, Tax Rates & Reverse Charge (RCM)</div>';
 
+    var currentGstMode = state.formData.gstMode || (state.formData.enableGst === false || state.formData.gstRate == '0' ? 'none' : (state.formData.gstInclusive ? 'inclusive' : 'extra'));
+
     html += '<div class="sb-form-group">';
-    html += '<label class="sb-label">Tax Calculation Mode</label>';
-    html += '<select class="sb-select" id="sb-gstInclusive" style="width:100%;" onchange="SeparateBillingPage.onFormChange(\'gstInclusive\',this.value === \'true\');SeparateBillingPage.refreshTotals()">';
-    html += '<option value="false"' + (!state.formData.gstInclusive ? ' selected' : '') + '>Tax Extra (CGST & SGST added on top)</option>';
-    html += '<option value="true"'  + (state.formData.gstInclusive  ? ' selected' : '') + '>Tax Inclusive (CGST & SGST included in rate)</option>';
+    html += '<label class="sb-label">Tax / GST Mode <span style="font-weight:bold; color:#059669;">(Workable GST Switch)</span></label>';
+    html += '<select class="sb-select" id="sb-gstMode" style="width:100%; font-weight:700;" onchange="SeparateBillingPage.onGstModeChange(this.value)">';
+    html += '<option value="none"'      + (currentGstMode === 'none'      ? ' selected' : '') + '>🚫 No GST (GST Disabled / OFF)</option>';
+    html += '<option value="extra"'     + (currentGstMode === 'extra'     ? ' selected' : '') + '>➕ Tax Extra (CGST & SGST added on top)</option>';
+    html += '<option value="inclusive"' + (currentGstMode === 'inclusive' ? ' selected' : '') + '>Tax Inclusive (CGST & SGST included in rate)</option>';
     html += '</select></div>';
 
     html += '<div class="sb-form-group">';
@@ -823,6 +836,25 @@ var SeparateBillingPage = (function() {
   function onSearch(e)      { state.searchTerm  = e.target.value; rerender(); }
   function onSearchField(e) { state.searchField = e.target.value; rerender(); }
   function onFormChange(field, value) { state.formData[field] = value; }
+
+  function onGstModeChange(val) {
+    state.formData.gstMode = val;
+    if (val === 'none') {
+      state.formData.enableGst = false;
+      state.formData.gstRate = '0';
+      state.formData.gstInclusive = false;
+    } else if (val === 'inclusive') {
+      state.formData.enableGst = true;
+      if (state.formData.gstRate == '0') state.formData.gstRate = '18';
+      state.formData.gstInclusive = true;
+    } else {
+      state.formData.gstMode = 'extra';
+      state.formData.enableGst = true;
+      if (state.formData.gstRate == '0') state.formData.gstRate = '18';
+      state.formData.gstInclusive = false;
+    }
+    refreshTotals();
+  }
 
   function onSelectExistingSite(siteId) {
     if (!siteId) return;
@@ -1186,17 +1218,19 @@ var SeparateBillingPage = (function() {
       supplierName:    state.formData.supplierName || '',
       supplierAddress: state.formData.supplierAddress || '',
       supplierGstin:   state.formData.supplierGstin || '',
-      supplierState:   state.formData.supplierState || 'West Bengal',
-      supplierStateCode: state.formData.supplierStateCode || '19',
+      supplierState:   state.formData.supplierState || 'Punjab',
+      supplierStateCode: state.formData.supplierStateCode || '03',
       clientGstin:     state.formData.clientGstin || '',
       clientAddress:   state.formData.clientAddress || '',
-      clientState:     state.formData.clientState || 'West Bengal',
-      clientStateCode: state.formData.clientStateCode || '19',
-      placeOfSupply:   state.formData.placeOfSupply || '',
+      clientState:     state.formData.clientState || 'Punjab',
+      clientStateCode: state.formData.clientStateCode || '03',
+      placeOfSupply:   state.formData.placeOfSupply || 'Punjab (03)',
       sacCode:         state.formData.sacCode || '995411',
-      gstRate:         parseFloat(state.formData.gstRate) || 18,
+      gstMode:         state.formData.gstMode || (state.formData.enableGst === false || state.formData.gstRate == '0' ? 'none' : (state.formData.gstInclusive ? 'inclusive' : 'extra')),
+      enableGst:       state.formData.gstMode !== 'none' && state.formData.enableGst !== false && state.formData.gstRate != '0',
+      gstRate:         (state.formData.gstMode === 'none' || state.formData.enableGst === false || state.formData.gstRate == '0') ? 0 : (parseFloat(state.formData.gstRate) || 0),
       customTaxAmount: state.formData.customTaxAmount || '',
-      gstInclusive:    (state.formData.gstInclusive === 'true' || state.formData.gstInclusive === true),
+      gstInclusive:    state.formData.gstMode === 'inclusive' || (state.formData.gstInclusive === 'true' || state.formData.gstInclusive === true),
       isInterstate:    !!state.formData.isInterstate,
       rcmApplicable:   state.formData.rcmApplicable || 'No',
       termsConditions: state.formData.termsConditions || '',
@@ -1424,17 +1458,23 @@ var SeparateBillingPage = (function() {
     var payments = bill.payments && bill.payments.length > 0 ? bill.payments : (recVal > 0 ? [{ date: bill.receivedDate, amount: recVal, notes: 'Received' }] : []);
     var totalRec = payments.reduce(function(s, p) { return s + (parseFloat(p.amount) || 0); }, 0);
 
-    var isInclusive = (bill.gstInclusive === 'true' || bill.gstInclusive === true);
+    var isGstDisabled = bill.gstMode === 'none' || bill.enableGst === false || bill.gstEnabled === false || bill.gstRate === '0' || bill.gstRate === 0;
+    var isInclusive = !isGstDisabled && (bill.gstInclusive === 'true' || bill.gstInclusive === true || bill.gstMode === 'inclusive');
     var rawCustomTax = bill.customTaxAmount !== undefined ? bill.customTaxAmount : '';
     var customTax = parseFloat(rawCustomTax);
-    var gstRate = (bill.gstRate !== undefined && bill.gstRate !== null && !isNaN(parseFloat(bill.gstRate))) ? parseFloat(bill.gstRate) : 18;
+    var gstRate = isGstDisabled ? 0 : ((bill.gstRate !== undefined && bill.gstRate !== null && !isNaN(parseFloat(bill.gstRate))) ? parseFloat(bill.gstRate) : 18);
 
     var baseVal = 0;
     var totalTax = 0;
     var grandTotal = 0;
 
     if (amtVal > 0) {
-      if (isInclusive) {
+      if (isGstDisabled) {
+        gstRate = 0;
+        totalTax = 0;
+        baseVal = amtVal;
+        grandTotal = amtVal;
+      } else if (isInclusive) {
         grandTotal = amtVal;
         if (!isNaN(customTax) && customTax >= 0 && rawCustomTax !== '' && rawCustomTax !== null) {
           totalTax = customTax;
@@ -1457,31 +1497,32 @@ var SeparateBillingPage = (function() {
     }
 
     var isInterstate = !!bill.isInterstate;
-    var cgstRate = isInterstate ? 0 : (gstRate / 2);
-    var sgstRate = isInterstate ? 0 : (gstRate / 2);
-    var igstRate = isInterstate ? gstRate : 0;
+    var cgstRate = isGstDisabled ? 0 : (isInterstate ? 0 : (gstRate / 2));
+    var sgstRate = isGstDisabled ? 0 : (isInterstate ? 0 : (gstRate / 2));
+    var igstRate = isGstDisabled ? 0 : (isInterstate ? gstRate : 0);
 
-    var cgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
-    var sgstAmt = isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2));
-    var igstAmt = isInterstate ? totalTax : 0;
+    var cgstAmt = isGstDisabled ? 0 : (isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2)));
+    var sgstAmt = isGstDisabled ? 0 : (isInterstate ? 0 : parseFloat((totalTax / 2).toFixed(2)));
+    var igstAmt = isGstDisabled ? 0 : (isInterstate ? totalTax : 0);
 
     var netPay = grandTotal > 0 ? Math.max(0, parseFloat((grandTotal - totalRec).toFixed(2))) : 0;
 
     html += '<div class="summary-box">';
-    html += '<div class="summary-box-header">Pricing & GST Summary</div>';
+    html += '<div class="summary-box-header">Pricing & Summary</div>';
     html += '<div class="summary-box-body" style="padding-bottom:0">';
-    html += '<div class="summary-row"><span>Rate per Sq Ft</span><span>' + (rateVal > 0 ? '₹ ' + rateVal.toFixed(2) + (isInclusive ? ' (Incl. GST)' : '') : '—') + '</span></div>';
+    html += '<div class="summary-row"><span>Rate per Sq Ft</span><span>' + (rateVal > 0 ? '₹ ' + rateVal.toFixed(2) + (isGstDisabled ? '' : (isInclusive ? ' (Incl. GST)' : ' (Excl. GST)')) : '—') + '</span></div>';
     html += '<div class="summary-row bold-total"><span>Net Area</span><span>' + net.toFixed(2) + ' Sq Ft</span></div>';
-    html += '<div class="summary-row"><span>Taxable Subtotal Value</span><span>' + (amtVal > 0 ? '₹ ' + baseVal.toFixed(2) : '—') + '</span></div>';
+    html += '<div class="summary-row"><span>' + (isGstDisabled ? 'Subtotal Net Value' : 'Taxable Subtotal Value') + '</span><span>' + (amtVal > 0 ? '₹ ' + baseVal.toFixed(2) : '—') + '</span></div>';
 
-    if (amtVal > 0 && totalTax >= 0) {
+    if (!isGstDisabled && amtVal > 0 && totalTax >= 0) {
       if (isInterstate) {
         html += '<div class="summary-row" style="color:#2563eb; font-weight:600;"><span>IGST @ ' + igstRate + '%' + (isInclusive ? ' (Included)' : '') + '</span><span>' + (isInclusive ? '' : '+ ') + '₹ ' + igstAmt.toFixed(2) + '</span></div>';
       } else {
         html += '<div class="summary-row" style="color:#2563eb; font-weight:600;"><span>CGST @ ' + cgstRate.toFixed(1) + '%' + (isInclusive ? ' (Included)' : '') + '</span><span>' + (isInclusive ? '' : '+ ') + '₹ ' + cgstAmt.toFixed(2) + '</span></div>';
         html += '<div class="summary-row" style="color:#2563eb; font-weight:600;"><span>SGST @ ' + sgstRate.toFixed(1) + '%' + (isInclusive ? ' (Included)' : '') + '</span><span>' + (isInclusive ? '' : '+ ') + '₹ ' + sgstAmt.toFixed(2) + '</span></div>';
       }
-      html += '<div class="summary-row bold-total" style="color:#0f3c7a;"><span>Grand Total (Incl. GST)</span><span>₹ ' + grandTotal.toFixed(2) + '</span></div>';
+    }
+    html += '<div class="summary-row bold-total" style="color:#0f3c7a;"><span>Grand Total' + (isGstDisabled ? '' : ' (Incl. GST)') + '</span><span>₹ ' + grandTotal.toFixed(2) + '</span></div>';
     }
 
     if (payments.length > 0) {
@@ -1672,17 +1713,19 @@ var SeparateBillingPage = (function() {
 
     // Tax Table
     pageHtml += '<table class="ti-tax-table">';
-    pageHtml += '<tr><td class="ti-tax-lbl">Taxable Subtotal Value</td><td class="ti-tax-val">₹ ' + baseVal.toFixed(2) + '</td></tr>';
+    pageHtml += '<tr><td class="ti-tax-lbl">' + (calc.isGstDisabled ? 'Subtotal Net Value' : 'Taxable Subtotal Value') + '</td><td class="ti-tax-val">₹ ' + baseVal.toFixed(2) + '</td></tr>';
     
-    if (isInterstate) {
-      pageHtml += '<tr><td class="ti-tax-lbl">IGST @ ' + igstRate + '%</td><td class="ti-tax-val">₹ ' + igstAmt.toFixed(2) + '</td></tr>';
-    } else {
-      pageHtml += '<tr><td class="ti-tax-lbl">CGST @ ' + cgstRate + '%</td><td class="ti-tax-val">₹ ' + cgstAmt.toFixed(2) + '</td></tr>';
-      pageHtml += '<tr><td class="ti-tax-lbl">SGST @ ' + sgstRate + '%</td><td class="ti-tax-val">₹ ' + sgstAmt.toFixed(2) + '</td></tr>';
+    if (!calc.isGstDisabled) {
+      if (isInterstate) {
+        pageHtml += '<tr><td class="ti-tax-lbl">IGST @ ' + igstRate + '%</td><td class="ti-tax-val">₹ ' + igstAmt.toFixed(2) + '</td></tr>';
+      } else {
+        pageHtml += '<tr><td class="ti-tax-lbl">CGST @ ' + cgstRate + '%</td><td class="ti-tax-val">₹ ' + cgstAmt.toFixed(2) + '</td></tr>';
+        pageHtml += '<tr><td class="ti-tax-lbl">SGST @ ' + sgstRate + '%</td><td class="ti-tax-val">₹ ' + sgstAmt.toFixed(2) + '</td></tr>';
+      }
+      pageHtml += '<tr style="background:#f1f5f9;"><td class="ti-tax-lbl" style="font-weight:800;">Total Tax Amount</td><td class="ti-tax-val" style="color:#0f3c7a;">₹ ' + totalTax.toFixed(2) + '</td></tr>';
     }
-    
-    pageHtml += '<tr style="background:#f1f5f9;"><td class="ti-tax-lbl" style="font-weight:800;">Total Tax Amount</td><td class="ti-tax-val" style="color:#0f3c7a;">₹ ' + totalTax.toFixed(2) + '</td></tr>';
-    pageHtml += '<tr class="ti-tax-total-row"><td>GRAND TOTAL (INCL. TAX)</td><td style="text-align:right;">₹ ' + grandTotal.toFixed(2) + '</td></tr>';
+
+    pageHtml += '<tr class="ti-tax-total-row"><td>' + (calc.isGstDisabled ? 'GRAND TOTAL' : 'GRAND TOTAL (INCL. TAX)') + '</td><td style="text-align:right;">₹ ' + grandTotal.toFixed(2) + '</td></tr>';
     
     if (totalRec > 0) {
       pageHtml += '<tr><td class="ti-tax-lbl" style="color:#059669;">Less: Advance / Money Received</td><td class="ti-tax-val" style="color:#059669;">- ₹ ' + totalRec.toFixed(2) + '</td></tr>';
@@ -1896,6 +1939,7 @@ var SeparateBillingPage = (function() {
     onSearch:              onSearch,
     onSearchField:         onSearchField,
     onFormChange:          onFormChange,
+    onGstModeChange:       onGstModeChange,
     onSelectExistingSite:  onSelectExistingSite,
     refreshTotals:         refreshTotals,
     goList:                goList,
