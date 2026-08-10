@@ -482,7 +482,9 @@ var RentalsPage = {
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
           <div>
             <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary); font-weight:700;">📅 Month-Wise Rental Breakdown & Slips</h4>
-            <p style="margin:2px 0 0 0; font-size:0.85rem; color:var(--text-tertiary);">Separate month-by-month billing statements for this contract</p>
+            <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-secondary);">
+              ${r.status === 'Active' ? '<span style="color:#059669; font-weight:700;">🔄 Auto Month-Addition Active:</span> Customer hasn\'t returned material yet. Every new month gets automatically added to the bill as time passes.' : 'Rental items returned. Final month-by-month breakdown below.'}
+            </p>
           </div>
         </div>
         <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
@@ -491,16 +493,22 @@ var RentalsPage = {
               <tr style="background: var(--bg-body);">
                 <th align="left" style="padding: 12px 16px;">Billing Month</th>
                 <th align="center" style="padding: 12px 16px; text-align:center;">Active Days in Month</th>
+                <th align="center" style="padding: 12px 16px; text-align:center;">Month Status</th>
                 <th align="right" style="padding: 12px 16px; text-align:right;">Monthly Bill Total</th>
                 <th align="right" style="padding: 12px 16px; text-align:right;">Print Slip</th>
               </tr>
             </thead>
             <tbody>
-              ${contractMonths.map(mStr => {
+              ${contractMonths.map((mStr, idx) => {
+                const isCurrentMonth = mStr === new Date().toISOString().slice(0, 7);
                 const mDays = RentalsPage.getDaysInMonth(r.goingDate, r.comingDate, mStr);
                 const mMultiplier = isMonthly ? (mDays / 30) : mDays;
                 const mTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * mMultiplier), 0) : 0;
                 const mLabel = new Date(mStr + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+                const statusBadge = isCurrentMonth && r.status === 'Active'
+                  ? '<span class="badge badge-warning" style="font-size:0.75rem;">⏳ Current Month (Auto-Adding Daily)</span>'
+                  : '<span class="badge badge-success" style="font-size:0.75rem;">✅ Month Bill Added</span>';
 
                 return `
                   <tr style="border-bottom: 1px solid var(--border-color);">
@@ -509,6 +517,9 @@ var RentalsPage = {
                     </td>
                     <td align="center" style="padding: 14px 16px; text-align:center;">
                       <span class="badge badge-info" style="font-size:0.85rem; padding: 4px 10px;">${mDays} Days</span>
+                    </td>
+                    <td align="center" style="padding: 14px 16px; text-align:center;">
+                      ${statusBadge}
                     </td>
                     <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 800; color: #059669; font-size:1.05rem;">
                       ₹${Math.round(mTotal).toLocaleString('en-IN')}
