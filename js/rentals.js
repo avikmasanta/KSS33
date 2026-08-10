@@ -1,6 +1,7 @@
 /* ============================================
    BuildMate Rental Sites Module (Material Hire)
    Warehouse Free / Independent Rental Inventory
+   Supports Daily & Monthly Rate Basis Contracts
    Supports Date-Wise Inclusive Monthly Registers & Reports
    ============================================ */
 
@@ -42,7 +43,7 @@ var RentalsPage = {
           </div>
           <div>
             <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Rental Sites</h2>
-            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Warehouse Free Material Hire • Monthly & Date-Wise Inclusive Reports</p>
+            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Warehouse Free Material Hire • Daily & Monthly Basis Contracts</p>
           </div>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px;">
@@ -83,7 +84,9 @@ var RentalsPage = {
             ${records.map(r => {
               const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
               const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
-              const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
+              const isMonthly = r.billingBasis === 'Monthly';
+              const durationMultiplier = isMonthly ? (days / 30) : days;
+              const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
 
               return `
                 <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer; padding: 16px; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;" onclick="RentalsPage.selectRecord('${r.id}')">
@@ -91,10 +94,12 @@ var RentalsPage = {
                     <div class="item-title" style="font-weight: 700; color: var(--text-primary);">${r.customerName}</div>
                     <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
                   </div>
-                  <div class="item-sub" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Site: ${r.siteName || '-'}</div>
+                  <div class="item-sub" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
+                    Site: ${r.siteName || '-'} • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.7rem;">${isMonthly ? '📅 Monthly Basis' : '☀️ Daily Basis'}</span>
+                  </div>
                   <div class="item-sub" style="font-size: 0.8rem; color: var(--text-tertiary); display:flex; justify-content:space-between; align-items:center;">
-                    <span>Qty: ${totalItems} • ${days} Days (Inclusive)</span>
-                    <strong style="color: var(--success); font-size: 0.95rem;">₹${totalVal.toLocaleString('en-IN')}</strong>
+                    <span>Qty: ${totalItems} • ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' mos' : 'Inclusive'})</span>
+                    <strong style="color: var(--success); font-size: 0.95rem;">₹${Math.round(totalVal).toLocaleString('en-IN')}</strong>
                   </div>
                 </div>
               `;
@@ -133,10 +138,13 @@ var RentalsPage = {
 
     monthRecords.forEach(r => {
       const days = this.getInclusiveDays(r.goingDate, r.comingDate);
+      const isMonthly = r.billingBasis === 'Monthly';
+      const durationMultiplier = isMonthly ? (days / 30) : days;
+
       if (r.items) {
         r.items.forEach(i => {
           totalItemsLeased += parseFloat(i.quantity || 0);
-          totalMonthlyBill += parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days;
+          totalMonthlyBill += parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier;
         });
       }
     });
@@ -175,7 +183,7 @@ var RentalsPage = {
         </div>
         <div class="card" style="padding: 20px; border-left: 4px solid #10b981;">
           <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Monthly Billing Generated</div>
-          <div style="font-size: 1.8rem; font-weight: 800; color: #059669; margin-top: 4px;">₹${totalMonthlyBill.toLocaleString('en-IN')}</div>
+          <div style="font-size: 1.8rem; font-weight: 800; color: #059669; margin-top: 4px;">₹${Math.round(totalMonthlyBill).toLocaleString('en-IN')}</div>
         </div>
       </div>
 
@@ -188,8 +196,8 @@ var RentalsPage = {
                 <th>Going Date (Dispatch)</th>
                 <th>Customer & Site</th>
                 <th>Materials Dispatched</th>
-                <th>Inclusive Lease Period</th>
-                <th>Duration</th>
+                <th>Rate Basis</th>
+                <th>Lease Duration</th>
                 <th style="text-align: right;">Total Bill</th>
                 <th>Status</th>
                 <th style="text-align: right;">Action</th>
@@ -200,11 +208,13 @@ var RentalsPage = {
                 <tr><td colspan="8" style="text-align:center; padding: 48px; color: var(--text-tertiary);">No rental dispatches found for ${monthLabel}.</td></tr>
               ` : monthRecords.map(r => {
                 const days = this.getInclusiveDays(r.goingDate, r.comingDate);
-                const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
+                const isMonthly = r.billingBasis === 'Monthly';
+                const durationMultiplier = isMonthly ? (days / 30) : days;
+                const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
                 
                 const itemsSummary = (r.items || []).map(i => {
                   const m = materials.find(x => x.id === i.materialId);
-                  return `<div style="font-size:0.85rem;">• <strong>${m ? m.name : 'Item'}</strong>: ${i.quantity} ${m ? m.unit : ''} @ ₹${i.rate}/day</div>`;
+                  return `<div style="font-size:0.85rem;">• <strong>${m ? m.name : 'Item'}</strong>: ${i.quantity} ${m ? m.unit : ''} @ ₹${i.rate}/${isMonthly ? 'mo' : 'day'}</div>`;
                 }).join('');
 
                 return `
@@ -219,17 +229,18 @@ var RentalsPage = {
                     <td>
                       ${itemsSummary}
                     </td>
-                    <td style="font-size: 0.85rem; color: var(--text-secondary);">
-                      <div>Going: <strong>${r.goingDate}</strong></div>
-                      <div>Coming: <strong>${r.comingDate || 'Active'}</strong></div>
+                    <td>
+                      <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.75rem;">
+                        ${isMonthly ? '📅 Monthly' : '☀️ Daily'}
+                      </span>
                     </td>
                     <td>
                       <span class="badge badge-info" style="font-size:0.8rem; padding: 4px 8px;">
-                        ${days} Days (Inclusive)
+                        ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' mos' : 'Inclusive'})
                       </span>
                     </td>
                     <td style="text-align: right; font-weight: 800; color: #059669; font-size: 1.05rem;">
-                      ₹${totalVal.toLocaleString('en-IN')}
+                      ₹${Math.round(totalVal).toLocaleString('en-IN')}
                     </td>
                     <td>
                       <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
@@ -301,14 +312,16 @@ var RentalsPage = {
 
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     const days = this.getInclusiveDays(r.goingDate, r.comingDate);
-    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
+    const isMonthly = r.billingBasis === 'Monthly';
+    const durationMultiplier = isMonthly ? (days / 30) : days;
+    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
 
     return `
       <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; margin-bottom:24px; border-bottom: 1px solid var(--border-color); padding-bottom:20px;">
         <div>
           <h3 style="margin:0 0 8px 0; font-size:1.6rem; color:var(--text-primary); font-weight:800;">${r.customerName}</h3>
           <p style="margin:0; color:var(--text-secondary); font-size:1rem; display:flex; align-items:center; gap:8px;">
-            ${Icons.mapPin} Site: <strong>${r.siteName || '-'}</strong>
+            ${Icons.mapPin} Site: <strong>${r.siteName || '-'}</strong> • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}">${isMonthly ? '📅 Monthly Basis' : '☀️ Daily Basis'}</span>
           </p>
         </div>
         <div style="display:flex; gap:10px;">
@@ -345,7 +358,7 @@ var RentalsPage = {
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
           <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Rental Duration</div>
           <div style="font-weight: 700; color: var(--primary); font-size: 1.1rem;">
-            ${days} Days (Inclusive)
+            ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})
           </div>
         </div>
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
@@ -363,14 +376,14 @@ var RentalsPage = {
             <tr style="background: var(--bg-body);">
               <th align="left" style="padding: 12px 16px;">Material</th>
               <th align="center" style="padding: 12px 16px; text-align:center;">Qty Leased</th>
-              <th align="right" style="padding: 12px 16px; text-align:right;">Rate (per Day)</th>
+              <th align="right" style="padding: 12px 16px; text-align:right;">Rate (${isMonthly ? 'per Month' : 'per Day'})</th>
               <th align="right" style="padding: 12px 16px; text-align:right;">Total Amount</th>
             </tr>
           </thead>
           <tbody>
             ${r.items.map(i => {
               const mat = materials.find(m => m.id === i.materialId);
-              const total = parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days;
+              const total = parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier;
               return `
                 <tr style="border-bottom: 1px solid var(--border-color);">
                   <td style="padding: 14px 16px;">
@@ -381,10 +394,10 @@ var RentalsPage = {
                     ${i.quantity} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-secondary);">${mat ? mat.unit : ''}</span>
                   </td>
                   <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 600; color: var(--text-secondary);">
-                    ₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}
+                    ₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'mo' : 'day'}
                   </td>
                   <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 700; color: var(--success);">
-                    ₹${total.toLocaleString('en-IN')}
+                    ₹${Math.round(total).toLocaleString('en-IN')}
                   </td>
                 </tr>
               `;
@@ -395,21 +408,44 @@ var RentalsPage = {
 
       <div style="display: flex; justify-content: flex-end; align-items: center; background: var(--bg-body); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
         <div style="text-align: right;">
-          <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Grand Total Earnings</div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Grand Total Revenue</div>
           <div style="font-size: 2rem; font-weight: 800; color: var(--success); line-height: 1;">
-            ₹${grandTotal.toLocaleString('en-IN')}
+            ₹${Math.round(grandTotal).toLocaleString('en-IN')}
           </div>
         </div>
       </div>
     `;
   },
 
+  onBillingBasisChange(type) {
+    const rateHeader = document.getElementById('rental-rate-header');
+    if (rateHeader) {
+      rateHeader.innerText = type === 'Monthly' ? 'Monthly Rate (₹/mo)' : 'Daily Rate (₹/day)';
+    }
+    RentalsPage.calculateFormTotals();
+  },
+
   renderForm() {
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     const record = this.selectedId ? Store.RentalSites.getById(this.selectedId) : null;
+    const isMonthly = record && record.billingBasis === 'Monthly';
 
     return `
       <form id="rental-stock-form" onsubmit="event.preventDefault(); RentalsPage.save();">
+        <div class="form-group" style="margin-bottom: 20px; background: var(--bg-body); padding: 16px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <label style="font-weight: 700; color: var(--text-primary); margin-bottom: 8px; display:block;">Rental Billing Rate Basis *</label>
+          <div style="display: flex; gap: 24px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+              <input type="radio" name="rental-billing-basis" value="Daily" ${!isMonthly ? 'checked' : ''} onchange="RentalsPage.onBillingBasisChange('Daily')">
+              ☀️ Daily Basis (Rate per Day)
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 600;">
+              <input type="radio" name="rental-billing-basis" value="Monthly" ${isMonthly ? 'checked' : ''} onchange="RentalsPage.onBillingBasisChange('Monthly')">
+              📅 Monthly Basis (Rate per Month)
+            </label>
+          </div>
+        </div>
+
         <div class="form-row">
           <div class="form-group">
             <label>Customer Name *</label>
@@ -443,7 +479,7 @@ var RentalsPage = {
                   <th style="width:5%">#</th>
                   <th style="width:40%">Material</th>
                   <th style="width:20%">Quantity</th>
-                  <th style="width:20%">Daily Rate (₹)</th>
+                  <th style="width:20%" id="rental-rate-header">${isMonthly ? 'Monthly Rate (₹/mo)' : 'Daily Rate (₹/day)'}</th>
                   <th style="width:15%">Line Total</th>
                   <th style="width:10%"></th>
                 </tr>
@@ -566,20 +602,28 @@ var RentalsPage = {
   calculateFormTotals() {
     const going = document.getElementById('rental-going-date')?.value || '';
     const coming = document.getElementById('rental-coming-date')?.value || '';
+    const basis = document.querySelector('input[name="rental-billing-basis"]:checked')?.value || 'Daily';
     const days = RentalsPage.getInclusiveDays(going, coming);
 
     const daysLabel = document.getElementById('rental-form-days-label');
     if (daysLabel) {
-      daysLabel.innerText = `Duration: ${days} ${days === 1 ? 'Day' : 'Days'} (Inclusive)`;
+      if (basis === 'Monthly') {
+        const mos = (days / 30).toFixed(1);
+        daysLabel.innerText = `Duration: ${days} Days (~${mos} Months Inclusive)`;
+      } else {
+        daysLabel.innerText = `Duration: ${days} ${days === 1 ? 'Day' : 'Days'} (Inclusive)`;
+      }
     }
 
     const rows = document.querySelectorAll('#rental-items-body tr');
     let grandTotal = 0;
 
+    const multiplier = basis === 'Monthly' ? (days / 30) : days;
+
     rows.forEach((row, idx) => {
       const qty = parseFloat(row.querySelector('.r-qty').value) || 0;
       const rate = parseFloat(row.querySelector('.r-rate').value) || 0;
-      const lineTotal = qty * rate * days;
+      const lineTotal = Math.round(qty * rate * multiplier);
       grandTotal += lineTotal;
 
       const cell = row.querySelector('.r-line-total');
@@ -605,6 +649,7 @@ var RentalsPage = {
     const siteName = document.getElementById('rental-site-name').value.trim();
     const goingDate = document.getElementById('rental-going-date').value;
     const comingDate = document.getElementById('rental-coming-date').value;
+    const billingBasis = document.querySelector('input[name="rental-billing-basis"]:checked')?.value || 'Daily';
 
     if (!customerName || !siteName || !goingDate || !comingDate) {
       alert('Please fill out all required fields.');
@@ -630,6 +675,7 @@ var RentalsPage = {
       siteName,
       goingDate,
       comingDate,
+      billingBasis,
       items: items.map(i => ({
         materialId: i.materialId,
         quantity: parseFloat(i.quantity) || 0,
@@ -678,12 +724,14 @@ var RentalsPage = {
 
     const materials = Store.Materials.getAll();
     const days = this.getInclusiveDays(r.goingDate, r.comingDate);
-    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
+    const isMonthly = r.billingBasis === 'Monthly';
+    const durationMultiplier = isMonthly ? (days / 30) : days;
+    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
     const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
     const rows = r.items.map((i, idx) => {
       const mat = materials.find(m => m.id === i.materialId);
-      const total = parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days;
+      const total = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
       return `
         <tr>
           <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">${idx + 1}</td>
@@ -695,7 +743,7 @@ var RentalsPage = {
             ${i.quantity} ${mat ? mat.unit : ''}
           </td>
           <td style="border: 1px solid #ddd; padding: 10px; text-align: right;">
-            ₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}
+            ₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'month' : 'day'}
           </td>
           <td style="border: 1px solid #ddd; padding: 10px; text-align: right; font-weight: bold; color: #10b981;">
             ₹${total.toLocaleString('en-IN')}
@@ -749,7 +797,8 @@ var RentalsPage = {
             <h4>Rental Lease Details</h4>
             <p><strong>Going Date:</strong> ${r.goingDate}</p>
             <p><strong>Coming Date:</strong> ${r.comingDate}</p>
-            <p><strong>Lease Duration:</strong> ${days} Days (Inclusive)</p>
+            <p><strong>Billing Rate Basis:</strong> ${isMonthly ? 'MONTHLY BASIS' : 'DAILY BASIS'}</p>
+            <p><strong>Lease Duration:</strong> ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})</p>
             <p><strong>Lease Status:</strong> ${r.status === 'Active' ? 'ACTIVE LEASE' : 'RETURNED'}</p>
           </div>
         </div>
@@ -760,7 +809,7 @@ var RentalsPage = {
               <th style="width: 8%; text-align: center;">S.No</th>
               <th>Material Description</th>
               <th style="width: 15%; text-align: center;">Qty Leased</th>
-              <th style="width: 18%; text-align: right;">Rate (per Day)</th>
+              <th style="width: 18%; text-align: right;">Rate (${isMonthly ? 'per Month' : 'per Day'})</th>
               <th style="width: 20%; text-align: right;">Total Amount</th>
             </tr>
           </thead>
@@ -772,7 +821,7 @@ var RentalsPage = {
         <div class="total-section">
           <div class="total-card">
             <span style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: bold; display: block; margin-bottom: 4px;">Estimated Rental Charge</span>
-            <span style="font-size: 22px; font-weight: 800; color: #065f46;">₹${grandTotal.toLocaleString('en-IN')}</span>
+            <span style="font-size: 22px; font-weight: 800; color: #065f46;">₹${Math.round(grandTotal).toLocaleString('en-IN')}</span>
           </div>
         </div>
 
@@ -814,12 +863,14 @@ var RentalsPage = {
     let grandMonthlyBill = 0;
     const tableRows = monthRecords.map((r, idx) => {
       const days = this.getInclusiveDays(r.goingDate, r.comingDate);
-      const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * days), 0) : 0;
+      const isMonthly = r.billingBasis === 'Monthly';
+      const durationMultiplier = isMonthly ? (days / 30) : days;
+      const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
       grandMonthlyBill += totalVal;
 
       const itemsStr = (r.items || []).map(i => {
         const m = materials.find(x => x.id === i.materialId);
-        return `${m ? m.name : 'Item'}: ${i.quantity} ${m ? m.unit : ''} @ ₹${i.rate}/day`;
+        return `${m ? m.name : 'Item'}: ${i.quantity} ${m ? m.unit : ''} @ ₹${i.rate}/${isMonthly ? 'mo' : 'day'}`;
       }).join('<br>');
 
       return `
@@ -832,8 +883,8 @@ var RentalsPage = {
           </td>
           <td style="padding:8px; border:1px solid #cbd5e1; font-size:11px;">${itemsStr}</td>
           <td style="padding:8px; border:1px solid #cbd5e1;">${r.goingDate} to ${r.comingDate || 'Active'}</td>
-          <td style="padding:8px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${days} Days</td>
-          <td style="padding:8px; border:1px solid #cbd5e1; text-align:right; font-weight:700; color:#059669;">₹${totalVal.toLocaleString('en-IN')}</td>
+          <td style="padding:8px; border:1px solid #cbd5e1; text-align:center; font-weight:700;">${days} Days (${isMonthly ? (days/30).toFixed(1) + ' mos' : 'Daily'})</td>
+          <td style="padding:8px; border:1px solid #cbd5e1; text-align:right; font-weight:700; color:#059669;">₹${Math.round(totalVal).toLocaleString('en-IN')}</td>
         </tr>
       `;
     }).join('');
@@ -888,7 +939,7 @@ var RentalsPage = {
 
         <div class="summary-box">
           <div>Total Dispatches: <strong>${monthRecords.length}</strong></div>
-          <div style="color: #1e40af;">Total Monthly Rental Earnings: <strong>₹${grandMonthlyBill.toLocaleString('en-IN')}</strong></div>
+          <div style="color: #1e40af;">Total Monthly Rental Earnings: <strong>₹${Math.round(grandMonthlyBill).toLocaleString('en-IN')}</strong></div>
         </div>
 
         <div style="margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; color: #475569;">
