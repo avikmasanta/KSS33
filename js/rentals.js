@@ -1,8 +1,7 @@
 /* ============================================
    BuildMate Rental Sites Module (Material Hire)
    Warehouse Free / Independent Rental Inventory
-   Supports Daily & Monthly Rate Basis Contracts
-   Supports Date-Wise Inclusive Monthly Registers & Reports
+   Supports Optional Coming Date, Active Auto-Days, & Seamless Monthly Registers
    ============================================ */
 
 var RentalsPage = {
@@ -43,7 +42,7 @@ var RentalsPage = {
           </div>
           <div>
             <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Rental Sites</h2>
-            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Warehouse Free Material Hire • Daily & Monthly Basis Contracts</p>
+            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Independent Material Hire • Daily & Monthly Basis Contracts</p>
           </div>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px;">
@@ -98,7 +97,7 @@ var RentalsPage = {
                     Site: ${r.siteName || '-'} • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.7rem;">${isMonthly ? '📅 Monthly Basis' : '☀️ Daily Basis'}</span>
                   </div>
                   <div class="item-sub" style="font-size: 0.8rem; color: var(--text-tertiary); display:flex; justify-content:space-between; align-items:center;">
-                    <span>Qty: ${totalItems} • ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' mos' : 'Inclusive'})</span>
+                    <span>Qty: ${totalItems} • ${days} Days ${r.comingDate ? '' : '(Active Till Today)'}</span>
                     <strong style="color: var(--success); font-size: 0.95rem;">₹${Math.round(totalVal).toLocaleString('en-IN')}</strong>
                   </div>
                 </div>
@@ -125,11 +124,17 @@ var RentalsPage = {
     const allRecords = Store.RentalSites.getAll();
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
 
-    // Filter records by selected month (YYYY-MM)
+    // Filter all active/returned records applicable to selected month
     const monthRecords = allRecords.filter(r => {
       if (!r.goingDate) return false;
-      return r.goingDate.startsWith(this.selectedMonth) || (r.comingDate && r.comingDate.startsWith(this.selectedMonth));
-    }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate)); // Date-wise chronological
+      const goingMonth = r.goingDate.slice(0, 7);
+      const comingMonth = r.comingDate ? r.comingDate.slice(0, 7) : '';
+
+      const startedInOrBefore = goingMonth <= this.selectedMonth;
+      const endedInOrAfter = !r.comingDate || comingMonth >= this.selectedMonth;
+
+      return startedInOrBefore && endedInOrAfter;
+    }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
 
     // Summary calculations
     let totalDispatches = monthRecords.length;
@@ -174,7 +179,7 @@ var RentalsPage = {
       <!-- Monthly Summary Metrics -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
         <div class="card" style="padding: 20px; border-left: 4px solid var(--primary-500);">
-          <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Dispatches This Month</div>
+          <div style="font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-tertiary); font-weight: 600;">Dispatches Active/Sent</div>
           <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">${totalDispatches}</div>
         </div>
         <div class="card" style="padding: 20px; border-left: 4px solid #3b82f6;">
@@ -236,7 +241,7 @@ var RentalsPage = {
                     </td>
                     <td>
                       <span class="badge badge-info" style="font-size:0.8rem; padding: 4px 8px;">
-                        ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' mos' : 'Inclusive'})
+                        ${days} Days ${r.comingDate ? '' : '(Active)'}
                       </span>
                     </td>
                     <td style="text-align: right; font-weight: 800; color: #059669; font-size: 1.05rem;">
@@ -286,9 +291,9 @@ var RentalsPage = {
   },
 
   getInclusiveDays(date1, date2) {
-    if (!date1 || !date2) return 0;
+    if (!date1) return 0;
     const d1 = new Date(date1);
-    const d2 = new Date(date2);
+    const d2 = date2 ? new Date(date2) : new Date(); // If comingDate missing/active, calculate up to TODAY
     const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
     const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
     const diffMs = utc2 - utc1;
@@ -324,10 +329,13 @@ var RentalsPage = {
             ${Icons.mapPin} Site: <strong>${r.siteName || '-'}</strong> • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}">${isMonthly ? '📅 Monthly Basis' : '☀️ Daily Basis'}</span>
           </p>
         </div>
-        <div style="display:flex; gap:10px;">
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
           ${r.status === 'Active' ? `
             <button class="btn btn-success" onclick="RentalsPage.markReturned()" style="display:inline-flex;align-items:center;gap:6px;">
               ${Icons.check} Mark Returned
+            </button>
+            <button class="btn btn-primary" onclick="RentalsPage.setComingDatePrompt('${r.id}')" style="display:inline-flex;align-items:center;gap:6px;">
+              📅 Set Return Date
             </button>
           ` : ''}
           <button class="btn btn-outline" onclick="RentalsPage.printChallan()" style="display:inline-flex;align-items:center;gap:6px;">
@@ -352,13 +360,13 @@ var RentalsPage = {
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
           <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Coming Date (Return)</div>
           <div style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem; display:flex; align-items:center; gap:6px;">
-            ${Icons.calendar} ${r.comingDate || '-'}
+            ${Icons.calendar} ${r.comingDate || '<span style="color:#eab308;">Active / Ongoing</span>'}
           </div>
         </div>
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
           <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Rental Duration</div>
           <div style="font-weight: 700; color: var(--primary); font-size: 1.1rem;">
-            ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})
+            ${days} Days ${r.comingDate ? `(${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})` : '(Till Today)'}
           </div>
         </div>
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
@@ -462,8 +470,8 @@ var RentalsPage = {
             <input type="date" class="form-control" id="rental-going-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.goingDate : window.localDateStr()}" style="background: var(--bg-body);">
           </div>
           <div class="form-group">
-            <label>Coming Date (Lease End) *</label>
-            <input type="date" class="form-control" id="rental-coming-date" required onchange="RentalsPage.calculateFormTotals()" value="${record ? record.comingDate : window.localDateStr()}" style="background: var(--bg-body);">
+            <label>Coming Date (Lease End) <span style="font-weight:normal; font-size:0.8em; color:var(--text-tertiary);">(Optional if active)</span></label>
+            <input type="date" class="form-control" id="rental-coming-date" onchange="RentalsPage.calculateFormTotals()" value="${record ? record.comingDate : ''}" style="background: var(--bg-body);">
           </div>
         </div>
 
@@ -609,9 +617,9 @@ var RentalsPage = {
     if (daysLabel) {
       if (basis === 'Monthly') {
         const mos = (days / 30).toFixed(1);
-        daysLabel.innerText = `Duration: ${days} Days (~${mos} Months Inclusive)`;
+        daysLabel.innerText = `Duration: ${days} Days (~${mos} Months ${coming ? 'Inclusive' : 'Active'})`;
       } else {
-        daysLabel.innerText = `Duration: ${days} ${days === 1 ? 'Day' : 'Days'} (Inclusive)`;
+        daysLabel.innerText = `Duration: ${days} ${days === 1 ? 'Day' : 'Days'} ${coming ? '(Inclusive)' : '(Active Till Today)'}`;
       }
     }
 
@@ -651,14 +659,8 @@ var RentalsPage = {
     const comingDate = document.getElementById('rental-coming-date').value;
     const billingBasis = document.querySelector('input[name="rental-billing-basis"]:checked')?.value || 'Daily';
 
-    if (!customerName || !siteName || !goingDate || !comingDate) {
-      alert('Please fill out all required fields.');
-      return;
-    }
-
-    const days = this.getInclusiveDays(goingDate, comingDate);
-    if (days <= 0) {
-      alert('Coming Date must be on or after Going Date.');
+    if (!customerName || !siteName || !goingDate) {
+      alert('Please fill out Customer Name, Site Address, and Going Date.');
       return;
     }
 
@@ -674,14 +676,14 @@ var RentalsPage = {
       customerName,
       siteName,
       goingDate,
-      comingDate,
+      comingDate: comingDate || '',
       billingBasis,
       items: items.map(i => ({
         materialId: i.materialId,
         quantity: parseFloat(i.quantity) || 0,
         rate: parseFloat(i.rate) || 0
       })),
-      status: record ? record.status : 'Active',
+      status: record ? record.status : (comingDate ? 'Returned' : 'Active'),
       createdAt: record ? record.createdAt : new Date().toISOString()
     };
 
@@ -698,10 +700,32 @@ var RentalsPage = {
     this.refresh();
   },
 
+  setComingDatePrompt(contractId) {
+    const c = Store.RentalSites.getById(contractId);
+    if (!c) return;
+
+    const dateInput = prompt('Enter Return / Coming Date (YYYY-MM-DD):', window.localDateStr());
+    if (dateInput) {
+      Store.RentalSites.update(contractId, {
+        comingDate: dateInput,
+        status: 'Returned'
+      });
+      alert('Return Date updated successfully!');
+      this.refresh();
+    }
+  },
+
   markReturned() {
     if (!this.selectedId) return;
-    if (confirm('Are you sure you want to mark this rental contract as returned?')) {
-      Store.RentalSites.update(this.selectedId, { status: 'Returned' });
+    const c = Store.RentalSites.getById(this.selectedId);
+    if (!c) return;
+
+    const returnDate = c.comingDate || window.localDateStr();
+    if (confirm(`Mark this rental contract as returned on ${returnDate}?`)) {
+      Store.RentalSites.update(this.selectedId, {
+        comingDate: returnDate,
+        status: 'Returned'
+      });
       alert('Rental contract status updated to Returned!');
       this.refresh();
     }
@@ -790,9 +814,9 @@ var RentalsPage = {
           <div class="card">
             <h4>Rental Lease Details</h4>
             <p><strong>Going Date:</strong> ${r.goingDate}</p>
-            <p><strong>Coming Date:</strong> ${r.comingDate}</p>
+            <p><strong>Coming Date:</strong> ${r.comingDate || 'Active / Ongoing'}</p>
             <p><strong>Billing Basis:</strong> ${isMonthly ? 'MONTHLY BASIS' : 'DAILY BASIS'}</p>
-            <p><strong>Duration:</strong> ${days} Days (${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})</p>
+            <p><strong>Duration:</strong> ${days} Days ${r.comingDate ? `(${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})` : '(Active Till Today)'}</p>
           </div>
         </div>
 
@@ -814,7 +838,7 @@ var RentalsPage = {
 
         <div class="total-section">
           <div style="font-weight: 700; font-size: 14px; color: #1e40af; border: 1px solid #93c5fd; background: #eff6ff; padding: 10px 16px; border-radius: 6px;">
-            Statement Period: <strong>${r.goingDate} TO ${r.comingDate}</strong>
+            Statement Period: <strong>${r.goingDate} TO ${r.comingDate || 'ACTIVE'}</strong>
           </div>
           <div class="total-card">
             <span style="font-size: 11px; text-transform: uppercase; color: #047857; font-weight: bold; display: block; margin-bottom: 4px;">Grand Total Rental Charge</span>
@@ -852,14 +876,19 @@ var RentalsPage = {
 
     const monthRecords = allRecords.filter(r => {
       if (!r.goingDate) return false;
-      return r.goingDate.startsWith(this.selectedMonth) || (r.comingDate && r.comingDate.startsWith(this.selectedMonth));
+      const goingMonth = r.goingDate.slice(0, 7);
+      const comingMonth = r.comingDate ? r.comingDate.slice(0, 7) : '';
+
+      const startedInOrBefore = goingMonth <= this.selectedMonth;
+      const endedInOrAfter = !r.comingDate || comingMonth >= this.selectedMonth;
+
+      return startedInOrBefore && endedInOrAfter;
     }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
 
     const monthLabel = new Date(this.selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
     const yearStr = this.selectedMonth.split('-')[0];
     const monthStr = this.selectedMonth.split('-')[1];
 
-    // Compute last day of selected month
     const lastDay = new Date(yearStr, monthStr, 0).getDate();
     const dateRangeStr = `01-${monthStr}-${yearStr} TO ${lastDay}-${monthStr}-${yearStr}`;
 
