@@ -43,6 +43,9 @@ var SiteDetailsPage = {
 
   render() {
     if (!this.siteId) {
+      try { this.siteId = sessionStorage.getItem('selectedSiteId'); } catch(e){}
+    }
+    if (!this.siteId) {
       return `
         <div class="empty-state">
           <h3>No Site Selected</h3>

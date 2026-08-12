@@ -205,7 +205,7 @@ const Store = (() => {
 
     return {
       getAll: () => cache[cacheKey] || [],
-      getById: (id) => cache[cacheKey].find(x => x.id === id) || null,
+      getById: (id) => (cache[cacheKey] || []).find(x => x && String(x.id || x._id) === String(id || '')) || null,
       setAll: (data) => {
         if (Array.isArray(data)) {
           cache[cacheKey] = data;
@@ -406,7 +406,7 @@ const Store = (() => {
 
   const Sites = {
     getAll: () => cache.sites,
-    getById: (id) => cache.sites.find(s => s.id === id) || null,
+    getById: (id) => (cache.sites || []).find(s => s && String(s.id || s._id) === String(id || '')) || null,
     getByCustomer: (customerId) => cache.sites.filter(s => s.customerId === customerId),
     add: (s) => SitesStore.add(s),
     update: (id, s) => SitesStore.update(id, s),

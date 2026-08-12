@@ -593,7 +593,11 @@ var SitesPage = {
   },
 
   viewDetails(siteId) {
-    SiteDetailsPage.siteId = siteId;
+    const targetId = typeof siteId === 'object' ? (siteId.id || siteId._id) : siteId;
+    if (targetId) {
+      SiteDetailsPage.siteId = String(targetId);
+      try { sessionStorage.setItem('selectedSiteId', String(targetId)); } catch(e){}
+    }
     App.navigate('site-details');
   },
 
