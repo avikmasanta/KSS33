@@ -197,6 +197,8 @@ var SitesPage = {
           </tr>
         </thead>
         <tbody>
+          ${pageItems.length === 0 ? `
+            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-tertiary)">No sites found</td></tr>
           ` : pageItems.map((s, i) => {
             const sId = String(s.id || s._id || '');
             return `
