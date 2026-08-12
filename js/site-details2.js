@@ -499,7 +499,7 @@ var SiteDetailsPage = {
   },
 
   openDispatchModal() {
-    this.dispatchItems = [{ materialId: '', quantity: '' }];
+    this.dispatchItems = [{ materialId: '', quantity: '', searchQuery: '' }];
     const modal = document.getElementById('site-dispatch-modal');
     if (modal) {
       modal.classList.add('active');
@@ -529,13 +529,11 @@ var SiteDetailsPage = {
       return;
     }
 
-    const categories = [...new Set(materials.map(m => m.category || 'General'))];
-
     let html = `
-      <table class="inline-table w-100">
+      <table class="inline-table w-100" style="overflow:visible;">
         <thead>
           <tr>
-            <th style="width:60%">Material</th>
+            <th style="width:60%">Material (Search / Auto-suggest)</th>
             <th style="width:30%; color: var(--success)">Qty Dispatched</th>
             <th style="width:10%"></th>
           </tr>
@@ -544,25 +542,26 @@ var SiteDetailsPage = {
     `;
 
     (this.dispatchItems || []).forEach((item, idx) => {
+      const mat = item.materialId ? Store.Materials.getById(item.materialId) : null;
+      const displayVal = mat ? `${mat.name} (${mat.unit || 'Pcs'})` : (item.searchQuery || '');
+
       html += `
         <tr>
-          <td>
-            <select class="form-control" onchange="SiteDetailsPage.onDispatchItemChange(${idx}, 'materialId', this.value)">
-              <option value="">Select Material...</option>
-              ${categories.map(cat => {
-                const catMats = materials.filter(m => (m.category || 'General') === cat);
-                if (catMats.length === 0) return '';
-                return `
-                  <optgroup label="${cat}">
-                    ${catMats.map(m => `
-                      <option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>
-                        ${m.name} (${m.unit || 'Pcs'}${m.sku ? ' • ' + m.sku : ''})
-                      </option>
-                    `).join('')}
-                  </optgroup>
-                `;
-              }).join('')}
-            </select>
+          <td style="position:relative;">
+            <div class="searchable-combobox-wrapper" style="position:relative; width:100%;">
+              <input
+                type="text"
+                class="form-control"
+                id="mat-input-dispatch-${idx}"
+                placeholder="Type material name (e.g. Steel)..."
+                value="${displayVal.replace(/"/g, '&quot;')}"
+                autocomplete="off"
+                onfocus="SiteDetailsPage.openMatSuggestions('dispatch', ${idx})"
+                oninput="SiteDetailsPage.filterMatSuggestions('dispatch', ${idx}, this.value)"
+              >
+              <div id="mat-suggestions-dispatch-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; max-height:220px; overflow-y:auto; background:#1e293b; border:1px solid #334155; border-radius:8px; z-index:9999; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:4px 0;">
+              </div>
+            </div>
           </td>
           <td>
             <input
@@ -573,6 +572,7 @@ var SiteDetailsPage = {
               step="any"
               value="${item.quantity || ''}"
               oninput="SiteDetailsPage.onDispatchItemChange(${idx}, 'quantity', this.value)"
+              onfocus="if(this.value==='0') this.value=''; this.select()"
             >
           </td>
           <td style="text-align:center;">
@@ -601,7 +601,7 @@ var SiteDetailsPage = {
 
   addDispatchItem() {
     if (!this.dispatchItems) this.dispatchItems = [];
-    this.dispatchItems.push({ materialId: '', quantity: '' });
+    this.dispatchItems.push({ materialId: '', quantity: '', searchQuery: '' });
     this.renderDispatchItems();
   },
 
@@ -616,6 +616,97 @@ var SiteDetailsPage = {
     if (this.dispatchItems && this.dispatchItems[idx]) {
       this.dispatchItems[idx][field] = value;
     }
+  },
+
+  openMatSuggestions(type, idx) {
+    document.querySelectorAll('.mat-suggestions-menu').forEach(el => el.style.display = 'none');
+    const input = document.getElementById(`mat-input-${type}-${idx}`);
+    if (input) {
+      this.filterMatSuggestions(type, idx, input.value || '');
+    }
+  },
+
+  filterMatSuggestions(type, idx, query) {
+    const suggestionsEl = document.getElementById(`mat-suggestions-${type}-${idx}`);
+    if (!suggestionsEl) return;
+
+    const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
+      .filter(m => m.status !== 'Archived');
+    const site = Store.Sites.getById(this.siteId);
+
+    const q = (query || '').toLowerCase().trim();
+
+    const itemsArray = type === 'dispatch' ? this.dispatchItems : this.returnItems;
+    if (itemsArray && itemsArray[idx]) {
+      itemsArray[idx].searchQuery = query;
+      const curMat = Store.Materials.getById(itemsArray[idx].materialId);
+      if (curMat) {
+        const fullName = `${curMat.name} (${curMat.unit || 'Pcs'})`.toLowerCase();
+        if (!fullName.includes(q) && !curMat.name.toLowerCase().includes(q)) {
+          itemsArray[idx].materialId = '';
+        }
+      }
+    }
+
+    const filtered = materials.filter(m => {
+      if (!q) return true;
+      const nameMatch = (m.name || '').toLowerCase().includes(q);
+      const skuMatch  = (m.sku || '').toLowerCase().includes(q);
+      const unitMatch = (m.unit || '').toLowerCase().includes(q);
+      const catMatch  = (m.category || '').toLowerCase().includes(q);
+      return nameMatch || skuMatch || unitMatch || catMatch;
+    });
+
+    if (filtered.length === 0) {
+      suggestionsEl.innerHTML = `<div style="padding:10px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">No matching materials found</div>`;
+      suggestionsEl.style.display = 'block';
+      return;
+    }
+
+    let html = '';
+    filtered.forEach(m => {
+      let balanceText = '';
+      if (type === 'return') {
+        const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site ? site.id : null);
+        const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
+        const remaining     = totalSent - totalReturned;
+        balanceText = totalSent > 0 ? `<span style="font-size:0.75rem; color:#f59e0b; font-weight:600;">(At site: ${remaining})</span>` : '';
+      }
+
+      html += `
+        <div
+          class="mat-suggestion-item"
+          style="padding:9px 14px; cursor:pointer; font-size:0.88rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); color:#f8fafc;"
+          onmouseenter="this.style.background='#334155'"
+          onmouseleave="this.style.background='transparent'"
+          onmousedown="SiteDetailsPage.selectMatOption('${type}', ${idx}, '${m.id}')"
+        >
+          <div>
+            <div style="font-weight:600; color:#f8fafc;">${m.name}</div>
+            <div style="font-size:0.75rem; color:#94a3b8;">${m.unit || 'Pcs'}${m.sku ? ' • ' + m.sku : ''} ${m.category ? '• ' + m.category : ''}</div>
+          </div>
+          ${balanceText}
+        </div>
+      `;
+    });
+
+    suggestionsEl.innerHTML = html;
+    suggestionsEl.style.display = 'block';
+  },
+
+  selectMatOption(type, idx, materialId) {
+    const itemsArray = type === 'dispatch' ? this.dispatchItems : this.returnItems;
+    const material = Store.Materials.getById(materialId);
+    if (itemsArray && itemsArray[idx] && material) {
+      itemsArray[idx].materialId = material.id;
+      itemsArray[idx].searchQuery = `${material.name} (${material.unit || 'Pcs'})`;
+
+      const input = document.getElementById(`mat-input-${type}-${idx}`);
+      if (input) input.value = itemsArray[idx].searchQuery;
+    }
+
+    const suggestionsEl = document.getElementById(`mat-suggestions-${type}-${idx}`);
+    if (suggestionsEl) suggestionsEl.style.display = 'none';
   },
 
   saveDispatch() {
@@ -661,7 +752,7 @@ var SiteDetailsPage = {
   },
 
   openReturnModal() {
-    this.returnItems = [{ materialId: '', quantity: '' }];
+    this.returnItems = [{ materialId: '', quantity: '', searchQuery: '' }];
     const modal = document.getElementById('site-return-modal');
     if (modal) modal.classList.add('active');
     this.renderReturnItems();
@@ -681,27 +772,17 @@ var SiteDetailsPage = {
 
     const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
       .filter(m => m.status !== 'Archived');
-    const site = Store.Sites.getById(this.siteId);
 
     if (materials.length === 0) {
       container.innerHTML = '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials available in catalog.</p>';
       return;
     }
 
-    // Sort materials: materials with remaining balance at site first
-    const sortedMatList = [...materials].sort((a, b) => {
-      const sentA = Store.Inventory.getSiteTotalSent(a.id, site ? site.id : null);
-      const retA  = Store.Inventory.getSiteReturns(a.id, site ? site.id : null);
-      const sentB = Store.Inventory.getSiteTotalSent(b.id, site ? site.id : null);
-      const retB  = Store.Inventory.getSiteReturns(b.id, site ? site.id : null);
-      return (sentB - retB) - (sentA - retA);
-    });
-
     let html = `
-      <table class="inline-table w-100">
+      <table class="inline-table w-100" style="overflow:visible;">
         <thead>
           <tr>
-            <th style="width:60%">Material</th>
+            <th style="width:60%">Material (Search / Auto-suggest)</th>
             <th style="width:30%; color: var(--danger)">Qty Returned</th>
             <th style="width:10%"></th>
           </tr>
@@ -710,23 +791,26 @@ var SiteDetailsPage = {
     `;
 
     (this.returnItems || []).forEach((item, idx) => {
+      const mat = item.materialId ? Store.Materials.getById(item.materialId) : null;
+      const displayVal = mat ? `${mat.name} (${mat.unit || 'Pcs'})` : (item.searchQuery || '');
+
       html += `
         <tr>
-          <td>
-            <select class="form-control" onchange="SiteDetailsPage.onReturnItemChange(${idx}, 'materialId', this.value)">
-              <option value="">Select Material...</option>
-              ${sortedMatList.map(m => {
-                const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site ? site.id : null);
-                const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
-                const remaining     = totalSent - totalReturned;
-                const balanceText   = totalSent > 0 ? ` (At site: ${remaining})` : '';
-                return `
-                  <option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>
-                    ${m.name} (${m.unit || 'Pcs'})${balanceText}
-                  </option>
-                `;
-              }).join('')}
-            </select>
+          <td style="position:relative;">
+            <div class="searchable-combobox-wrapper" style="position:relative; width:100%;">
+              <input
+                type="text"
+                class="form-control"
+                id="mat-input-return-${idx}"
+                placeholder="Type material name (e.g. Steel)..."
+                value="${displayVal.replace(/"/g, '&quot;')}"
+                autocomplete="off"
+                onfocus="SiteDetailsPage.openMatSuggestions('return', ${idx})"
+                oninput="SiteDetailsPage.filterMatSuggestions('return', ${idx}, this.value)"
+              >
+              <div id="mat-suggestions-return-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; max-height:220px; overflow-y:auto; background:#1e293b; border:1px solid #334155; border-radius:8px; z-index:9999; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:4px 0;">
+              </div>
+            </div>
           </td>
           <td>
             <input
@@ -737,6 +821,7 @@ var SiteDetailsPage = {
               step="any"
               value="${item.quantity || ''}"
               oninput="SiteDetailsPage.onReturnItemChange(${idx}, 'quantity', this.value)"
+              onfocus="if(this.value==='0') this.value=''; this.select()"
             >
           </td>
           <td style="text-align:center;">
@@ -765,7 +850,7 @@ var SiteDetailsPage = {
 
   addReturnItem() {
     if (!this.returnItems) this.returnItems = [];
-    this.returnItems.push({ materialId: '', quantity: '' });
+    this.returnItems.push({ materialId: '', quantity: '', searchQuery: '' });
     this.renderReturnItems();
   },
 
@@ -1263,3 +1348,9 @@ var SiteDetailsPage = {
     `;
   }
 };
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.searchable-combobox-wrapper')) {
+    document.querySelectorAll('.mat-suggestions-menu').forEach(el => el.style.display = 'none');
+  }
+});
