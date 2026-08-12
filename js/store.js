@@ -204,12 +204,19 @@ const Store = (() => {
     const path = config.url;
 
     return {
-      getAll: () => cache[cacheKey] || [],
+      getAll: () => (cache[cacheKey] || []).map(x => {
+        if (x && !x.id && x._id) x.id = String(x._id);
+        return x;
+      }),
       getById: (id) => (cache[cacheKey] || []).find(x => x && String(x.id || x._id) === String(id || '')) || null,
       setAll: (data) => {
         if (Array.isArray(data)) {
-          cache[cacheKey] = data;
-          persistLocal(lsKey, data);
+          const normalized = data.map(x => {
+            if (x && !x.id && x._id) return { ...x, id: String(x._id) };
+            return x;
+          });
+          cache[cacheKey] = normalized;
+          persistLocal(lsKey, normalized);
         }
       },
 
@@ -405,7 +412,10 @@ const Store = (() => {
   };
 
   const Sites = {
-    getAll: () => cache.sites,
+    getAll: () => (cache.sites || []).map(s => {
+      if (s && !s.id && s._id) s.id = String(s._id);
+      return s;
+    }),
     getById: (id) => (cache.sites || []).find(s => s && String(s.id || s._id) === String(id || '')) || null,
     getByCustomer: (customerId) => cache.sites.filter(s => s.customerId === customerId),
     add: (s) => SitesStore.add(s),

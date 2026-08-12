@@ -20,7 +20,7 @@ var SitesPage = {
           <select id="site-export-select" class="filter-select" style="min-width: 180px; height: 38px; border-radius: 6px; padding: 0 12px; background: var(--bg-card); color: var(--text-primary); border: 1px solid var(--border-color); font-weight: 500;">
             <option value="ALL">Export All Sites</option>
             ${activeSites.map(s => `
-              <option value="${s.id}">${s.name}</option>
+              <option value="${s.id || s._id}">${s.name}</option>
             `).join('')}
           </select>
           <button class="btn btn-outline" onclick="SitesPage.handlePDFExport()" style="display:inline-flex;align-items:center;gap:6px;">
@@ -197,15 +197,14 @@ var SitesPage = {
           </tr>
         </thead>
         <tbody>
-          ${pageItems.length === 0 ? `
-            <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-tertiary)">No sites found</td></tr>
           ` : pageItems.map((s, i) => {
+            const sId = String(s.id || s._id || '');
             return `
               <tr>
                 <td class="secondary">${start + i + 1}</td>
                 <td>
                   <strong>${s.name}</strong>
-                  <div style="font-size:0.75rem; color:var(--text-tertiary); font-family:monospace; margin-top:2px;">ID: ${s.id}</div>
+                  <div style="font-size:0.75rem; color:var(--text-tertiary); font-family:monospace; margin-top:2px;">ID: ${sId}</div>
                 </td>
                 <td>
                   <div><strong>${s.customerName || '-'}</strong></div>
@@ -219,12 +218,12 @@ var SitesPage = {
                 <td>
                   <div class="table-actions">
                     ${s.status === 'Archived' ? `
-                      <button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success);" title="Restore Site" onclick="SitesPage.restoreSite('${s.id}')">${Icons.refreshCw} Restore</button>
-                      <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);" title="Permanent Delete" onclick="SitesPage.permanentDeleteSite('${s.id}')">${Icons.trash} Permanent Delete</button>
+                      <button class="btn btn-sm btn-outline" style="color:var(--success);border-color:var(--success);" title="Restore Site" onclick="SitesPage.restoreSite('${sId}')">${Icons.refreshCw} Restore</button>
+                      <button class="btn btn-sm btn-outline" style="color:var(--danger);border-color:var(--danger);" title="Permanent Delete" onclick="SitesPage.permanentDeleteSite('${sId}')">${Icons.trash} Permanent Delete</button>
                     ` : `
-                      <button class="btn btn-sm btn-outline" title="View Details" onclick="SitesPage.viewDetails('${s.id}')">${Icons.box} Dashboard</button>
-                      <button class="btn btn-icon btn-ghost" title="Edit" onclick="SitesPage.edit('${s.id}')">${Icons.edit}</button>
-                      <button class="btn btn-icon btn-ghost" title="Delete" style="color:var(--danger)" onclick="SitesPage.deleteSite('${s.id}')">${Icons.trash}</button>
+                      <button class="btn btn-sm btn-outline" title="View Details" onclick="SitesPage.viewDetails('${sId}')">${Icons.box} Dashboard</button>
+                      <button class="btn btn-icon btn-ghost" title="Edit" onclick="SitesPage.edit('${sId}')">${Icons.edit}</button>
+                      <button class="btn btn-icon btn-ghost" title="Delete" style="color:var(--danger)" onclick="SitesPage.deleteSite('${sId}')">${Icons.trash}</button>
                     `}
                   </div>
                 </td>
