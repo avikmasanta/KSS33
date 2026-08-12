@@ -195,37 +195,7 @@ var SiteDetailsPage = {
                 <input type="date" class="form-control" id="site-dispatch-date" value="${localDateStr()}">
               </div>
             </div>
-            <div style="max-height: 340px; overflow-y: auto; margin-top: 8px;">
-              <table class="inline-table w-100">
-                <thead>
-                  <tr>
-                    <th style="width:65%">Material</th>
-                    <th style="width:35%; color: var(--success)">Qty Dispatched</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${materials.map(m => `
-                    <tr>
-                      <td>
-                        <div style="font-weight:600;font-size:0.9rem;">${m.name}</div>
-                        <div style="font-size:0.75rem;color:var(--text-tertiary);">${m.unit}${m.sku ? ' &bull; ' + m.sku : ''}</div>
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          class="form-control"
-                          placeholder="0"
-                          min="0"
-                          step="1"
-                          data-material-id="${m.id}"
-                          oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
-                        >
-                      </td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
+            <div id="site-dispatch-items-container" style="margin-top: 8px;"></div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeDispatchModal()">Cancel</button>
@@ -246,58 +216,7 @@ var SiteDetailsPage = {
               <label>Date</label>
               <input type="date" class="form-control" id="site-return-date" value="${localDateStr()}">
             </div>
-            <div style="max-height: 340px; overflow-y: auto; margin-top: 8px;">
-              ${(() => {
-                if (materials.length === 0) {
-                  return '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials available in catalog.</p>';
-                }
-
-                // Sort: materials with site balance or sent first, then remaining materials
-                const sortedMatList = [...materials].sort((a, b) => {
-                  const sentA = Store.Inventory.getSiteTotalSent(a.id, site.id);
-                  const sentB = Store.Inventory.getSiteTotalSent(b.id, site.id);
-                  return sentB - sentA;
-                });
-
-                return `
-                  <table class="inline-table w-100">
-                    <thead>
-                      <tr>
-                        <th style="width:65%">Material</th>
-                        <th style="width:35%; color: var(--danger)">Qty Returned</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${sortedMatList.map(m => {
-                        const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site.id);
-                        const totalReturned = Store.Inventory.getSiteReturns(m.id, site.id);
-                        const remaining     = totalSent - totalReturned;
-                        const hasHistory    = totalSent > 0 || totalReturned > 0;
-
-                        return `
-                          <tr>
-                            <td>
-                              <div style="font-weight:600;font-size:0.9rem; color:var(--text-primary);">${m.name}</div>
-                              <div style="font-size:0.75rem;color:var(--text-tertiary);">${m.unit} ${hasHistory ? `&bull; Sent: ${totalSent} | Ret: ${totalReturned} | Left: ${remaining}` : '(Catalog Material)'}</div>
-                            </td>
-                            <td>
-                              <input
-                                type="number"
-                                class="form-control"
-                                placeholder="0"
-                                min="0"
-                                step="any"
-                                data-material-id="${m.id}"
-                              >
-                            </td>
-                          </tr>
-                        `;
-                      }).join('')}
-                    </tbody>
-                  </table>
-                `;
-              })()}
-            </div>
+            <div id="site-return-items-container" style="margin-top: 8px;"></div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeReturnModal()">Cancel</button>
@@ -580,18 +499,122 @@ var SiteDetailsPage = {
   },
 
   openDispatchModal() {
+    this.dispatchItems = [{ materialId: '', quantity: '' }];
     const modal = document.getElementById('site-dispatch-modal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+      modal.classList.add('active');
+      const ticket = modal.querySelector('#site-dispatch-ticket');
+      if (ticket) ticket.value = '';
+    }
+    this.renderDispatchItems();
   },
 
   closeDispatchModal() {
     const modal = document.getElementById('site-dispatch-modal');
     if (modal) {
       modal.classList.remove('active');
-      // Clear all qty inputs
-      modal.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
-      const ticket = modal.querySelector('#site-dispatch-ticket');
-      if (ticket) ticket.value = '';
+      this.dispatchItems = [];
+    }
+  },
+
+  renderDispatchItems() {
+    const container = document.getElementById('site-dispatch-items-container');
+    if (!container) return;
+
+    const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
+      .filter(m => m.status !== 'Archived');
+
+    if (materials.length === 0) {
+      container.innerHTML = '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials available in catalog.</p>';
+      return;
+    }
+
+    const categories = [...new Set(materials.map(m => m.category || 'General'))];
+
+    let html = `
+      <table class="inline-table w-100">
+        <thead>
+          <tr>
+            <th style="width:60%">Material</th>
+            <th style="width:30%; color: var(--success)">Qty Dispatched</th>
+            <th style="width:10%"></th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    (this.dispatchItems || []).forEach((item, idx) => {
+      html += `
+        <tr>
+          <td>
+            <select class="form-control" onchange="SiteDetailsPage.onDispatchItemChange(${idx}, 'materialId', this.value)">
+              <option value="">Select Material...</option>
+              ${categories.map(cat => {
+                const catMats = materials.filter(m => (m.category || 'General') === cat);
+                if (catMats.length === 0) return '';
+                return `
+                  <optgroup label="${cat}">
+                    ${catMats.map(m => `
+                      <option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>
+                        ${m.name} (${m.unit || 'Pcs'}${m.sku ? ' • ' + m.sku : ''})
+                      </option>
+                    `).join('')}
+                  </optgroup>
+                `;
+              }).join('')}
+            </select>
+          </td>
+          <td>
+            <input
+              type="number"
+              class="form-control"
+              placeholder="0"
+              min="0"
+              step="any"
+              value="${item.quantity || ''}"
+              oninput="SiteDetailsPage.onDispatchItemChange(${idx}, 'quantity', this.value)"
+            >
+          </td>
+          <td style="text-align:center;">
+            ${(this.dispatchItems || []).length > 1 ? `
+              <button class="btn btn-icon btn-ghost" onclick="SiteDetailsPage.removeDispatchItem(${idx})" title="Remove">
+                ${Icons.x}
+              </button>
+            ` : ''}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+        </tbody>
+      </table>
+      <div style="margin-top:10px;">
+        <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:4px; font-size:0.9rem;" onclick="SiteDetailsPage.addDispatchItem()">
+          ${Icons.plus} Add Material
+        </a>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  },
+
+  addDispatchItem() {
+    if (!this.dispatchItems) this.dispatchItems = [];
+    this.dispatchItems.push({ materialId: '', quantity: '' });
+    this.renderDispatchItems();
+  },
+
+  removeDispatchItem(idx) {
+    if (this.dispatchItems && this.dispatchItems.length > 1) {
+      this.dispatchItems.splice(idx, 1);
+      this.renderDispatchItems();
+    }
+  },
+
+  onDispatchItemChange(idx, field, value) {
+    if (this.dispatchItems && this.dispatchItems[idx]) {
+      this.dispatchItems[idx][field] = value;
     }
   },
 
@@ -601,16 +624,13 @@ var SiteDetailsPage = {
 
     if (!date) { alert('Please choose a date.'); return; }
 
-    const modal = document.getElementById('site-dispatch-modal');
-    const inputs = modal.querySelectorAll('input[data-material-id]');
     const items = [];
-    inputs.forEach(input => {
-      const qty = parseFloat(input.value) || 0;
-      if (qty > 0) {
-        const materialId = input.getAttribute('data-material-id');
-        const material = Store.Materials.getById(materialId);
+    (this.dispatchItems || []).forEach(item => {
+      const qty = parseFloat(item.quantity) || 0;
+      if (item.materialId && qty > 0) {
+        const material = Store.Materials.getById(item.materialId);
         items.push({
-          materialId,
+          materialId: item.materialId,
           quantity: qty,
           rate: material?.unitPrice || 0,
           amount: qty * (material?.unitPrice || 0)
@@ -619,7 +639,7 @@ var SiteDetailsPage = {
     });
 
     if (items.length === 0) {
-      alert('Please enter a quantity for at least one material.');
+      alert('Please select at least one material and enter a valid quantity.');
       return;
     }
 
@@ -641,16 +661,124 @@ var SiteDetailsPage = {
   },
 
   openReturnModal() {
+    this.returnItems = [{ materialId: '', quantity: '' }];
     const modal = document.getElementById('site-return-modal');
     if (modal) modal.classList.add('active');
+    this.renderReturnItems();
   },
 
   closeReturnModal() {
     const modal = document.getElementById('site-return-modal');
     if (modal) {
       modal.classList.remove('active');
-      // Clear all qty inputs
-      modal.querySelectorAll('input[type="number"]').forEach(i => i.value = '');
+      this.returnItems = [];
+    }
+  },
+
+  renderReturnItems() {
+    const container = document.getElementById('site-return-items-container');
+    if (!container) return;
+
+    const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
+      .filter(m => m.status !== 'Archived');
+    const site = Store.Sites.getById(this.siteId);
+
+    if (materials.length === 0) {
+      container.innerHTML = '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials available in catalog.</p>';
+      return;
+    }
+
+    // Sort materials: materials with remaining balance at site first
+    const sortedMatList = [...materials].sort((a, b) => {
+      const sentA = Store.Inventory.getSiteTotalSent(a.id, site ? site.id : null);
+      const retA  = Store.Inventory.getSiteReturns(a.id, site ? site.id : null);
+      const sentB = Store.Inventory.getSiteTotalSent(b.id, site ? site.id : null);
+      const retB  = Store.Inventory.getSiteReturns(b.id, site ? site.id : null);
+      return (sentB - retB) - (sentA - retA);
+    });
+
+    let html = `
+      <table class="inline-table w-100">
+        <thead>
+          <tr>
+            <th style="width:60%">Material</th>
+            <th style="width:30%; color: var(--danger)">Qty Returned</th>
+            <th style="width:10%"></th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    (this.returnItems || []).forEach((item, idx) => {
+      html += `
+        <tr>
+          <td>
+            <select class="form-control" onchange="SiteDetailsPage.onReturnItemChange(${idx}, 'materialId', this.value)">
+              <option value="">Select Material...</option>
+              ${sortedMatList.map(m => {
+                const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site ? site.id : null);
+                const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
+                const remaining     = totalSent - totalReturned;
+                const balanceText   = totalSent > 0 ? ` (At site: ${remaining})` : '';
+                return `
+                  <option value="${m.id}" ${item.materialId === m.id ? 'selected' : ''}>
+                    ${m.name} (${m.unit || 'Pcs'})${balanceText}
+                  </option>
+                `;
+              }).join('')}
+            </select>
+          </td>
+          <td>
+            <input
+              type="number"
+              class="form-control"
+              placeholder="0"
+              min="0"
+              step="any"
+              value="${item.quantity || ''}"
+              oninput="SiteDetailsPage.onReturnItemChange(${idx}, 'quantity', this.value)"
+            >
+          </td>
+          <td style="text-align:center;">
+            ${(this.returnItems || []).length > 1 ? `
+              <button class="btn btn-icon btn-ghost" onclick="SiteDetailsPage.removeReturnItem(${idx})" title="Remove">
+                ${Icons.x}
+              </button>
+            ` : ''}
+          </td>
+        </tr>
+      `;
+    });
+
+    html += `
+        </tbody>
+      </table>
+      <div style="margin-top:10px;">
+        <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:4px; font-size:0.9rem;" onclick="SiteDetailsPage.addReturnItem()">
+          ${Icons.plus} Add Material
+        </a>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  },
+
+  addReturnItem() {
+    if (!this.returnItems) this.returnItems = [];
+    this.returnItems.push({ materialId: '', quantity: '' });
+    this.renderReturnItems();
+  },
+
+  removeReturnItem(idx) {
+    if (this.returnItems && this.returnItems.length > 1) {
+      this.returnItems.splice(idx, 1);
+      this.renderReturnItems();
+    }
+  },
+
+  onReturnItemChange(idx, field, value) {
+    if (this.returnItems && this.returnItems[idx]) {
+      this.returnItems[idx][field] = value;
     }
   },
 
@@ -658,26 +786,23 @@ var SiteDetailsPage = {
     const date = document.getElementById('site-return-date').value;
     if (!date) { alert('Please choose a date.'); return; }
 
-    const modal = document.getElementById('site-return-modal');
-    const inputs = modal.querySelectorAll('input[data-material-id]');
     let saved = 0;
-    inputs.forEach(input => {
-      const qty = parseFloat(input.value) || 0;
-      if (qty > 0) {
-        const matId = input.getAttribute('data-material-id');
+    (this.returnItems || []).forEach(item => {
+      const qty = parseFloat(item.quantity) || 0;
+      if (item.materialId && qty > 0) {
         Store.SiteReturns.add({
           siteId: this.siteId,
-          materialId: matId,
+          materialId: item.materialId,
           quantity: qty,
           date
         });
-        Store.logTransaction(matId, qty, 'Return', this.siteId);
+        Store.logTransaction(item.materialId, qty, 'Return', this.siteId);
         saved++;
       }
     });
 
     if (saved === 0) {
-      alert('Please enter a quantity for at least one material.');
+      alert('Please select at least one material and enter a valid quantity.');
       return;
     }
 
