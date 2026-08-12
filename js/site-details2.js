@@ -703,7 +703,7 @@ var SiteDetailsPage = {
       if (catMats.length === 0) return;
 
       html += `
-        <div style="padding:7px 12px 5px; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.8px; text-align:center; color:var(--primary-500, #3b82f6); background:var(--bg-tertiary, rgba(0,0,0,0.06)); border-bottom:1px solid var(--border-color, rgba(0,0,0,0.08)); position:sticky; top:0; z-index:2;">
+        <div style="padding:8px 12px 6px; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.9px; text-align:center; color:var(--primary-500, #2563eb); background:var(--bg-tertiary, rgba(59,130,246,0.08)); border-top:1px solid var(--border-color, rgba(0,0,0,0.08)); border-bottom:1px solid var(--border-color, rgba(0,0,0,0.08)); margin-top:2px;">
           ${cat}
         </div>
       `;
