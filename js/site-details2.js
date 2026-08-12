@@ -529,11 +529,23 @@ var SiteDetailsPage = {
       return;
     }
 
+  renderDispatchItems() {
+    const container = document.getElementById('site-dispatch-items-container');
+    if (!container) return;
+
+    const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
+      .filter(m => m.status !== 'Archived');
+
+    if (materials.length === 0) {
+      container.innerHTML = '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials available in catalog.</p>';
+      return;
+    }
+
     let html = `
       <table class="inline-table w-100" style="overflow:visible;">
         <thead>
           <tr>
-            <th style="width:60%">Material (Search / Auto-suggest)</th>
+            <th style="width:60%">Material</th>
             <th style="width:30%; color: var(--success)">Qty Dispatched</th>
             <th style="width:10%"></th>
           </tr>
@@ -549,17 +561,24 @@ var SiteDetailsPage = {
         <tr>
           <td style="position:relative;">
             <div class="searchable-combobox-wrapper" style="position:relative; width:100%;">
-              <input
-                type="text"
-                class="form-control"
-                id="mat-input-dispatch-${idx}"
-                placeholder="Type material name (e.g. Steel)..."
-                value="${displayVal.replace(/"/g, '&quot;')}"
-                autocomplete="off"
-                onfocus="SiteDetailsPage.openMatSuggestions('dispatch', ${idx})"
-                oninput="SiteDetailsPage.filterMatSuggestions('dispatch', ${idx}, this.value)"
-              >
-              <div id="mat-suggestions-dispatch-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; max-height:220px; overflow-y:auto; background:#1e293b; border:1px solid #334155; border-radius:8px; z-index:9999; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:4px 0;">
+              <div style="position:relative; width:100%; display:flex; align-items:center;">
+                <span style="position:absolute; left:12px; pointer-events:none; color:#64748b; font-size:14px; display:flex; align-items:center;">
+                  ${Icons.search}
+                </span>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="mat-input-dispatch-${idx}"
+                  placeholder="Search material by name, SKU..."
+                  value="${displayVal.replace(/"/g, '&quot;')}"
+                  autocomplete="off"
+                  style="padding-left:36px; padding-right:28px; font-weight:500;"
+                  onfocus="SiteDetailsPage.openMatSuggestions('dispatch', ${idx})"
+                  oninput="SiteDetailsPage.filterMatSuggestions('dispatch', ${idx}, this.value)"
+                >
+                <span style="position:absolute; right:12px; pointer-events:none; color:#64748b; font-size:9px;">▼</span>
+              </div>
+              <div id="mat-suggestions-dispatch-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; min-width:340px; width:100%; max-height:250px; overflow-y:auto; background:#1e293b; border:1px solid rgba(255,255,255,0.12); border-radius:10px; z-index:9999; box-shadow:0 16px 36px rgba(0,0,0,0.6); padding:0 0 4px 0;">
               </div>
             </div>
           </td>
@@ -589,9 +608,9 @@ var SiteDetailsPage = {
     html += `
         </tbody>
       </table>
-      <div style="margin-top:10px;">
-        <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:4px; font-size:0.9rem;" onclick="SiteDetailsPage.addDispatchItem()">
-          ${Icons.plus} Add Material
+      <div style="margin-top:12px;">
+        <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; padding:6px 12px; background:rgba(59,130,246,0.1); border-radius:6px; border:1px solid rgba(59,130,246,0.2);" onclick="SiteDetailsPage.addDispatchItem()">
+          ${Icons.plus} Add Material Row
         </a>
       </div>
     `;
@@ -676,36 +695,56 @@ var SiteDetailsPage = {
     }
 
     if (filtered.length === 0) {
-      suggestionsEl.innerHTML = `<div style="padding:12px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">No matching materials found</div>`;
+      suggestionsEl.innerHTML = `<div style="padding:14px; font-size:0.85rem; color:#94a3b8; text-align:center;">No matching materials found</div>`;
       suggestionsEl.style.display = 'block';
       return;
     }
 
     let html = '';
-    filtered.forEach(m => {
-      let balanceText = '';
-      if (type === 'return') {
-        const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site ? site.id : null);
-        const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
-        const remaining     = totalSent - totalReturned;
-        balanceText = totalSent > 0 ? `<span style="font-size:0.75rem; color:#f59e0b; font-weight:600;">(At site: ${remaining})</span>` : '';
-      }
+    const categories = [...new Set(filtered.map(m => m.category || 'General'))].sort();
+
+    categories.forEach(cat => {
+      const catMats = filtered.filter(m => (m.category || 'General') === cat);
+      if (catMats.length === 0) return;
 
       html += `
-        <div
-          class="mat-suggestion-item"
-          style="padding:9px 14px; cursor:pointer; font-size:0.88rem; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.05); color:#f8fafc;"
-          onmouseenter="this.style.background='#334155'"
-          onmouseleave="this.style.background='transparent'"
-          onmousedown="SiteDetailsPage.selectMatOption('${type}', ${idx}, '${m.id}')"
-        >
-          <div>
-            <div style="font-weight:600; color:#f8fafc;">${m.name}</div>
-            <div style="font-size:0.75rem; color:#94a3b8;">${m.unit || 'Pcs'}${m.sku ? ' • ' + m.sku : ''} ${m.category ? '• ' + m.category : ''}</div>
-          </div>
-          ${balanceText}
+        <div style="padding:6px 12px 4px; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#60a5fa; background:rgba(15, 23, 42, 0.7); border-bottom:1px solid rgba(255,255,255,0.06); position:sticky; top:0; z-index:2;">
+          ${cat}
         </div>
       `;
+
+      catMats.forEach(m => {
+        let balanceText = '';
+        if (type === 'return') {
+          const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site ? site.id : null);
+          const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
+          const remaining     = totalSent - totalReturned;
+          balanceText = totalSent > 0 ? `
+            <span style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); font-weight:600; font-size:0.72rem; padding:2px 8px; border-radius:12px; white-space:nowrap;">
+              On Site: ${remaining}
+            </span>
+          ` : '';
+        }
+
+        html += `
+          <div
+            class="mat-suggestion-item"
+            style="padding:10px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.04); transition:all 0.15s ease;"
+            onmouseenter="this.style.background='rgba(59,130,246,0.15)'; this.style.borderLeft='3px solid #3b82f6';"
+            onmouseleave="this.style.background='transparent'; this.style.borderLeft='0';"
+            onmousedown="SiteDetailsPage.selectMatOption('${type}', ${idx}, '${m.id}')"
+          >
+            <div>
+              <div style="font-weight:600; font-size:0.88rem; color:#f8fafc; margin-bottom:2px;">${m.name}</div>
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <span style="background:rgba(255,255,255,0.08); color:#94a3b8; font-weight:500; font-size:0.7rem; padding:1px 6px; border-radius:4px;">${m.unit || 'Pcs'}</span>
+                ${m.sku ? `<span style="font-size:0.7rem; color:#64748b; font-family:monospace;">• ${m.sku}</span>` : ''}
+              </div>
+            </div>
+            ${balanceText}
+          </div>
+        `;
+      });
     });
 
     suggestionsEl.innerHTML = html;
@@ -800,7 +839,7 @@ var SiteDetailsPage = {
       <table class="inline-table w-100" style="overflow:visible;">
         <thead>
           <tr>
-            <th style="width:60%">Material (Search / Auto-suggest)</th>
+            <th style="width:60%">Material</th>
             <th style="width:30%; color: var(--danger)">Qty Returned</th>
             <th style="width:10%"></th>
           </tr>
@@ -816,17 +855,24 @@ var SiteDetailsPage = {
         <tr>
           <td style="position:relative;">
             <div class="searchable-combobox-wrapper" style="position:relative; width:100%;">
-              <input
-                type="text"
-                class="form-control"
-                id="mat-input-return-${idx}"
-                placeholder="Type material name (e.g. Steel)..."
-                value="${displayVal.replace(/"/g, '&quot;')}"
-                autocomplete="off"
-                onfocus="SiteDetailsPage.openMatSuggestions('return', ${idx})"
-                oninput="SiteDetailsPage.filterMatSuggestions('return', ${idx}, this.value)"
-              >
-              <div id="mat-suggestions-return-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; right:0; max-height:220px; overflow-y:auto; background:#1e293b; border:1px solid #334155; border-radius:8px; z-index:9999; box-shadow:0 10px 30px rgba(0,0,0,0.6); padding:4px 0;">
+              <div style="position:relative; width:100%; display:flex; align-items:center;">
+                <span style="position:absolute; left:12px; pointer-events:none; color:#64748b; font-size:14px; display:flex; align-items:center;">
+                  ${Icons.search}
+                </span>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="mat-input-return-${idx}"
+                  placeholder="Search material by name, SKU..."
+                  value="${displayVal.replace(/"/g, '&quot;')}"
+                  autocomplete="off"
+                  style="padding-left:36px; padding-right:28px; font-weight:500;"
+                  onfocus="SiteDetailsPage.openMatSuggestions('return', ${idx})"
+                  oninput="SiteDetailsPage.filterMatSuggestions('return', ${idx}, this.value)"
+                >
+                <span style="position:absolute; right:12px; pointer-events:none; color:#64748b; font-size:9px;">▼</span>
+              </div>
+              <div id="mat-suggestions-return-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; min-width:340px; width:100%; max-height:250px; overflow-y:auto; background:#1e293b; border:1px solid rgba(255,255,255,0.12); border-radius:10px; z-index:9999; box-shadow:0 16px 36px rgba(0,0,0,0.6); padding:0 0 4px 0;">
               </div>
             </div>
           </td>
@@ -856,9 +902,9 @@ var SiteDetailsPage = {
     html += `
         </tbody>
       </table>
-      <div style="margin-top:10px;">
-        <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:4px; font-size:0.9rem;" onclick="SiteDetailsPage.addReturnItem()">
-          ${Icons.plus} Add Material
+      <div style="margin-top:12px;">
+        <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; padding:6px 12px; background:rgba(59,130,246,0.1); border-radius:6px; border:1px solid rgba(59,130,246,0.2);" onclick="SiteDetailsPage.addReturnItem()">
+          ${Icons.plus} Add Material Row
         </a>
       </div>
     `;
