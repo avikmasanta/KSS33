@@ -653,17 +653,17 @@ var SiteDetailsPage = {
 
     if (!q) {
       if (type === 'return') {
-        // For returns when query is empty, show only materials currently at site
-        filtered = materials.filter(m => {
-          const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site ? site.id : null);
-          const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
-          return (totalSent - totalReturned) > 0;
+        // Sort: materials currently at site first, then remaining
+        filtered = [...materials].sort((a, b) => {
+          const sentA = Store.Inventory.getSiteTotalSent(a.id, site ? site.id : null);
+          const retA  = Store.Inventory.getSiteReturns(a.id, site ? site.id : null);
+          const sentB = Store.Inventory.getSiteTotalSent(b.id, site ? site.id : null);
+          const retB  = Store.Inventory.getSiteReturns(b.id, site ? site.id : null);
+          return (sentB - retB) - (sentA - retA);
         });
       } else {
-        // For dispatch when query is empty, prompt user to type to search
-        suggestionsEl.innerHTML = `<div style="padding:12px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">🔍 Type material name (e.g. Steel, 18...) to search</div>`;
-        suggestionsEl.style.display = 'block';
-        return;
+        // Show all materials when search query is empty
+        filtered = [...materials];
       }
     } else {
       filtered = materials.filter(m => {
@@ -676,7 +676,7 @@ var SiteDetailsPage = {
     }
 
     if (filtered.length === 0) {
-      suggestionsEl.innerHTML = `<div style="padding:12px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">${!q ? '🔍 Type material name to search' : 'No matching materials found'}</div>`;
+      suggestionsEl.innerHTML = `<div style="padding:12px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">No matching materials found</div>`;
       suggestionsEl.style.display = 'block';
       return;
     }
