@@ -532,18 +532,6 @@ var SiteDetailsPage = {
       return;
     }
 
-  renderDispatchItems() {
-    const container = document.getElementById('site-dispatch-items-container');
-    if (!container) return;
-
-    const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
-      .filter(m => m.status !== 'Archived');
-
-    if (materials.length === 0) {
-      container.innerHTML = '<p class="text-sm text-tertiary" style="padding:12px 0;">No materials available in catalog.</p>';
-      return;
-    }
-
     let html = `
       <table class="inline-table w-100" style="overflow:visible;">
         <thead>
