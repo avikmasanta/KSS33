@@ -67,7 +67,7 @@ var SiteDetailsPage = {
     }
 
     // For the return material dropdown, get materials currently at site
-    const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
+    const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll() || []).filter(m => m && m.status !== 'Archived');
     const totalCollected = Store.SitePayments.getTotalBySite(site.id);
     const remainingBudget = (site.budget || 0) - totalCollected;
 

@@ -2,7 +2,7 @@
    KSS Construction PWA Service Worker
    ============================================ */
 
-const CACHE_NAME = 'kss-pwa-v43';
+const CACHE_NAME = 'kss-pwa-v44';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

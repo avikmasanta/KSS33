@@ -379,9 +379,9 @@ const Store = (() => {
 
   const SitePayments = {
     ...PaymentsStore,
-    getBySite: (siteId) => cache.sitePayments.filter(x => x.siteId === siteId),
-    getTotalBySite: (siteId) => cache.sitePayments
-      .filter(x => x.siteId === siteId)
+    getBySite: (siteId) => (cache.sitePayments || []).filter(x => x && resolveId(x.siteId) === resolveId(siteId)),
+    getTotalBySite: (siteId) => (cache.sitePayments || [])
+      .filter(x => x && resolveId(x.siteId) === resolveId(siteId))
       .reduce((s, x) => s + (parseFloat(x.amount) || 0), 0)
   };
 
@@ -666,65 +666,65 @@ const Store = (() => {
     },
 
     getSiteCurrentBalance: (materialId, siteId) => {
-      const allOutgoing       = cache.outgoing;
-      const allIncomingDirect = cache.incoming;
-      const siteReturns       = cache.siteReturns;
-      const siteUsage         = cache.siteUsage;
-      const siteDamaged       = cache.siteDamaged;
+      const allOutgoing       = cache.outgoing || [];
+      const allIncomingDirect = cache.incoming || [];
+      const siteReturns       = cache.siteReturns || [];
+      const siteUsage         = cache.siteUsage || [];
+      const siteDamaged       = cache.siteDamaged || [];
       let totalIn = 0;
-      allOutgoing.filter(r => r.siteId === siteId).forEach(r => {
+      allOutgoing.filter(r => resolveId(r.siteId) === resolveId(siteId)).forEach(r => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
-      allIncomingDirect.filter(r => r.destinationType === 'site' && r.destinationSiteId === siteId).forEach(r => {
+      allIncomingDirect.filter(r => r.destinationType === 'site' && resolveId(r.destinationSiteId) === resolveId(siteId)).forEach(r => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
       let totalOut = 0;
-      siteReturns.filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
-      siteUsage.filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
-      siteDamaged.filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+      siteReturns.filter(r => resolveId(r.siteId) === resolveId(siteId) && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+      siteUsage.filter(r => resolveId(r.siteId) === resolveId(siteId) && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
+      siteDamaged.filter(r => resolveId(r.siteId) === resolveId(siteId) && resolveId(r.materialId) === resolveId(materialId)).forEach(r => totalOut += (parseFloat(r.quantity) || 0));
       return totalIn - totalOut;
     },
 
     getSiteTotalSent: (materialId, siteId) => {
-      const allOutgoing       = cache.outgoing;
-      const allIncomingDirect = cache.incoming;
+      const allOutgoing       = cache.outgoing || [];
+      const allIncomingDirect = cache.incoming || [];
       let totalIn = 0;
-      allOutgoing.filter(r => r.siteId === siteId).forEach(r => {
+      allOutgoing.filter(r => resolveId(r.siteId) === resolveId(siteId)).forEach(r => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
-      allIncomingDirect.filter(r => r.destinationType === 'site' && r.destinationSiteId === siteId).forEach(r => {
+      allIncomingDirect.filter(r => r.destinationType === 'site' && resolveId(r.destinationSiteId) === resolveId(siteId)).forEach(r => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalIn += (parseFloat(i.quantity) || 0); });
       });
       return totalIn;
     },
 
     getSiteUsage: (materialId, siteId) => {
-      return cache.siteUsage
-        .filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId))
+      return (cache.siteUsage || [])
+        .filter(r => resolveId(r.siteId) === resolveId(siteId) && resolveId(r.materialId) === resolveId(materialId))
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteReturns: (materialId, siteId) => {
-      return cache.siteReturns
-        .filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId))
+      return (cache.siteReturns || [])
+        .filter(r => resolveId(r.siteId) === resolveId(siteId) && resolveId(r.materialId) === resolveId(materialId))
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteDamaged: (materialId, siteId) => {
-      return cache.siteDamaged
-        .filter(r => r.siteId === siteId && resolveId(r.materialId) === resolveId(materialId))
+      return (cache.siteDamaged || [])
+        .filter(r => resolveId(r.siteId) === resolveId(siteId) && resolveId(r.materialId) === resolveId(materialId))
         .reduce((s, r) => s + (parseFloat(r.quantity) || 0), 0);
     },
 
     getSiteRevenue: (siteId) => {
-      return cache.sitePayments
-        .filter(p => p.siteId === siteId)
+      return (cache.sitePayments || [])
+        .filter(p => resolveId(p.siteId) === resolveId(siteId))
         .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
     },
 
     getTotalSiteExpenses: (siteId) => {
-      return cache.siteExpenses
-        .filter(e => e.siteId === siteId)
+      return (cache.siteExpenses || [])
+        .filter(e => resolveId(e.siteId) === resolveId(siteId))
         .reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
     },
 
