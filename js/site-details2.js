@@ -506,6 +506,10 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-dispatch-modal');
     if (modal) {
       modal.classList.add('active');
+      const modalContent = modal.querySelector('.modal-content') || modal;
+      modalContent.style.overflow = 'visible';
+      const modalBody = modal.querySelector('.modal-body');
+      if (modalBody) modalBody.style.overflow = 'visible';
       const ticket = modal.querySelector('#site-dispatch-ticket');
       if (ticket) ticket.value = '';
     }
@@ -553,7 +557,7 @@ var SiteDetailsPage = {
           <td style="position:relative;">
             <div class="searchable-combobox-wrapper" style="position:relative; width:100%;">
               <div style="position:relative; width:100%; display:flex; align-items:center;">
-                <span style="position:absolute; left:12px; pointer-events:none; color:#64748b; font-size:14px; display:flex; align-items:center;">
+                <span style="position:absolute; left:12px; pointer-events:none; color:var(--text-tertiary, #64748b); font-size:14px; display:flex; align-items:center;">
                   ${Icons.search}
                 </span>
                 <input
@@ -567,9 +571,9 @@ var SiteDetailsPage = {
                   onfocus="SiteDetailsPage.openMatSuggestions('dispatch', ${idx})"
                   oninput="SiteDetailsPage.filterMatSuggestions('dispatch', ${idx}, this.value)"
                 >
-                <span style="position:absolute; right:12px; pointer-events:none; color:#64748b; font-size:9px;">▼</span>
+                <span style="position:absolute; right:12px; pointer-events:none; color:var(--text-tertiary, #64748b); font-size:9px;">▼</span>
               </div>
-              <div id="mat-suggestions-dispatch-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; min-width:340px; width:100%; max-height:250px; overflow-y:auto; background:#1e293b; border:1px solid rgba(255,255,255,0.12); border-radius:10px; z-index:9999; box-shadow:0 16px 36px rgba(0,0,0,0.6); padding:0 0 4px 0;">
+              <div id="mat-suggestions-dispatch-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; width:100%; min-width:280px; max-height:220px; overflow-y:auto; background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #cbd5e1); border-radius:10px; z-index:99999; box-shadow:0 12px 32px rgba(0,0,0,0.25); padding:0 0 4px 0;">
               </div>
             </div>
           </td>
@@ -686,7 +690,7 @@ var SiteDetailsPage = {
     }
 
     if (filtered.length === 0) {
-      suggestionsEl.innerHTML = `<div style="padding:14px; font-size:0.85rem; color:#94a3b8; text-align:center;">No matching materials found</div>`;
+      suggestionsEl.innerHTML = `<div style="padding:14px; font-size:0.85rem; color:var(--text-tertiary, #94a3b8); text-align:center;">No matching materials found</div>`;
       suggestionsEl.style.display = 'block';
       return;
     }
@@ -699,7 +703,7 @@ var SiteDetailsPage = {
       if (catMats.length === 0) return;
 
       html += `
-        <div style="padding:6px 12px 4px; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:#60a5fa; background:rgba(15, 23, 42, 0.7); border-bottom:1px solid rgba(255,255,255,0.06); position:sticky; top:0; z-index:2;">
+        <div style="padding:6px 12px 4px; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--primary-500, #2563eb); background:var(--bg-tertiary, rgba(0,0,0,0.04)); border-bottom:1px solid var(--border-color, rgba(0,0,0,0.06)); position:sticky; top:0; z-index:2;">
           ${cat}
         </div>
       `;
@@ -711,7 +715,7 @@ var SiteDetailsPage = {
           const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
           const remaining     = totalSent - totalReturned;
           balanceText = totalSent > 0 ? `
-            <span style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid rgba(245,158,11,0.3); font-weight:600; font-size:0.72rem; padding:2px 8px; border-radius:12px; white-space:nowrap;">
+            <span style="background:rgba(245,158,11,0.15); color:#d97706; border:1px solid rgba(245,158,11,0.3); font-weight:600; font-size:0.72rem; padding:2px 8px; border-radius:12px; white-space:nowrap;">
               On Site: ${remaining}
             </span>
           ` : '';
@@ -720,16 +724,16 @@ var SiteDetailsPage = {
         html += `
           <div
             class="mat-suggestion-item"
-            style="padding:10px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.04); transition:all 0.15s ease;"
-            onmouseenter="this.style.background='rgba(59,130,246,0.15)'; this.style.borderLeft='3px solid #3b82f6';"
+            style="padding:10px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color, rgba(0,0,0,0.04)); transition:all 0.15s ease; color:var(--text-primary);"
+            onmouseenter="this.style.background='var(--bg-hover, rgba(59,130,246,0.1))'; this.style.borderLeft='3px solid var(--primary-500, #2563eb)';"
             onmouseleave="this.style.background='transparent'; this.style.borderLeft='0';"
             onmousedown="SiteDetailsPage.selectMatOption('${type}', ${idx}, '${m.id}')"
           >
             <div>
-              <div style="font-weight:600; font-size:0.88rem; color:#f8fafc; margin-bottom:2px;">${m.name}</div>
+              <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary); margin-bottom:2px;">${m.name}</div>
               <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                <span style="background:rgba(255,255,255,0.08); color:#94a3b8; font-weight:500; font-size:0.7rem; padding:1px 6px; border-radius:4px;">${m.unit || 'Pcs'}</span>
-                ${m.sku ? `<span style="font-size:0.7rem; color:#64748b; font-family:monospace;">• ${m.sku}</span>` : ''}
+                <span style="background:var(--bg-tertiary, rgba(0,0,0,0.06)); color:var(--text-secondary); font-weight:500; font-size:0.7rem; padding:1px 6px; border-radius:4px;">${m.unit || 'Pcs'}</span>
+                ${m.sku ? `<span style="font-size:0.7rem; color:var(--text-tertiary); font-family:monospace;">• ${m.sku}</span>` : ''}
               </div>
             </div>
             ${balanceText}
@@ -802,7 +806,13 @@ var SiteDetailsPage = {
   openReturnModal() {
     this.returnItems = [{ materialId: '', quantity: '', searchQuery: '' }];
     const modal = document.getElementById('site-return-modal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+      modal.classList.add('active');
+      const modalContent = modal.querySelector('.modal-content') || modal;
+      modalContent.style.overflow = 'visible';
+      const modalBody = modal.querySelector('.modal-body');
+      if (modalBody) modalBody.style.overflow = 'visible';
+    }
     this.renderReturnItems();
   },
 
@@ -847,7 +857,7 @@ var SiteDetailsPage = {
           <td style="position:relative;">
             <div class="searchable-combobox-wrapper" style="position:relative; width:100%;">
               <div style="position:relative; width:100%; display:flex; align-items:center;">
-                <span style="position:absolute; left:12px; pointer-events:none; color:#64748b; font-size:14px; display:flex; align-items:center;">
+                <span style="position:absolute; left:12px; pointer-events:none; color:var(--text-tertiary, #64748b); font-size:14px; display:flex; align-items:center;">
                   ${Icons.search}
                 </span>
                 <input
@@ -861,9 +871,9 @@ var SiteDetailsPage = {
                   onfocus="SiteDetailsPage.openMatSuggestions('return', ${idx})"
                   oninput="SiteDetailsPage.filterMatSuggestions('return', ${idx}, this.value)"
                 >
-                <span style="position:absolute; right:12px; pointer-events:none; color:#64748b; font-size:9px;">▼</span>
+                <span style="position:absolute; right:12px; pointer-events:none; color:var(--text-tertiary, #64748b); font-size:9px;">▼</span>
               </div>
-              <div id="mat-suggestions-return-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; min-width:340px; width:100%; max-height:250px; overflow-y:auto; background:#1e293b; border:1px solid rgba(255,255,255,0.12); border-radius:10px; z-index:9999; box-shadow:0 16px 36px rgba(0,0,0,0.6); padding:0 0 4px 0;">
+              <div id="mat-suggestions-return-${idx}" class="mat-suggestions-menu" style="display:none; position:absolute; top:calc(100% + 4px); left:0; width:100%; min-width:280px; max-height:220px; overflow-y:auto; background:var(--card-bg, #ffffff); border:1px solid var(--border-color, #cbd5e1); border-radius:10px; z-index:99999; box-shadow:0 12px 32px rgba(0,0,0,0.25); padding:0 0 4px 0;">
               </div>
             </div>
           </td>
