@@ -622,6 +622,7 @@ var SiteDetailsPage = {
     document.querySelectorAll('.mat-suggestions-menu').forEach(el => el.style.display = 'none');
     const input = document.getElementById(`mat-input-${type}-${idx}`);
     if (input) {
+      input.select();
       this.filterMatSuggestions(type, idx, input.value || '');
     }
   },
@@ -648,17 +649,34 @@ var SiteDetailsPage = {
       }
     }
 
-    const filtered = materials.filter(m => {
-      if (!q) return true;
-      const nameMatch = (m.name || '').toLowerCase().includes(q);
-      const skuMatch  = (m.sku || '').toLowerCase().includes(q);
-      const unitMatch = (m.unit || '').toLowerCase().includes(q);
-      const catMatch  = (m.category || '').toLowerCase().includes(q);
-      return nameMatch || skuMatch || unitMatch || catMatch;
-    });
+    let filtered = [];
+
+    if (!q) {
+      if (type === 'return') {
+        // For returns when query is empty, show only materials currently at site
+        filtered = materials.filter(m => {
+          const totalSent     = Store.Inventory.getSiteTotalSent(m.id, site ? site.id : null);
+          const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
+          return (totalSent - totalReturned) > 0;
+        });
+      } else {
+        // For dispatch when query is empty, prompt user to type to search
+        suggestionsEl.innerHTML = `<div style="padding:12px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">🔍 Type material name (e.g. Steel, 18...) to search</div>`;
+        suggestionsEl.style.display = 'block';
+        return;
+      }
+    } else {
+      filtered = materials.filter(m => {
+        const nameMatch = (m.name || '').toLowerCase().includes(q);
+        const skuMatch  = (m.sku || '').toLowerCase().includes(q);
+        const unitMatch = (m.unit || '').toLowerCase().includes(q);
+        const catMatch  = (m.category || '').toLowerCase().includes(q);
+        return nameMatch || skuMatch || unitMatch || catMatch;
+      });
+    }
 
     if (filtered.length === 0) {
-      suggestionsEl.innerHTML = `<div style="padding:10px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">No matching materials found</div>`;
+      suggestionsEl.innerHTML = `<div style="padding:12px 14px; font-size:0.85rem; color:#94a3b8; text-align:center;">${!q ? '🔍 Type material name to search' : 'No matching materials found'}</div>`;
       suggestionsEl.style.display = 'block';
       return;
     }
