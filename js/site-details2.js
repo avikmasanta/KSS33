@@ -703,7 +703,7 @@ var SiteDetailsPage = {
       if (catMats.length === 0) return;
 
       html += `
-        <div style="padding:6px 12px 4px; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:var(--primary-500, #2563eb); background:var(--bg-tertiary, rgba(0,0,0,0.04)); border-bottom:1px solid var(--border-color, rgba(0,0,0,0.06)); position:sticky; top:0; z-index:2;">
+        <div style="padding:7px 12px 5px; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.8px; text-align:center; color:var(--primary-500, #3b82f6); background:var(--bg-tertiary, rgba(0,0,0,0.06)); border-bottom:1px solid var(--border-color, rgba(0,0,0,0.08)); position:sticky; top:0; z-index:2;">
           ${cat}
         </div>
       `;
@@ -715,26 +715,27 @@ var SiteDetailsPage = {
           const totalReturned = Store.Inventory.getSiteReturns(m.id, site ? site.id : null);
           const remaining     = totalSent - totalReturned;
           balanceText = totalSent > 0 ? `
-            <span style="background:rgba(245,158,11,0.15); color:#d97706; border:1px solid rgba(245,158,11,0.3); font-weight:600; font-size:0.72rem; padding:2px 8px; border-radius:12px; white-space:nowrap;">
+            <span style="background:rgba(245,158,11,0.15); color:#d97706; border:1px solid rgba(245,158,11,0.3); font-weight:600; font-size:0.72rem; padding:1px 6px; border-radius:10px; white-space:nowrap; margin-left:8px;">
               On Site: ${remaining}
             </span>
           ` : '';
         }
 
+        const detailParts = [];
+        if (m.unit) detailParts.push(m.unit);
+        if (m.sku) detailParts.push(m.sku);
+        const detailStr = detailParts.length > 0 ? ` <span style="font-weight:400; opacity:0.75; font-size:0.8rem;">(${detailParts.join(' • ')})</span>` : '';
+
         html += `
           <div
             class="mat-suggestion-item"
-            style="padding:10px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color, rgba(0,0,0,0.04)); transition:all 0.15s ease; color:var(--text-primary);"
-            onmouseenter="this.style.background='var(--bg-hover, rgba(59,130,246,0.1))'; this.style.borderLeft='3px solid var(--primary-500, #2563eb)';"
-            onmouseleave="this.style.background='transparent'; this.style.borderLeft='0';"
+            style="padding:8px 14px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-color, rgba(0,0,0,0.04)); transition:all 0.15s ease; color:var(--text-primary);"
+            onmouseenter="this.style.background='var(--bg-hover, rgba(59,130,246,0.12))'; this.style.color='var(--primary-500, #2563eb)';"
+            onmouseleave="this.style.background='transparent'; this.style.color='var(--text-primary)';"
             onmousedown="SiteDetailsPage.selectMatOption('${type}', ${idx}, '${m.id}')"
           >
-            <div>
-              <div style="font-weight:600; font-size:0.88rem; color:var(--text-primary); margin-bottom:2px;">${m.name}</div>
-              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-                <span style="background:var(--bg-tertiary, rgba(0,0,0,0.06)); color:var(--text-secondary); font-weight:500; font-size:0.7rem; padding:1px 6px; border-radius:4px;">${m.unit || 'Pcs'}</span>
-                ${m.sku ? `<span style="font-size:0.7rem; color:var(--text-tertiary); font-family:monospace;">• ${m.sku}</span>` : ''}
-              </div>
+            <div style="font-weight:600; font-size:0.86rem; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+              ${m.name}${detailStr}
             </div>
             ${balanceText}
           </div>
