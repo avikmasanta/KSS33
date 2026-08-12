@@ -798,17 +798,17 @@ var LabourPage = {
                       </select>
                     </td>
                     <td>
-                      <input type="number" class="form-control log-wage" value="${wage}" style="height:36px; text-align:right; font-weight:600;" min="0" oninput="LabourPage.updateOtDisplay(this)">
+                      <input type="number" class="form-control log-wage" value="${wage || ''}" style="height:36px; text-align:right; font-weight:600;" min="0" oninput="LabourPage.updateOtDisplay(this)" onfocus="if(this.value==='0') this.value=''; this.select()">
                     </td>
                     <td>
                       <div style="display:flex; flex-direction:column; gap:2px;">
-                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours}" style="height:36px; text-align:right; font-weight:600;" min="0" step="0.5" placeholder="0" oninput="LabourPage.updateOtDisplay(this)">
+                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours || ''}" style="height:36px; text-align:right; font-weight:600;" min="0" step="0.5" placeholder="0" oninput="LabourPage.updateOtDisplay(this)" onfocus="if(this.value==='0') this.value=''; this.select()">
                         <input type="hidden" class="log-ot-time" value="${otTime}">
                         <span class="log-ot-calc" style="font-size:11px; font-weight:600; color:#7c3aed; text-align:right; display:${overtimeHours > 0 ? 'block' : 'none'};">= ₹${otPay}</span>
                       </div>
                     </td>
                     <td>
-                      <input type="number" class="form-control log-money" value="${money}" style="height:36px; text-align:right; font-weight:600;" min="0" placeholder="0" oninput="LabourPage.markDirty()">
+                      <input type="number" class="form-control log-money" value="${money || ''}" style="height:36px; text-align:right; font-weight:600;" min="0" placeholder="0" oninput="LabourPage.markDirty()" onfocus="if(this.value==='0') this.value=''; this.select()">
                     </td>
                     <td>
                       <input type="text" class="form-control log-notes" value="${note}" placeholder="Optional notes" style="height:36px;" oninput="LabourPage.markDirty()">
