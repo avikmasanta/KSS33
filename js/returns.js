@@ -65,6 +65,49 @@ var ReturnsPage = {
             </button>
         </div>
       </div>
+
+      <!-- Reset Stock Confirmation Modal -->
+      <div class="modal-backdrop" id="reset-stock-modal">
+        <div class="modal" style="max-width: 540px;">
+          <div class="modal-header" style="background: rgba(239, 68, 68, 0.05); border-bottom: 1px solid var(--border-color);">
+            <h3 style="color: var(--danger); display: flex; align-items: center; gap: 8px;">
+              ⚠️ Confirm Warehouse Stock Reset
+            </h3>
+            <button class="modal-close" onclick="ReturnsPage.closeResetModal()">${Icons.x}</button>
+          </div>
+          <div class="modal-body" style="padding: 20px;">
+            <p style="margin-top:0; font-weight:600; color:var(--text-primary);">
+              Are you sure you want to reset warehouse material stock levels to zero?
+            </p>
+            
+            <div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid var(--danger); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
+              <strong style="color: var(--danger); display: block; margin-bottom: 6px;">❌ WHAT WILL BE RESET (Deleted):</strong>
+              <ul style="margin: 0; padding-left: 20px; font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;">
+                <li>Current Warehouse Material Stock balances (set to 0)</li>
+                <li>Material Dispatches to Sites (Outgoing logs)</li>
+                <li>Material Returns from Sites (Site Returns logs)</li>
+                <li>Site Material Usage & Damaged logs</li>
+                <li>Stock transaction history</li>
+              </ul>
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid var(--success); padding: 12px 16px; border-radius: 8px;">
+              <strong style="color: var(--success); display: block; margin-bottom: 6px;">✅ WHAT WILL NOT BE RESET (Preserved):</strong>
+              <ul style="margin: 0; padding-left: 20px; font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;">
+                <li>Rental Sites & Rental Contracts</li>
+                <li>Customers & Sites directory</li>
+                <li>Material Catalog list & prices</li>
+                <li>Labour, Wages & Contract logs</li>
+                <li>Separate Billings & Invoices</li>
+              </ul>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="ReturnsPage.closeResetModal()">Cancel</button>
+            <button class="btn btn-danger" id="confirm-reset-btn" onclick="ReturnsPage.executeResetStock()">Yes, Reset Stock</button>
+          </div>
+        </div>
+      </div>
     `;
   },
 
@@ -218,23 +261,38 @@ var ReturnsPage = {
     }
   },
 
-  async resetStock() {
-    if (confirm("Are you absolutely sure you want to reset all stock levels to 0?\nThis will permanently delete all dispatches, returns, and transaction history!")) {
-      const btn = document.querySelector('button[onclick="ReturnsPage.resetStock()"]');
-      if (btn) btn.disabled = true;
-      try {
-        const res = await Store.resetStock();
-        if (res.success) {
-          alert("Stock reset completed successfully!");
-          window.location.reload();
-        } else {
-          alert("Failed to reset stock: " + res.error);
-        }
-      } catch (err) {
-        alert("An error occurred during reset: " + err.message);
-      } finally {
-        if (btn) btn.disabled = false;
+  resetStock() {
+    const modal = document.getElementById('reset-stock-modal');
+    if (modal) modal.classList.add('active');
+  },
+
+  closeResetModal() {
+    const modal = document.getElementById('reset-stock-modal');
+    if (modal) modal.classList.remove('active');
+  },
+
+  async executeResetStock() {
+    const btn = document.getElementById('confirm-reset-btn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = 'Resetting Stock...';
+    }
+    try {
+      const res = await Store.resetStock();
+      if (res.success) {
+        alert("Stock reset completed successfully!");
+        window.location.reload();
+      } else {
+        alert("Failed to reset stock: " + res.error);
       }
+    } catch (err) {
+      alert("An error occurred during reset: " + err.message);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = 'Yes, Reset Stock';
+      }
+      this.closeResetModal();
     }
   },
 
