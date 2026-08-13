@@ -389,11 +389,7 @@ const Store = (() => {
     try {
       const res = await fetch(`${API_URL}/reset-stock`, { method: 'POST' });
       if (res.ok) {
-        cache.incoming = (cache.incoming || []).filter(r => r.destinationType === 'site');
-        cache.transactions = [];
-        
-        persistLocal('bm_incoming', cache.incoming);
-        persistLocal('bm_transactions', []);
+        await syncFromCloud();
         return { success: true };
       }
       const errData = await res.json().catch(() => ({}));
