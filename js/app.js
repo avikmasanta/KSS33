@@ -83,29 +83,15 @@ var App = (() => {
       bindEvents();
       App.eventsBound = true;
 
-      // Set up periodic background auto-sync every 30 seconds
+      // Silent background cloud sync every 60 seconds (zero DOM lag or scroll stutter)
       setInterval(async () => {
-        if (document.querySelector('.modal-backdrop.active') || document.querySelector('.modal.active')) {
+        if (document.querySelector('.modal-backdrop.active') || document.querySelector('.modal.active') || isPageDirty()) {
           return;
         }
-
-        // Skip refresh if there are active edits or dirty forms on the page
-        if (isPageDirty()) {
-          return;
-        }
-
-        const hashBefore = getHash();
-        await Store.init();
-        const currentHash = getHash();
-        if (currentHash === hashBefore) {
-          const moduleName = pages[currentHash]?.module;
-          if (window[moduleName] && typeof window[moduleName].refresh === 'function') {
-            window[moduleName].refresh();
-          } else {
-            navigate(currentHash);
-          }
-        }
-      }, 30000);
+        try {
+          await Store.init();
+        } catch (e) {}
+      }, 60000);
     }
     navigate(getHash());
   }

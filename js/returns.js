@@ -191,10 +191,13 @@ var ReturnsPage = {
 
   onSearch(val) {
     this.searchTerm = val;
-    const container = document.getElementById('returns-table-container');
-    if (container) {
-      container.innerHTML = this.renderTableOnly();
-    }
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    this.searchTimer = setTimeout(() => {
+      const container = document.getElementById('returns-table-container');
+      if (container) {
+        container.innerHTML = this.renderTableOnly();
+      }
+    }, 100);
   },
 
   init() {
