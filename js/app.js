@@ -72,31 +72,7 @@ var App = (() => {
     // 1. Initialize Store from local storage instantly
     if (Store.initFromLocal) Store.initFromLocal();
 
-    // Helper to hide loader screen smoothly
-    const hideLoader = () => {
-      const loader = document.getElementById('db-loader-screen');
-      if (loader && loader.style.display !== 'none') {
-        loader.style.opacity = '0';
-        loader.style.visibility = 'hidden';
-        setTimeout(() => {
-          loader.style.display = 'none';
-        }, 400);
-      }
-    };
-
-    // Guarantee loader overlay disappears within 1.5s max so screen never stalls
-    const maxLoaderTimer = setTimeout(hideLoader, 1500);
-
-    // 2. Initialize Store and connect to cloud DB
-    try {
-      await Store.init();
-    } catch (err) {
-      console.error('Failed to initialize Store:', err);
-    } finally {
-      clearTimeout(maxLoaderTimer);
-      hideLoader();
-    }
-
+    // 2. Render UI immediately (0ms wait)
     if (!Store.Auth.isLoggedIn()) {
       document.getElementById('app-root').innerHTML = AuthPage.render();
       return;
@@ -107,9 +83,8 @@ var App = (() => {
       bindEvents();
       App.eventsBound = true;
 
-      // 3. Set up periodic background auto-sync every 30 seconds
+      // Set up periodic background auto-sync every 30 seconds
       setInterval(async () => {
-        // Skip refresh if any modal is active to prevent losing user input
         if (document.querySelector('.modal-backdrop.active') || document.querySelector('.modal.active')) {
           return;
         }
