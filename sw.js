@@ -105,8 +105,14 @@ self.addEventListener('fetch', (event) => {
         }
         return networkRes;
       })
-      .catch(() => {
-        return caches.match(req);
+      .catch(async () => {
+        const cachedRes = await caches.match(req);
+        if (cachedRes) return cachedRes;
+        if (req.mode === 'navigate') {
+          const mainPage = await caches.match('/index.html');
+          if (mainPage) return mainPage;
+        }
+        return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
       })
   );
 });
