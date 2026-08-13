@@ -402,6 +402,14 @@ const Store = (() => {
       console.error('Error resetting stock:', err);
       return { success: false, error: err.message };
     }
+  const sendEmailBackup = async (email) => {
+    try {
+      const url = email ? `${API_URL}/backup/email?email=${encodeURIComponent(email)}` : `${API_URL}/backup/email`;
+      const res = await fetch(url);
+      return await res.json();
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   };
 
   const Sites = {
@@ -1156,6 +1164,6 @@ const Store = (() => {
     return totalRestored;
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, LabourContracts, logTransaction, resetStock, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days, pushLocalToCloud };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, LabourContracts, logTransaction, resetStock, sendEmailBackup, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days, pushLocalToCloud };
 
 })();

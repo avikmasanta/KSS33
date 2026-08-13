@@ -487,6 +487,43 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    if (id === 'email' || id === 'email-send') {
+      try {
+        const { sendDatabaseBackupEmail } = require('../server/emailService');
+        const getQueryParam = (name) => {
+          if (req.query && req.query[name]) return req.query[name];
+          try {
+            return new URL(req.url, 'http://localhost').searchParams.get(name);
+          } catch { return null; }
+        };
+        const recipientEmail = getQueryParam('email');
+        const backupModels = {
+          Customer: getModel('customers'),
+          Site: getModel('sites'),
+          Material: getModel('materials'),
+          Incoming: getModel('incoming'),
+          Outgoing: getModel('outgoing'),
+          SiteReturns: getModel('siteReturns'),
+          SiteUsage: getModel('siteUsage'),
+          SiteDamaged: getModel('siteDamaged'),
+          SiteExpenses: getModel('siteExpenses'),
+          SitePayments: getModel('sitePayments'),
+          Transaction: getModel('transactions'),
+          RentalSite: getModel('rentalSites'),
+          Category: getModel('categories'),
+          Labour: getModel('labours'),
+          LabourLog: getModel('labourLogs'),
+          LabourContract: getModel('labourContracts'),
+          SeparateBilling: getModel('separateBillings')
+        };
+
+        const result = await sendDatabaseBackupEmail({ models: backupModels, recipientEmail });
+        return json(res, 200, result);
+      } catch (err) {
+        return json(res, 500, { error: 'Failed to send backup email: ' + err.message });
+      }
+    }
+
     return json(res, 400, { error: 'Invalid backup action' });
   }
 
