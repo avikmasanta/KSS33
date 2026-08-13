@@ -69,21 +69,32 @@ var App = (() => {
   }
 
   async function init() {
-    // 1. Initialize Store and connect to cloud DB
+    // 1. Initialize Store from local storage instantly
+    if (Store.initFromLocal) Store.initFromLocal();
+
+    // Helper to hide loader screen smoothly
+    const hideLoader = () => {
+      const loader = document.getElementById('db-loader-screen');
+      if (loader && loader.style.display !== 'none') {
+        loader.style.opacity = '0';
+        loader.style.visibility = 'hidden';
+        setTimeout(() => {
+          loader.style.display = 'none';
+        }, 400);
+      }
+    };
+
+    // Guarantee loader overlay disappears within 1.5s max so screen never stalls
+    const maxLoaderTimer = setTimeout(hideLoader, 1500);
+
+    // 2. Initialize Store and connect to cloud DB
     try {
       await Store.init();
     } catch (err) {
       console.error('Failed to initialize Store:', err);
-    }
-
-    // 2. Hide database loader overlay with a smooth fade-out animation
-    const loader = document.getElementById('db-loader-screen');
-    if (loader) {
-      loader.style.opacity = '0';
-      loader.style.visibility = 'hidden';
-      setTimeout(() => {
-        loader.style.display = 'none';
-      }, 400);
+    } finally {
+      clearTimeout(maxLoaderTimer);
+      hideLoader();
     }
 
     if (!Store.Auth.isLoggedIn()) {

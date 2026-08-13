@@ -114,11 +114,11 @@ const Store = (() => {
 
     if (!syncSuccess) {
       const keys = Object.keys(endpointMap);
-      for (const key of keys) {
+      await Promise.allSettled(keys.map(async (key) => {
         const config = endpointMap[key];
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 4000);
+          const timer = setTimeout(() => controller.abort(), 3000);
           const res = await fetch(`${API_URL}/${config.url}`, { signal: controller.signal });
           clearTimeout(timer);
 
@@ -130,7 +130,7 @@ const Store = (() => {
         } catch (e) {
           // Network error — keep local data silently
         }
-      }
+      }));
     }
 
     // Seed default materials if completely empty everywhere
@@ -1164,6 +1164,6 @@ const Store = (() => {
     return totalRestored;
   }
 
-  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, LabourContracts, logTransaction, resetStock, sendEmailBackup, Inventory, Auth, init, patchMaterialSqFt, getSqFtMovement7Days, pushLocalToCloud };
+  return { Customers, Sites, Materials, Incoming, Outgoing, SiteUsage, SiteReturns, SiteDamaged, SiteExpenses, SitePayments, Transactions, RentalSites, Categories, TelegramChats, SmsContacts, WhatsappContacts, SeparateBillings, Labours, LabourLogs, LabourContracts, logTransaction, resetStock, sendEmailBackup, Inventory, Auth, init, initFromLocal, patchMaterialSqFt, getSqFtMovement7Days, pushLocalToCloud };
 
 })();
