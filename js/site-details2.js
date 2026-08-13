@@ -506,10 +506,6 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-dispatch-modal');
     if (modal) {
       modal.classList.add('active');
-      const modalContent = modal.querySelector('.modal-content') || modal;
-      modalContent.style.overflow = 'visible';
-      const modalBody = modal.querySelector('.modal-body');
-      if (modalBody) modalBody.style.overflow = 'visible';
       const ticket = modal.querySelector('#site-dispatch-ticket');
       if (ticket) ticket.value = '';
     }
@@ -603,7 +599,7 @@ var SiteDetailsPage = {
     html += `
         </tbody>
       </table>
-      <div style="margin-top:12px;">
+      <div style="margin-top:12px; margin-bottom:40px;">
         <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; padding:6px 12px; background:rgba(59,130,246,0.1); border-radius:6px; border:1px solid rgba(59,130,246,0.2);" onclick="SiteDetailsPage.addDispatchItem()">
           ${Icons.plus} Add Material Row
         </a>
@@ -809,10 +805,6 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-return-modal');
     if (modal) {
       modal.classList.add('active');
-      const modalContent = modal.querySelector('.modal-content') || modal;
-      modalContent.style.overflow = 'visible';
-      const modalBody = modal.querySelector('.modal-body');
-      if (modalBody) modalBody.style.overflow = 'visible';
     }
     this.renderReturnItems();
   },
@@ -904,7 +896,7 @@ var SiteDetailsPage = {
     html += `
         </tbody>
       </table>
-      <div style="margin-top:12px;">
+      <div style="margin-top:12px; margin-bottom:40px;">
         <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; padding:6px 12px; background:rgba(59,130,246,0.1); border-radius:6px; border:1px solid rgba(59,130,246,0.2);" onclick="SiteDetailsPage.addReturnItem()">
           ${Icons.plus} Add Material Row
         </a>
