@@ -68,7 +68,7 @@ const schemas = {
     totalAmount: { type: Number, default: null },
     createdAt: String
   }, schemaOptions),
-  labours: new mongoose.Schema({ _id: String, name: String, nickname: String, phone: String, status: { type: String, default: 'Active' }, defaultWage: { type: Number, default: 500 }, createdAt: String }, schemaOptions),
+  labours: new mongoose.Schema({ _id: String, name: String, nickname: String, phone: String, status: { type: String, default: 'Active' }, defaultWage: { type: Number, default: 500 }, previousBalance: { type: Number, default: 0 }, previousBalanceType: { type: String, default: 'payable' }, openingBalance: { type: Number, default: 0 }, openingBalanceType: { type: String, default: 'payable' }, createdAt: String }, schemaOptions),
   labourLogs: new mongoose.Schema({ _id: String, date: String, labourId: String, siteId: String, attendance: { type: String, enum: ['Present', 'Half Day', 'Absent'] }, dailyWage: { type: Number, default: 0 }, overtimeHours: { type: Number, default: 0 }, overtimeTime: { type: String, default: '' }, overtime: { type: Number, default: 0 }, moneyGiven: { type: Number, default: 0 }, notes: { type: String, default: '' }, createdAt: String }, schemaOptions),
   labourContracts: new mongoose.Schema({ _id: String, siteId: String, siteName: String, contractorName: String, labourId: String, contractTitle: String, basisType: { type: String, enum: ['Monthly', 'SqFt'], default: 'Monthly' }, ratePerSqFt: { type: Number, default: 0 }, totalSqFt: { type: Number, default: 0 }, monthlyRate: { type: Number, default: 0 }, durationMonths: { type: Number, default: 1 }, totalAmount: { type: Number, default: 0 }, receivedPayments: [{ date: String, amount: Number, reference: String, notes: String }], status: { type: String, default: 'Active' }, notes: { type: String, default: '' }, createdAt: String }, schemaOptions),
 };
@@ -863,6 +863,8 @@ module.exports = async function handler(req, res) {
           phone: 1,
           status: 1,
           defaultWage: 1,
+          previousBalance: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] },
+          previousBalanceType: { $ifNull: ["$previousBalanceType", { $ifNull: ["$openingBalanceType", "payable"] }] },
           createdAt: 1,
           presentDays: "$stats.presentDays",
           halfDays: "$stats.halfDays",
@@ -876,7 +878,26 @@ module.exports = async function handler(req, res) {
           absentDates: "$stats.absentDates",
           overtimeLogs: "$stats.overtimeLogs",
           paymentLogs: "$stats.paymentLogs",
-          totalEarnings: { $add: ["$stats.grossWages", "$stats.totalOvertime"] }
+          effectivePreviousBalance: {
+            $cond: [
+              { $eq: [{ $ifNull: ["$previousBalanceType", { $ifNull: ["$openingBalanceType", "payable"] }] }, "payable"] },
+              { $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } },
+              { $multiply: [{ $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } }, -1] }
+            ]
+          },
+          totalEarnings: {
+            $add: [
+              "$stats.grossWages",
+              "$stats.totalOvertime",
+              {
+                $cond: [
+                  { $eq: [{ $ifNull: ["$previousBalanceType", { $ifNull: ["$openingBalanceType", "payable"] }] }, "payable"] },
+                  { $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } },
+                  { $multiply: [{ $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } }, -1] }
+                ]
+              }
+            ]
+          }
         }
       });
 
@@ -887,6 +908,9 @@ module.exports = async function handler(req, res) {
           phone: 1,
           status: 1,
           defaultWage: 1,
+          previousBalance: 1,
+          previousBalanceType: 1,
+          effectivePreviousBalance: 1,
           createdAt: 1,
           presentDays: 1,
           halfDays: 1,
@@ -900,8 +924,7 @@ module.exports = async function handler(req, res) {
           halfDayDates: 1,
           absentDates: 1,
           overtimeLogs: 1,
-
-
+          paymentLogs: 1,
           payableAmount: {
             $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
           },

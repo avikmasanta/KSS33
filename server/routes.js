@@ -710,62 +710,84 @@ router.get('/labours-summary', async (req, res) => {
       }
     });
 
-    pipeline.push({
-      $project: {
-        name: 1,
-        nickname: 1,
-        phone: 1,
-        status: 1,
-        defaultWage: 1,
-        createdAt: 1,
-        presentDays: "$stats.presentDays",
-        halfDays: "$stats.halfDays",
-        absentDays: "$stats.absentDays",
-        grossWages: "$stats.grossWages",
-        totalOvertime: "$stats.totalOvertime",
-        totalOvertimeHours: "$stats.totalOvertimeHours",
-        totalMoneyGiven: "$stats.totalMoneyGiven",
-        presentDates: "$stats.presentDates",
-        halfDayDates: "$stats.halfDayDates",
-        absentDates: "$stats.absentDates",
-        overtimeLogs: "$stats.overtimeLogs",
-        paymentLogs: "$stats.paymentLogs",
-        totalEarnings: { $add: ["$stats.grossWages", "$stats.totalOvertime"] }
-      }
-    });
-
-    pipeline.push({
-      $project: {
-        id: "$_id",
-        name: 1,
-        nickname: 1,
-        phone: 1,
-        status: 1,
-        defaultWage: 1,
-        createdAt: 1,
-        presentDays: 1,
-        halfDays: 1,
-        absentDays: 1,
-        grossWages: 1,
-        totalOvertime: 1,
-        totalOvertimeHours: 1,
-        totalMoneyGiven: 1,
-        totalEarnings: 1,
-        presentDates: 1,
-        halfDayDates: 1,
-        absentDates: 1,
-        overtimeLogs: 1,
-        paymentLogs: 1,
-
-
-        payableAmount: {
-          $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
-        },
-        advanceBalance: {
-          $cond: [{ $gt: ["$totalMoneyGiven", "$totalEarnings"] }, { $subtract: ["$totalMoneyGiven", "$totalEarnings"] }, 0]
+      pipeline.push({
+        $project: {
+          name: 1,
+          nickname: 1,
+          phone: 1,
+          status: 1,
+          defaultWage: 1,
+          previousBalance: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] },
+          previousBalanceType: { $ifNull: ["$previousBalanceType", { $ifNull: ["$openingBalanceType", "payable"] }] },
+          createdAt: 1,
+          presentDays: "$stats.presentDays",
+          halfDays: "$stats.halfDays",
+          absentDays: "$stats.absentDays",
+          grossWages: "$stats.grossWages",
+          totalOvertime: "$stats.totalOvertime",
+          totalOvertimeHours: "$stats.totalOvertimeHours",
+          totalMoneyGiven: "$stats.totalMoneyGiven",
+          presentDates: "$stats.presentDates",
+          halfDayDates: "$stats.halfDayDates",
+          absentDates: "$stats.absentDates",
+          overtimeLogs: "$stats.overtimeLogs",
+          paymentLogs: "$stats.paymentLogs",
+          effectivePreviousBalance: {
+            $cond: [
+              { $eq: [{ $ifNull: ["$previousBalanceType", { $ifNull: ["$openingBalanceType", "payable"] }] }, "payable"] },
+              { $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } },
+              { $multiply: [{ $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } }, -1] }
+            ]
+          },
+          totalEarnings: {
+            $add: [
+              "$stats.grossWages",
+              "$stats.totalOvertime",
+              {
+                $cond: [
+                  { $eq: [{ $ifNull: ["$previousBalanceType", { $ifNull: ["$openingBalanceType", "payable"] }] }, "payable"] },
+                  { $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } },
+                  { $multiply: [{ $toDouble: { $ifNull: ["$previousBalance", { $ifNull: ["$openingBalance", 0] }] } }, -1] }
+                ]
+              }
+            ]
+          }
         }
-      }
-    });
+      });
+
+      pipeline.push({
+        $project: {
+          id: "$_id",
+          name: 1,
+          nickname: 1,
+          phone: 1,
+          status: 1,
+          defaultWage: 1,
+          previousBalance: 1,
+          previousBalanceType: 1,
+          effectivePreviousBalance: 1,
+          createdAt: 1,
+          presentDays: 1,
+          halfDays: 1,
+          absentDays: 1,
+          grossWages: 1,
+          totalOvertime: 1,
+          totalOvertimeHours: 1,
+          totalMoneyGiven: 1,
+          totalEarnings: 1,
+          presentDates: 1,
+          halfDayDates: 1,
+          absentDates: 1,
+          overtimeLogs: 1,
+          paymentLogs: 1,
+          payableAmount: {
+            $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
+          },
+          advanceBalance: {
+            $cond: [{ $gt: ["$totalMoneyGiven", "$totalEarnings"] }, { $subtract: ["$totalMoneyGiven", "$totalEarnings"] }, 0]
+          }
+        }
+      });
 
     const laboursData = await models.Labour.aggregate(pipeline);
 

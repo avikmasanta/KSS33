@@ -242,6 +242,10 @@ const LabourSchema = new mongoose.Schema({
   phone: String,
   status: { type: String, default: 'Active' },
   defaultWage: { type: Number, default: 500 }, // Persists daily wage rate for this labour
+  previousBalance: { type: Number, default: 0 }, // Opening/Previous balance amount
+  previousBalanceType: { type: String, default: 'payable' }, // 'payable' (Pending Dues) or 'advance' (Advance Paid)
+  openingBalance: { type: Number, default: 0 },
+  openingBalanceType: { type: String, default: 'payable' },
   createdAt: String
 }, schemaOptions);
 

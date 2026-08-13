@@ -175,6 +175,19 @@ var LabourPage = {
                 <label for="labour-default-wage">Default Daily Wage (₹) <span style="font-size:0.8em;color:var(--text-secondary)">— carries forward each day</span></label>
                 <input type="number" id="labour-default-wage" class="form-control" placeholder="e.g. 700" min="0">
               </div>
+              <div class="form-row" style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; margin: 0; min-width: 180px;">
+                  <label for="labour-previous-balance">Previous Money / Opening Balance (₹)</label>
+                  <input type="number" id="labour-previous-balance" class="form-control" placeholder="0" min="0" step="any">
+                </div>
+                <div class="form-group" style="flex: 1; margin: 0; min-width: 180px;">
+                  <label for="labour-previous-type">Balance Nature</label>
+                  <select id="labour-previous-type" class="form-control">
+                    <option value="payable">🔴 Pending Dues (Udhari / Owner Owes Labour)</option>
+                    <option value="advance">🟢 Advance Paid (Labour Owes Owner)</option>
+                  </select>
+                </div>
+              </div>
               <div class="form-group" style="margin-bottom: 24px;">
                 <label for="labour-status">Status</label>
                 <select id="labour-status" class="form-control">
@@ -640,6 +653,8 @@ var LabourPage = {
     document.getElementById('labour-nickname').value = '';
     document.getElementById('labour-phone').value = '';
     document.getElementById('labour-default-wage').value = '500';
+    if (document.getElementById('labour-previous-balance')) document.getElementById('labour-previous-balance').value = '0';
+    if (document.getElementById('labour-previous-type')) document.getElementById('labour-previous-type').value = 'payable';
     document.getElementById('labour-status').value = 'Active';
     document.getElementById('labour-modal-title').textContent = 'Add New Labour';
     document.getElementById('labour-modal-backdrop').classList.add('active');
@@ -653,6 +668,10 @@ var LabourPage = {
     document.getElementById('labour-nickname').value = l.nickname || '';
     document.getElementById('labour-phone').value = l.phone || '';
     document.getElementById('labour-default-wage').value = l.defaultWage !== undefined ? l.defaultWage : 500;
+    const prevBal = l.previousBalance !== undefined ? l.previousBalance : (l.openingBalance || 0);
+    const prevType = l.previousBalanceType || l.openingBalanceType || 'payable';
+    if (document.getElementById('labour-previous-balance')) document.getElementById('labour-previous-balance').value = prevBal;
+    if (document.getElementById('labour-previous-type')) document.getElementById('labour-previous-type').value = prevType;
     document.getElementById('labour-status').value = l.status;
     document.getElementById('labour-modal-title').textContent = 'Edit Labour details';
     document.getElementById('labour-modal-backdrop').classList.add('active');
@@ -665,11 +684,20 @@ var LabourPage = {
   async handleLabourSubmit(e) {
     e.preventDefault();
     const id = document.getElementById('labour-id').value;
+    const prevBalEl = document.getElementById('labour-previous-balance');
+    const prevTypeEl = document.getElementById('labour-previous-type');
+    const prevBal = prevBalEl ? (parseFloat(prevBalEl.value) || 0) : 0;
+    const prevType = prevTypeEl ? prevTypeEl.value : 'payable';
+
     const payload = {
       name: document.getElementById('labour-name').value,
       nickname: document.getElementById('labour-nickname').value,
       phone: document.getElementById('labour-phone').value,
       defaultWage: parseFloat(document.getElementById('labour-default-wage').value) || 500,
+      previousBalance: prevBal,
+      previousBalanceType: prevType,
+      openingBalance: prevBal,
+      openingBalanceType: prevType,
       status: document.getElementById('labour-status').value
     };
 
