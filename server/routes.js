@@ -178,11 +178,7 @@ router.delete('/sites/:id/cascade', async (req, res) => {
 // Reset Stock
 router.post('/reset-stock', async (req, res) => {
   try {
-    await models.Incoming.deleteMany({});
-    await models.Outgoing.deleteMany({});
-    await models.SiteReturns.deleteMany({});
-    await models.SiteUsage.deleteMany({});
-    await models.SiteDamaged.deleteMany({});
+    await models.Incoming.deleteMany({ destinationType: { $ne: 'site' } });
     if (models.Transaction) {
       await models.Transaction.deleteMany({});
     }

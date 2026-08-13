@@ -389,18 +389,10 @@ const Store = (() => {
     try {
       const res = await fetch(`${API_URL}/reset-stock`, { method: 'POST' });
       if (res.ok) {
-        cache.incoming = [];
-        cache.outgoing = [];
-        cache.siteReturns = [];
-        cache.siteUsage = [];
-        cache.siteDamaged = [];
+        cache.incoming = (cache.incoming || []).filter(r => r.destinationType === 'site');
         cache.transactions = [];
         
-        persistLocal('bm_incoming', []);
-        persistLocal('bm_outgoing', []);
-        persistLocal('bm_siteReturns', []);
-        persistLocal('bm_siteUsage', []);
-        persistLocal('bm_siteDamaged', []);
+        persistLocal('bm_incoming', cache.incoming);
         persistLocal('bm_transactions', []);
         return { success: true };
       }

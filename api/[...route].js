@@ -208,11 +208,7 @@ module.exports = async function handler(req, res) {
       return json(res, 405, { error: 'Method not allowed' });
     }
     try {
-      await getModel('incoming').deleteMany({});
-      await getModel('outgoing').deleteMany({});
-      await getModel('siteReturns').deleteMany({});
-      await getModel('siteUsage').deleteMany({});
-      await getModel('siteDamaged').deleteMany({});
+      await getModel('incoming').deleteMany({ destinationType: { $ne: 'site' } });
       await getModel('transactions').deleteMany({});
       return json(res, 200, { message: 'Stock reset completed' });
     } catch (err) {
