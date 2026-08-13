@@ -395,7 +395,6 @@ const Store = (() => {
         cache.siteUsage = [];
         cache.siteDamaged = [];
         cache.transactions = [];
-        cache.rentalSites = [];
         
         persistLocal('bm_incoming', []);
         persistLocal('bm_outgoing', []);
@@ -403,7 +402,6 @@ const Store = (() => {
         persistLocal('bm_siteUsage', []);
         persistLocal('bm_siteDamaged', []);
         persistLocal('bm_transactions', []);
-        persistLocal('bm_rentalSites', []);
         return { success: true };
       }
       const errData = await res.json().catch(() => ({}));

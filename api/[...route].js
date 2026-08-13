@@ -213,7 +213,6 @@ module.exports = async function handler(req, res) {
       await getModel('siteReturns').deleteMany({});
       await getModel('siteUsage').deleteMany({});
       await getModel('siteDamaged').deleteMany({});
-      await getModel('rentalSites').deleteMany({});
       await getModel('transactions').deleteMany({});
       return json(res, 200, { message: 'Stock reset completed' });
     } catch (err) {

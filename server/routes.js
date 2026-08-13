@@ -183,7 +183,6 @@ router.post('/reset-stock', async (req, res) => {
     await models.SiteReturns.deleteMany({});
     await models.SiteUsage.deleteMany({});
     await models.SiteDamaged.deleteMany({});
-    await models.RentalSite.deleteMany({});
     if (models.Transaction) {
       await models.Transaction.deleteMany({});
     }
