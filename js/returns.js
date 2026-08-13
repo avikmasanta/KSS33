@@ -81,21 +81,20 @@ var ReturnsPage = {
             </p>
             
             <div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid var(--danger); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px;">
-              <strong style="color: var(--danger); display: block; margin-bottom: 6px;">❌ WHAT WILL BE RESET (Deleted):</strong>
+              <strong style="color: var(--danger); display: block; margin-bottom: 6px;">❌ WHAT WILL BE RESET:</strong>
               <ul style="margin: 0; padding-left: 20px; font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;">
-                <li>Current Warehouse Material Stock balances (set to 0)</li>
-                <li>Material Dispatches to Sites (Outgoing logs)</li>
-                <li>Material Returns from Sites (Site Returns logs)</li>
-                <li>Site Material Usage & Damaged logs</li>
-                <li>Stock transaction history</li>
+                <li>Current Warehouse Material Stock balances (set to 0 Pcs)</li>
               </ul>
             </div>
 
             <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid var(--success); padding: 12px 16px; border-radius: 8px;">
-              <strong style="color: var(--success); display: block; margin-bottom: 6px;">✅ WHAT WILL NOT BE RESET (Preserved):</strong>
+              <strong style="color: var(--success); display: block; margin-bottom: 6px;">✅ WHAT IS 100% PRESERVED (NOT Deleted):</strong>
               <ul style="margin: 0; padding-left: 20px; font-size: 0.88rem; color: var(--text-primary); line-height: 1.5;">
+                <li>Material Dispatches to Sites (Outgoing logs)</li>
+                <li>Material Returns from Sites (Site Returns logs)</li>
+                <li>Site Material Usage & Damaged logs</li>
                 <li>Rental Sites & Rental Contracts</li>
-                <li>Customers & Sites directory</li>
+                <li>Customers & Construction Sites directory</li>
                 <li>Material Catalog list & prices</li>
                 <li>Labour, Wages & Contract logs</li>
                 <li>Separate Billings & Invoices</li>
@@ -280,13 +279,14 @@ var ReturnsPage = {
     try {
       const res = await Store.resetStock();
       if (res.success) {
-        alert("Stock reset completed successfully!");
-        window.location.reload();
+        this.closeResetModal();
+        if (window.showToast) window.showToast("Warehouse Stock successfully reset to 0! All site data is 100% safe.");
+        setTimeout(() => { window.location.reload(); }, 600);
       } else {
-        alert("Failed to reset stock: " + res.error);
+        if (window.showToast) window.showToast("Failed to reset stock: " + res.error, 'error');
       }
     } catch (err) {
-      alert("An error occurred during reset: " + err.message);
+      if (window.showToast) window.showToast("An error occurred during reset: " + err.message, 'error');
     } finally {
       if (btn) {
         btn.disabled = false;

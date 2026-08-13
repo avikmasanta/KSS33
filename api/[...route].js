@@ -208,9 +208,78 @@ module.exports = async function handler(req, res) {
       return json(res, 405, { error: 'Method not allowed' });
     }
     try {
-      await getModel('incoming').deleteMany({ destinationType: { $ne: 'site' } });
-      await getModel('transactions').deleteMany({});
-      return json(res, 200, { message: 'Stock reset completed' });
+      const Incoming = getModel('incoming');
+      const Outgoing = getModel('outgoing');
+      const SiteReturns = getModel('siteReturns');
+      const RentalSite = getModel('rentalSites');
+      const Material = getModel('materials');
+      const Transaction = getModel('transactions');
+
+      // 1. Clear non-site warehouse incoming and transaction logs
+      await Incoming.deleteMany({ destinationType: { $ne: 'site' } });
+      await Transaction.deleteMany({});
+
+      // 2. Fetch active site dispatches, site returns, and active rentals
+      const allOutgoing = await Outgoing.find();
+      const allReturns = await SiteReturns.find();
+      const allRentals = await RentalSite.find({ status: 'Active' });
+      const allMaterials = await Material.find();
+
+      const resolveId = (id) => String(id || '');
+
+      const balancingItems = [];
+
+      for (const mat of allMaterials) {
+        const matId = resolveId(mat._id || mat.id);
+        let totalOut = 0;
+        allOutgoing.forEach(r => {
+          (r.items || []).forEach(i => {
+            if (resolveId(i.materialId) === matId) totalOut += (parseFloat(i.quantity) || 0);
+          });
+        });
+
+        let totalRet = 0;
+        allReturns.forEach(r => {
+          if (resolveId(r.materialId) === matId) totalRet += (parseFloat(r.quantity) || 0);
+        });
+
+        let totalRented = 0;
+        allRentals.forEach(r => {
+          (r.items || []).forEach(i => {
+            if (resolveId(i.materialId) === matId) totalRented += (parseFloat(i.quantity) || 0);
+          });
+        });
+
+        // Warehouse Stock = totalIn + totalRet - totalOut - totalRented = 0
+        // totalIn = Math.max(0, totalOut + totalRented - totalRet)
+        const requiredIn = Math.max(0, totalOut + totalRented - totalRet);
+        if (requiredIn > 0) {
+          balancingItems.push({
+            materialId: matId,
+            quantity: requiredIn,
+            rate: mat.unitPrice || 0,
+            amount: requiredIn * (mat.unitPrice || 0)
+          });
+        }
+      }
+
+      if (balancingItems.length > 0) {
+        const resetDoc = {
+          _id: 'inc_reset_' + Date.now(),
+          id: 'inc_reset_' + Date.now(),
+          date: new Date().toISOString().split('T')[0],
+          vendorName: 'Warehouse Stock Reset (Zero Balancing)',
+          referenceNo: 'RESET-BALANCING',
+          destinationType: 'warehouse',
+          destinationSiteId: '',
+          items: balancingItems,
+          notes: 'Automatic balancing record to keep warehouse stock at 0 while preserving all site dispatches, returns and rentals.',
+          createdAt: new Date().toISOString()
+        };
+        await Incoming.create(resetDoc);
+      }
+
+      return json(res, 200, { message: 'Warehouse stock successfully reset to zero' });
     } catch (err) {
       return json(res, 500, { error: 'Reset failed: ' + err.message });
     }
