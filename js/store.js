@@ -395,6 +395,7 @@ const Store = (() => {
         cache.siteUsage = [];
         cache.siteDamaged = [];
         cache.transactions = [];
+        cache.rentalSites = [];
         
         persistLocal('bm_incoming', []);
         persistLocal('bm_outgoing', []);
@@ -402,9 +403,11 @@ const Store = (() => {
         persistLocal('bm_siteUsage', []);
         persistLocal('bm_siteDamaged', []);
         persistLocal('bm_transactions', []);
+        persistLocal('bm_rentalSites', []);
         return { success: true };
       }
-      return { success: false, error: 'Reset failed on server' };
+      const errData = await res.json().catch(() => ({}));
+      return { success: false, error: errData.error || 'Reset failed on server' };
     } catch (err) {
       console.error('Error resetting stock:', err);
       return { success: false, error: err.message };
