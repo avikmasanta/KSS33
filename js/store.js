@@ -402,6 +402,8 @@ const Store = (() => {
       console.error('Error resetting stock:', err);
       return { success: false, error: err.message };
     }
+  };
+
   const sendEmailBackup = async (email) => {
     try {
       const url = email ? `${API_URL}/backup/email?email=${encodeURIComponent(email)}` : `${API_URL}/backup/email`;
