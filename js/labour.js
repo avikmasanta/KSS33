@@ -378,7 +378,7 @@ var LabourPage = {
                     <td style="text-align:right;">₹${l.totalMoneyGiven}</td>
                     <td style="text-align:right;">${balBadge}</td>
                     <td style="text-align:center;">
-                      <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" onclick="LabourPage.printPDF('${l.id}')" title="Print Payroll Statement">
+                      <button class="btn btn-sm btn-outline" style="padding: 3px 8px; font-size: 11px; display: inline-flex; align-items: center; gap: 4px;" onclick="LabourPage.printPDF('${l.id || l._id}')" title="Print Payroll Statement">
                         ${Icons.fileText} Slip
                       </button>
                     </td>
@@ -459,7 +459,7 @@ var LabourPage = {
             <h3>Labour Profile & Ledger</h3>
             ${selectedLabour ? `
               <div style="display:flex; gap:6px;">
-                <button class="btn btn-sm btn-primary" style="display:inline-flex; align-items:center; gap:4px;" onclick="LabourPage.printPDF('${selectedLabour.id}')">${Icons.fileText} Print Statement</button>
+                <button class="btn btn-sm btn-primary" style="display:inline-flex; align-items:center; gap:4px;" onclick="LabourPage.printPDF('${selectedLabour.id || selectedLabour._id}')">${Icons.fileText} Print Statement</button>
                 <button class="btn btn-sm btn-outline" onclick="LabourPage.openEditLabourModal('${selectedLabour.id}')">${Icons.edit} Edit</button>
                 <button class="btn btn-sm btn-danger" style="background:var(--danger);color:white" onclick="LabourPage.deleteLabour('${selectedLabour.id}')">${Icons.trash} Delete</button>
               </div>
@@ -531,7 +531,7 @@ var LabourPage = {
           <button class="btn btn-success" onclick="LabourPage.openAdvanceModal('${labour.id}')" style="background:#047857; color:white; border-color:#047857; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
             💵 Add / Adjust Advance
           </button>
-          <button class="btn btn-primary" onclick="LabourPage.printPDF('${labour.id}')" style="display:inline-flex; align-items:center; gap:6px;">
+          <button class="btn btn-primary" onclick="LabourPage.printPDF('${labour.id || labour._id}')" style="display:inline-flex; align-items:center; gap:6px;">
             ${Icons.printer || Icons.fileText} Print Worker Statement / Payslip
           </button>
           <button class="btn btn-outline" onclick="LabourPage.openEditLabourModal('${labour.id}')" style="display:inline-flex; align-items:center; gap:6px;">
@@ -1429,7 +1429,7 @@ var LabourPage = {
                     </div>
                   </div>
                   <div style="display:flex; align-items:center; gap:12px;">
-                    <button class="btn btn-sm btn-outline" style="background:rgba(255,255,255,0.12); color:#e2e8f0; border:1px solid rgba(255,255,255,0.25); display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="LabourPage.printPDF('${l.id}')">
+                    <button class="btn btn-sm btn-outline" style="background:rgba(255,255,255,0.12); color:#e2e8f0; border:1px solid rgba(255,255,255,0.25); display:inline-flex; align-items:center; gap:6px; cursor:pointer;" onclick="LabourPage.printPDF('${l.id || l._id}')">
                       ${Icons.fileText} Print Statement
                     </button>
                     <div style="text-align:right; background:rgba(255,255,255,0.06); padding:8px 16px; border-radius:10px; border:1px solid rgba(255,255,255,0.1);">
@@ -1583,22 +1583,32 @@ var LabourPage = {
 
   // EXPORT PRINTABLE PDF
   printPDF(targetLabourId = null) {
-    let rawLabours = (this.summaryData && this.summaryData.labours && this.summaryData.labours.length > 0)
+    const summaryLabours = (this.summaryData && this.summaryData.labours && this.summaryData.labours.length > 0)
       ? this.summaryData.labours
-      : (Store.Labours ? Store.Labours.getAll() : []);
+      : [];
+    const storeLabours = Store.Labours ? Store.Labours.getAll() : [];
+
+    let rawLabours = summaryLabours.length > 0 ? summaryLabours : storeLabours;
 
     if (targetLabourId) {
-      const targetStr = String(targetLabourId);
-      const filtered = rawLabours.filter(l => String(l.id || l._id || '') === targetStr);
-      if (filtered.length > 0) {
-        rawLabours = filtered;
+      const targetStr = String(targetLabourId).trim();
+      let match = summaryLabours.find(l => String(l.id || l._id || '').trim() === targetStr);
+      if (!match) {
+        match = storeLabours.find(l => String(l.id || l._id || '').trim() === targetStr);
+      }
+      if (!match && targetStr !== 'undefined' && targetStr !== 'null') {
+        match = summaryLabours.find(l => String(l.name || '').trim() === targetStr) || storeLabours.find(l => String(l.name || '').trim() === targetStr);
+      }
+
+      if (match) {
+        rawLabours = [match];
       } else {
-        const storeLabour = Store.Labours ? Store.Labours.getById(targetLabourId) : null;
-        rawLabours = storeLabour ? [storeLabour] : [];
+        alert("No labour record found to print.");
+        return;
       }
     }
 
-    if (rawLabours.length === 0) {
+    if (!rawLabours || rawLabours.length === 0) {
       alert("No labour record found to print.");
       return;
     }
