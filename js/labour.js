@@ -256,7 +256,6 @@ var LabourPage = {
         </div>
       </div>
     `;
-    `;
   },
 
   renderTabContent() {
