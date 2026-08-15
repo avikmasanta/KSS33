@@ -425,18 +425,13 @@ const Store = (() => {
     },
     hardDelete: async (id) => {
       // 1. Instantly update all client caches locally
-      cache.outgoing = (cache.outgoing || []).filter(r => r && r.siteId !== id);
-      cache.incoming = (cache.incoming || []).filter(r => r && !(r.destinationType === 'site' && r.destinationSiteId === id));
-      cache.siteReturns = (cache.siteReturns || []).filter(r => r && r.siteId !== id);
+      // Preserve outgoing and siteReturns so warehouse inventory stock count is permanently retained
       cache.siteUsage = (cache.siteUsage || []).filter(r => r && r.siteId !== id);
       cache.siteDamaged = (cache.siteDamaged || []).filter(r => r && r.siteId !== id);
       cache.siteExpenses = (cache.siteExpenses || []).filter(r => r && r.siteId !== id);
       cache.sitePayments = (cache.sitePayments || []).filter(r => r && r.siteId !== id);
       cache.sites = (cache.sites || []).filter(r => r && r.id !== id);
 
-      persistLocal('bm_outgoing', cache.outgoing);
-      persistLocal('bm_incoming', cache.incoming);
-      persistLocal('bm_siteReturns', cache.siteReturns);
       persistLocal('bm_siteUsage', cache.siteUsage);
       persistLocal('bm_siteDamaged', cache.siteDamaged);
       persistLocal('bm_siteExpenses', cache.siteExpenses);

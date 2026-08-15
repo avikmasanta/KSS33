@@ -119,7 +119,10 @@ var LabourPage = {
             <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Manage workforce, daily logs, wages and payroll</p>
           </div>
         </div>
-        <div class="page-header-actions" style="display: flex; gap: 10px;">
+        <div class="page-header-actions" style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="btn btn-success" onclick="LabourPage.openAdvanceModal()" style="background:#047857; border-color:#047857; color:white; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+            💵 Add Advance Payment
+          </button>
           <button class="btn btn-primary" onclick="LabourPage.openAddLabourModal()">
             ${Icons.plus} Add Labour
           </button>
@@ -203,6 +206,56 @@ var LabourPage = {
           </div>
         </div>
       </div>
+
+      <!-- Adjust / Add Advance Payment Modal -->
+      <div class="modal-backdrop" id="advance-modal-backdrop" onclick="LabourPage.closeAdvanceModal()">
+        <div class="modal" id="advance-modal" style="max-width: 480px;" onclick="event.stopPropagation()">
+          <div class="modal-header" style="background: linear-gradient(135deg, #065f46 0%, #047857 100%); color: white; border-top-left-radius: 12px; border-top-right-radius: 12px; padding: 16px 20px;">
+            <h3 id="advance-modal-title" style="margin: 0; font-size: 1.15rem; color: white;">💵 Add / Adjust Advance Payment</h3>
+            <button type="button" class="modal-close" onclick="LabourPage.closeAdvanceModal()" style="color: white; opacity: 0.8;">${Icons.x}</button>
+          </div>
+          <div class="modal-body" style="padding: 20px;">
+            <form id="advance-form" onsubmit="LabourPage.handleAdvanceSubmit(event)">
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="adv-labour-id" style="font-weight: 600;">Select Labour / Worker <span style="color:var(--danger)">*</span></label>
+                <select id="adv-labour-id" class="form-control" required>
+                  <option value="">-- Select Labour --</option>
+                  ${Store.Labours.getAll().filter(l => l.status === 'Active').map(l => `<option value="${l.id}">${l.name} ${l.nickname ? '(' + l.nickname + ')' : ''}</option>`).join('')}
+                </select>
+              </div>
+              
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="adv-type" style="font-weight: 600;">Adjustment Action</label>
+                <select id="adv-type" class="form-control">
+                  <option value="payment">💵 Add Advance Payment Taken (Given On Date)</option>
+                  <option value="opening">⚙️ Set / Adjust Opening Advance Balance</option>
+                </select>
+              </div>
+
+              <div class="form-group" id="adv-date-group" style="margin-bottom: 16px;">
+                <label for="adv-date" style="font-weight: 600;">Advance Payment Date <span style="color:var(--danger)">*</span></label>
+                <input type="date" id="adv-date" class="form-control" value="${window.localDateStr()}" required>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label for="adv-amount" style="font-weight: 600;">Advance Amount (₹) <span style="color:var(--danger)">*</span></label>
+                <input type="number" id="adv-amount" class="form-control" placeholder="e.g. 1000" min="1" step="any" required style="font-size: 1.1rem; font-weight: 700; color: #047857;">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 24px;">
+                <label for="adv-notes" style="font-weight: 600;">Remarks / Purpose of Advance</label>
+                <input type="text" id="adv-notes" class="form-control" placeholder="e.g. Festival Advance, Loan, Emergency Cash">
+              </div>
+
+              <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button type="button" class="btn btn-outline" onclick="LabourPage.closeAdvanceModal()">Cancel</button>
+                <button type="submit" class="btn btn-success" style="background: #047857; border-color: #047857;">Save Advance</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    `;
     `;
   },
 
@@ -476,6 +529,9 @@ var LabourPage = {
           <p style="margin:2px 0 0 0; color:var(--text-tertiary); font-size:0.85rem;">Registered Worker Profile & Financial Ledger</p>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-success" onclick="LabourPage.openAdvanceModal('${labour.id}')" style="background:#047857; color:white; border-color:#047857; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+            💵 Add / Adjust Advance
+          </button>
           <button class="btn btn-primary" onclick="LabourPage.printPDF('${labour.id}')" style="display:inline-flex; align-items:center; gap:6px;">
             ${Icons.printer || Icons.fileText} Print Worker Statement / Payslip
           </button>
@@ -679,6 +735,84 @@ var LabourPage = {
 
   closeLabourModal() {
     document.getElementById('labour-modal-backdrop').classList.remove('active');
+  },
+
+  openAdvanceModal(labourId = null) {
+    const backdrop = document.getElementById('advance-modal-backdrop');
+    if (!backdrop) return;
+    const select = document.getElementById('adv-labour-id');
+    if (select && labourId) select.value = labourId;
+    else if (select && this.selectedLabourId) select.value = this.selectedLabourId;
+    document.getElementById('adv-type').value = 'payment';
+    document.getElementById('adv-date').value = window.localDateStr();
+    document.getElementById('adv-amount').value = '';
+    document.getElementById('adv-notes').value = '';
+    backdrop.classList.add('active');
+  },
+
+  closeAdvanceModal() {
+    const backdrop = document.getElementById('advance-modal-backdrop');
+    if (backdrop) backdrop.classList.remove('active');
+  },
+
+  async handleAdvanceSubmit(e) {
+    e.preventDefault();
+    const labourId = document.getElementById('adv-labour-id').value;
+    const advType = document.getElementById('adv-type').value;
+    const date = document.getElementById('adv-date').value;
+    const amount = parseFloat(document.getElementById('adv-amount').value) || 0;
+    const notes = document.getElementById('adv-notes').value.trim();
+
+    if (!labourId || amount <= 0) {
+      alert('Please select a valid labour and enter an advance amount greater than 0.');
+      return;
+    }
+
+    const labour = Store.Labours.getById(labourId);
+    if (!labour) return;
+
+    if (advType === 'opening') {
+      await Store.Labours.update(labourId, {
+        previousBalance: amount,
+        previousBalanceType: 'advance',
+        openingBalance: amount,
+        openingBalanceType: 'advance'
+      });
+      alert(`Opening Advance Balance set to ₹${amount.toLocaleString('en-IN')} for ${labour.name}.`);
+    } else {
+      const allLogs = Store.LabourLogs.getAll();
+      const existing = allLogs.find(l => String(l.labourId) === String(labourId) && l.date === date);
+
+      if (existing) {
+        const currentMoney = parseFloat(existing.moneyGiven) || 0;
+        const newMoney = currentMoney + amount;
+        const existingNotes = existing.notes ? existing.notes + ' | ' : '';
+        const newNotes = existingNotes + (notes || `Advance: ₹${amount}`);
+        await Store.LabourLogs.update(existing.id, {
+          ...existing,
+          moneyGiven: newMoney,
+          notes: newNotes
+        });
+      } else {
+        const payload = {
+          date: date,
+          labourId: labourId,
+          siteId: '',
+          attendance: 'Absent',
+          dailyWage: labour.defaultWage !== undefined ? labour.defaultWage : 500,
+          overtimeHours: 0,
+          overtimeTime: '',
+          overtime: 0,
+          moneyGiven: amount,
+          notes: notes || `Advance Payment: ₹${amount}`
+        };
+        await Store.LabourLogs.addAsync(payload);
+      }
+      alert(`Advance payment of ₹${amount.toLocaleString('en-IN')} successfully saved for ${labour.name} on ${date}.`);
+    }
+
+    this.closeAdvanceModal();
+    this.refresh();
   },
 
   async handleLabourSubmit(e) {
@@ -1429,11 +1563,14 @@ var LabourPage = {
     const allLogs = Store.LabourLogs ? Store.LabourLogs.getAll() : [];
 
     const laboursToPrint = rawLabours.map(labour => {
-      if (labour.presentDays !== undefined && labour.overtimeLogs !== undefined) {
-        return labour;
-      }
-
       const lId = String(labour.id || labour._id);
+      const masterLabour = Store.Labours ? Store.Labours.getById(lId) : labour;
+      const prevBal = masterLabour ? (masterLabour.previousBalance !== undefined ? masterLabour.previousBalance : (masterLabour.openingBalance || 0)) : (labour.previousBalance || 0);
+      const prevType = masterLabour ? (masterLabour.previousBalanceType || masterLabour.openingBalanceType || 'payable') : (labour.previousBalanceType || 'payable');
+      
+      const openingAdvance = prevType === 'advance' ? (parseFloat(prevBal) || 0) : 0;
+      const openingPayable = prevType === 'payable' ? (parseFloat(prevBal) || 0) : 0;
+
       const logs = allLogs.filter(log => String(log.labourId) === lId);
 
       let presentDays = 0, halfDays = 0, absentDays = 0;
@@ -1467,15 +1604,18 @@ var LabourPage = {
         }
       });
 
-      const totalEarned = grossWages + totalOtPay;
-      const payableAmount = totalEarned > totalMoneyGiven ? (totalEarned - totalMoneyGiven) : 0;
-      const advanceBalance = totalMoneyGiven > totalEarned ? (totalMoneyGiven - totalEarned) : 0;
+      const totalAdvanceTaken = openingAdvance + totalMoneyGiven;
+      const netEarnings = grossWages + totalOtPay + openingPayable;
+      const payableAmount = netEarnings > totalAdvanceTaken ? (netEarnings - totalAdvanceTaken) : 0;
+      const advanceBalance = totalAdvanceTaken > netEarnings ? (totalAdvanceTaken - netEarnings) : 0;
 
       return {
         id: labour.id || labour._id,
         name: labour.name,
         nickname: labour.nickname || '',
         phone: labour.phone || '',
+        openingAdvance,
+        openingPayable,
         presentDays,
         halfDays,
         absentDays,
@@ -1483,6 +1623,7 @@ var LabourPage = {
         totalOvertimeHours: Number(totalOtHours.toFixed(1)),
         totalOvertime: Math.round(totalOtPay),
         totalMoneyGiven: Math.round(totalMoneyGiven),
+        totalAdvanceTaken: Math.round(totalAdvanceTaken),
         payableAmount: Math.round(payableAmount),
         advanceBalance: Math.round(advanceBalance),
         overtimeLogs,
@@ -1521,9 +1662,11 @@ var LabourPage = {
 
       const grossWages = Math.round(l.grossWages || 0);
       const totalMoneyGiven = Math.round(l.totalMoneyGiven || 0);
-      const netEarnings = grossWages + otPay;
-      const payable = netEarnings > totalMoneyGiven ? (netEarnings - totalMoneyGiven) : (l.payableAmount || 0);
-      const advance = totalMoneyGiven > netEarnings ? (totalMoneyGiven - netEarnings) : (l.advanceBalance || 0);
+      const openingAdvance = Math.round(l.openingAdvance || 0);
+      const totalAdvanceTaken = Math.round(l.totalAdvanceTaken || (openingAdvance + totalMoneyGiven));
+
+      const payable = l.payableAmount || 0;
+      const advance = l.advanceBalance || 0;
 
       // 1. Overtime Logs Table
       const sortedOt = (l.overtimeLogs || []).slice().sort((a,b) => (a.date || '').localeCompare(b.date || ''));
@@ -1572,21 +1715,32 @@ var LabourPage = {
       }
       
       let paymentTableHtml = '';
-      if (sortedPayments.length > 0) {
+      if (sortedPayments.length > 0 || openingAdvance > 0) {
         paymentTableHtml = `
           <div style="margin-top: 14px;">
-            <h5 style="margin: 0 0 6px 0; color: #047857; font-size: 11px; text-transform: uppercase;">💵 Date-Wise Payment & Advance History (Total Paid: ₹${totalMoneyGiven.toLocaleString('en-IN')})</h5>
+            <h5 style="margin: 0 0 6px 0; color: #047857; font-size: 11px; text-transform: uppercase;">
+              💵 Date-Wise Payment & Advance History (Total Advance Owed/Paid: ₹${totalAdvanceTaken.toLocaleString('en-IN')})
+            </h5>
             <table class="sub-table" style="width:100%; border-collapse:collapse; margin-bottom:10px;">
               <thead>
                 <tr style="background:#ecfdf5; color:#047857;">
                   <th style="width:35px; text-align:center;">#</th>
-                  <th style="width:160px; text-align:left;">Payment Date</th>
+                  <th style="width:160px; text-align:left;">Payment / Advance Date</th>
                   <th style="width:140px; text-align:left;">Site Assigned</th>
-                  <th style="width:130px; text-align:right;">Payment Taken (₹)</th>
+                  <th style="width:130px; text-align:right;">Advance Taken (₹)</th>
                   <th style="text-align:left;">Remarks / Payment Notes</th>
                 </tr>
               </thead>
               <tbody>
+                ${openingAdvance > 0 ? `
+                  <tr style="background:#f0fdf4;">
+                    <td style="text-align:center; font-weight:700; color:#047857;">*</td>
+                    <td style="font-weight:700; color:#047857;">Opening Balance</td>
+                    <td style="color:#64748b;">Opening Dues</td>
+                    <td style="text-align:right; font-weight:800; color:#059669; font-size:12px;">₹${openingAdvance.toLocaleString('en-IN')}</td>
+                    <td style="color:#166534; font-weight:600;">Opening Advance Owed by Worker</td>
+                  </tr>
+                ` : ''}
                 ${sortedPayments.map((p, idx) => {
                   const siteObj = Store.Sites ? Store.Sites.getById(p.siteId) : null;
                   const siteName = siteObj ? siteObj.name : 'General / Unassigned';
@@ -1607,7 +1761,7 @@ var LabourPage = {
       } else {
         paymentTableHtml = `
           <div style="margin-top: 14px; padding: 10px 12px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:6px; font-size:11px; color:#64748b;">
-            💵 <strong>Money Given / Payments:</strong> No payments/advances taken in this period.
+            💵 <strong>Money Given / Payments:</strong> No advance payments taken in this period.
           </div>
         `;
       }
@@ -1715,8 +1869,9 @@ var LabourPage = {
                 <div style="font-size:9px; color:#7c3aed;">(${otHours} hrs)</div>
               </div>
               <div class="metric-box">
-                <div class="m-label">Money Given (Paid)</div>
-                <div class="m-val" style="color:#059669;">₹${totalMoneyGiven.toLocaleString('en-IN')}</div>
+                <div class="m-label">Advance / Money Paid</div>
+                <div class="m-val" style="color:#059669;">₹${totalAdvanceTaken.toLocaleString('en-IN')}</div>
+                ${openingAdvance > 0 ? `<div style="font-size:9px; color:#047857;">(Inc. Op. Adv ₹${openingAdvance})</div>` : ''}
               </div>
               <div class="metric-box" style="background:${payable > 0 ? '#fef2f2' : '#f0fdf4'}; border-color:${payable > 0 ? '#fecaca' : '#bbf7d0'};">
                 <div class="m-label" style="color:${payable > 0 ? '#b91c1c' : '#15803d'}; font-weight:700;">

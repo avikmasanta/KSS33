@@ -7,6 +7,8 @@
 var RentalsPage = {
   selectedId: null,
   searchTerm: '',
+  selectedCustomerFilter: '',
+  viewMode: 'all', // 'all' (list view) or 'grouped' (customer-wise categorization)
   activeTab: 'contracts', // 'contracts' or 'monthly-register'
   selectedMonth: new Date().toISOString().slice(0, 7), // 'YYYY-MM'
   formItems: [{ materialId: '', quantity: '', rate: '' }],
@@ -22,9 +24,23 @@ var RentalsPage = {
     this.refresh();
   },
 
+  onCustomerFilterChange(val) {
+    this.selectedCustomerFilter = val || '';
+    this.refresh();
+  },
+
+  setViewMode(mode) {
+    this.viewMode = mode;
+    this.refresh();
+  },
+
   render() {
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     let records = Store.RentalSites.getAll().sort((a, b) => new Date(b.createdAt || b.goingDate) - new Date(a.createdAt || a.goingDate));
+
+    if (this.selectedCustomerFilter) {
+      records = records.filter(r => (r.customerName || '').toLowerCase() === this.selectedCustomerFilter.toLowerCase());
+    }
 
     if (this.searchTerm) {
       const st = this.searchTerm.toLowerCase();
@@ -41,8 +57,8 @@ var RentalsPage = {
             ${Icons.truck}
           </div>
           <div>
-            <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Rental Sites</h2>
-            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Independent Material Hire • Daily & Monthly Basis Contracts</p>
+            <h2 style="margin: 0; font-size: 1.5rem; color: var(--text-primary);">Rental Sites Management</h2>
+            <p style="margin: 4px 0 0 0; color: var(--text-tertiary);">Independent Material Hire • Customer-Wise Categorization & Monthly Registers</p>
           </div>
         </div>
         <div class="page-header-actions" style="display: flex; gap: 10px;">
@@ -67,43 +83,151 @@ var RentalsPage = {
   },
 
   renderContractsLayout(records) {
-    return `
-      <div class="split-layout">
-        <!-- Left: List -->
-        <div class="card side-list">
-          <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 16px;">
-            <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--text-primary);">Active & Past Rentals</h3>
-            <div style="position: relative;">
-              <input type="text" class="form-control" placeholder="Search customer or site..." 
-                     value="${this.searchTerm}" onkeyup="RentalsPage.onSearch(event)" style="background: var(--bg-body); padding-left: 36px;">
-              <div style="position: absolute; left: 12px; top: 10px; width: 16px; height: 16px; color: var(--text-tertiary);">${Icons.search}</div>
-            </div>
-          </div>
-          <div id="rentals-list" style="max-height: 65vh; overflow-y: auto;">
-            ${records.map(r => {
-              const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
-              const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
-              const isMonthly = r.billingBasis === 'Monthly';
-              const durationMultiplier = isMonthly ? (days / 30) : days;
-              const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+    const allCustomers = Store.Customers ? Store.Customers.getAll() : [];
+    const allRentalSites = Store.RentalSites ? Store.RentalSites.getAll() : [];
+    const rentalCustNames = [...new Set(allRentalSites.map(r => r.customerName).filter(Boolean))];
+    const customerOptions = [...new Set([
+      ...allCustomers.map(c => c.name).filter(Boolean),
+      ...rentalCustNames
+    ])].sort((a, b) => a.localeCompare(b));
 
-              return `
-                <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer; padding: 16px; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;" onclick="RentalsPage.selectRecord('${r.id}')">
-                  <div class="flex items-center justify-between" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                    <div class="item-title" style="font-weight: 700; color: var(--text-primary);">${r.customerName}</div>
-                    <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
-                  </div>
-                  <div class="item-sub" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
-                    Site: ${r.siteName || '-'} • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.7rem;">${isMonthly ? '📅 Monthly Basis' : '☀️ Daily Basis'}</span>
-                  </div>
-                  <div class="item-sub" style="font-size: 0.8rem; color: var(--text-tertiary); display:flex; justify-content:space-between; align-items:center;">
-                    <span>Qty: ${totalItems} • ${days} Days ${r.comingDate ? '' : '(Active Till Today)'}</span>
-                    <strong style="color: var(--success); font-size: 0.95rem;">₹${Math.round(totalVal).toLocaleString('en-IN')}</strong>
+    let listContentHtml = '';
+
+    if (this.viewMode === 'grouped') {
+      // Group records by Customer Name
+      const groups = {};
+      records.forEach(r => {
+        const cName = r.customerName || 'Unassigned Customer';
+        if (!groups[cName]) groups[cName] = [];
+        groups[cName].push(r);
+      });
+
+      const groupNames = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+
+      if (groupNames.length === 0) {
+        listContentHtml = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">No rental sites match the selected filter.</div>';
+      } else {
+        listContentHtml = groupNames.map(cName => {
+          const siteList = groups[cName];
+          const totalUnits = siteList.reduce((sum, r) => sum + (r.items ? r.items.reduce((s, i) => s + parseFloat(i.quantity || 0), 0) : 0), 0);
+          const totalRev = siteList.reduce((sum, r) => {
+            const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
+            const isMonthly = r.billingBasis === 'Monthly';
+            const mult = isMonthly ? (days / 30) : days;
+            return sum + (r.items ? r.items.reduce((s, i) => s + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * mult), 0) : 0);
+          }, 0);
+
+          return `
+            <div style="margin-bottom: 16px; border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; background: var(--bg-card); box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+              <div style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: white; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <strong style="font-size: 0.95rem; color: #f8fafc; display: flex; align-items: center; gap: 6px;">
+                    👤 ${cName}
+                  </strong>
+                  <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 2px;">
+                    ${siteList.length} Site(s) • ${totalUnits} total units leased
                   </div>
                 </div>
-              `;
-            }).join('')}
-            ${records.length === 0 ? '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">No rental sites found</div>' : ''}
+                <div>
+                  <span class="badge badge-success" style="font-size: 0.8rem; font-weight: 700;">₹${Math.round(totalRev).toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+              <div>
+                ${siteList.map(r => {
+                  const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
+                  const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
+                  const isMonthly = r.billingBasis === 'Monthly';
+                  const durationMultiplier = isMonthly ? (days / 30) : days;
+                  const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+
+                  return `
+                    <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer; padding: 12px 14px; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;" onclick="RentalsPage.selectRecord('${r.id}')">
+                      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <div style="font-weight: 700; color: var(--text-primary); font-size: 0.88rem;">📍 Site: ${r.siteName || '-'}</div>
+                        <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}" style="font-size: 0.7rem;">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
+                      </div>
+                      <div style="font-size: 0.8rem; color: var(--text-tertiary); display:flex; justify-content:space-between; align-items:center;">
+                        <span>Qty: ${totalItems} • ${days} Days • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.65rem;">${isMonthly ? 'Monthly' : 'Daily'}</span></span>
+                        <strong style="color: var(--success); font-size: 0.85rem;">₹${Math.round(totalVal).toLocaleString('en-IN')}</strong>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+    } else {
+      // Standard Flat List View
+      listContentHtml = records.map(r => {
+        const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
+        const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
+        const isMonthly = r.billingBasis === 'Monthly';
+        const durationMultiplier = isMonthly ? (days / 30) : days;
+        const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+
+        return `
+          <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer; padding: 16px; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;" onclick="RentalsPage.selectRecord('${r.id}')">
+            <div class="flex items-center justify-between" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div class="item-title" style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                👤 ${r.customerName}
+              </div>
+              <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
+            </div>
+            <div class="item-sub" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
+              📍 Site: ${r.siteName || '-'} • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.7rem;">${isMonthly ? '📅 Monthly' : '☀️ Daily'}</span>
+            </div>
+            <div class="item-sub" style="font-size: 0.8rem; color: var(--text-tertiary); display:flex; justify-content:space-between; align-items:center;">
+              <span>Qty: ${totalItems} • ${days} Days ${r.comingDate ? '' : '(Active)'}</span>
+              <strong style="color: var(--success); font-size: 0.95rem;">₹${Math.round(totalVal).toLocaleString('en-IN')}</strong>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (records.length === 0) {
+        listContentHtml = '<div style="padding:40px;text-align:center;color:var(--text-tertiary)">No rental sites match the selected filter.</div>';
+      }
+    }
+
+    return `
+      <div class="split-layout">
+        <!-- Left: List & Customer Categorization -->
+        <div class="card side-list">
+          <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+              <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Rental Sites</h3>
+              <!-- Categorization View Mode Toggle -->
+              <div style="display: flex; gap: 4px; background: var(--bg-body); padding: 3px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <button class="btn btn-sm ${this.viewMode === 'all' ? 'btn-primary' : 'btn-ghost'}" onclick="RentalsPage.setViewMode('all')" style="padding: 3px 8px; font-size: 0.75rem;" title="Flat List View">
+                  📋 Flat List
+                </button>
+                <button class="btn btn-sm ${this.viewMode === 'grouped' ? 'btn-primary' : 'btn-ghost'}" onclick="RentalsPage.setViewMode('grouped')" style="padding: 3px 8px; font-size: 0.75rem;" title="Customer Grouped View">
+                  👥 By Customer
+                </button>
+              </div>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="position: relative;">
+                <input type="text" class="form-control" placeholder="Search customer or site..." 
+                       value="${this.searchTerm}" onkeyup="RentalsPage.onSearch(event)" style="background: var(--bg-body); padding-left: 36px;">
+                <div style="position: absolute; left: 12px; top: 10px; width: 16px; height: 16px; color: var(--text-tertiary);">${Icons.search}</div>
+              </div>
+
+              <!-- Customer Dropdown Filter -->
+              <select id="rental-customer-select" class="form-control" onchange="RentalsPage.onCustomerFilterChange(this.value)" style="background: var(--bg-body); font-weight: 600; color: var(--text-primary);">
+                <option value="">👤 Filter by Customer (All Customers)</option>
+                ${customerOptions.map(cName => `
+                  <option value="${cName}" ${this.selectedCustomerFilter.toLowerCase() === cName.toLowerCase() ? 'selected' : ''}>👤 ${cName}</option>
+                `).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div id="rentals-list" style="max-height: 65vh; overflow-y: auto; padding: 12px;">
+            ${listContentHtml}
           </div>
         </div>
 
@@ -124,8 +248,15 @@ var RentalsPage = {
     const allRecords = Store.RentalSites.getAll();
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
 
-    // Filter all active/returned records applicable to selected month
-    const monthRecords = allRecords.filter(r => {
+    const allCustomers = Store.Customers ? Store.Customers.getAll() : [];
+    const rentalCustNames = [...new Set(allRecords.map(r => r.customerName).filter(Boolean))];
+    const customerOptions = [...new Set([
+      ...allCustomers.map(c => c.name).filter(Boolean),
+      ...rentalCustNames
+    ])].sort((a, b) => a.localeCompare(b));
+
+    // Filter records applicable to selected month & selected customer
+    let monthRecords = allRecords.filter(r => {
       if (!r.goingDate) return false;
       const goingMonth = r.goingDate.slice(0, 7);
       const comingMonth = r.comingDate ? r.comingDate.slice(0, 7) : '';
@@ -134,7 +265,13 @@ var RentalsPage = {
       const endedInOrAfter = !r.comingDate || comingMonth >= this.selectedMonth;
 
       return startedInOrBefore && endedInOrAfter;
-    }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
+    });
+
+    if (this.selectedCustomerFilter) {
+      monthRecords = monthRecords.filter(r => (r.customerName || '').toLowerCase() === this.selectedCustomerFilter.toLowerCase());
+    }
+
+    monthRecords.sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
 
     // Summary calculations
     let totalDispatches = monthRecords.length;
@@ -166,8 +303,16 @@ var RentalsPage = {
               <p style="margin:4px 0 0 0; color: var(--text-tertiary); font-size: 0.85rem;">Date-wise inclusive statement of materials dispatched in <strong>${monthLabel}</strong></p>
             </div>
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+              <label for="rental-month-customer-select" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;">Filter Customer:</label>
+              <select id="rental-month-customer-select" class="form-control" onchange="RentalsPage.onCustomerFilterChange(this.value)" style="width: 200px; font-weight:600;">
+                <option value="">All Customers</option>
+                ${customerOptions.map(cName => `
+                  <option value="${cName}" ${this.selectedCustomerFilter.toLowerCase() === cName.toLowerCase() ? 'selected' : ''}>👤 ${cName}</option>
+                `).join('')}
+              </select>
+
               <label for="rental-month-select" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;">Select Month:</label>
-              <input type="month" id="rental-month-select" class="form-control" value="${this.selectedMonth}" onchange="RentalsPage.onMonthChange(this.value)" style="width: 180px;">
+              <input type="month" id="rental-month-select" class="form-control" value="${this.selectedMonth}" onchange="RentalsPage.onMonthChange(this.value)" style="width: 170px;">
               <button class="btn btn-outline" onclick="RentalsPage.printMonthlyRegister()" style="display:inline-flex; align-items:center; gap:6px;">
                 ${Icons.printer} Print Monthly Bill Statement
               </button>

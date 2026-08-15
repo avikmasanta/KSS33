@@ -160,9 +160,7 @@ router.use('/labourLogs', createCrudRoutes('LabourLog', models.LabourLog));
 router.delete('/sites/:id/cascade', async (req, res) => {
   const id = req.params.id;
   try {
-    await models.Outgoing.deleteMany({ siteId: id });
-    await models.Incoming.deleteMany({ destinationType: 'site', destinationSiteId: id });
-    await models.SiteReturns.deleteMany({ siteId: id });
+    // Preserve Outgoing and SiteReturns to ensure returned warehouse inventory stock is permanently recorded and never reverts
     await models.SiteUsage.deleteMany({ siteId: id });
     await models.SiteDamaged.deleteMany({ siteId: id });
     await models.SiteExpenses.deleteMany({ siteId: id });

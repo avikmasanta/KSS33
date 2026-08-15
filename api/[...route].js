@@ -1031,9 +1031,7 @@ module.exports = async function handler(req, res) {
 
     // ── DELETE cascade (sites only) ──────────────────────────────
     if (req.method === 'DELETE' && id && action === 'cascade') {
-      await getModel('outgoing').deleteMany({ siteId: id });
-      await getModel('incoming').deleteMany({ destinationSiteId: id });
-      await getModel('siteReturns').deleteMany({ siteId: id });
+      // Preserve outgoing and siteReturns to ensure returned warehouse inventory stock is permanently recorded and never reverts
       await getModel('siteUsage').deleteMany({ siteId: id });
       await getModel('siteDamaged').deleteMany({ siteId: id });
       await getModel('siteExpenses').deleteMany({ siteId: id });
