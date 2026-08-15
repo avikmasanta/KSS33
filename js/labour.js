@@ -780,18 +780,24 @@ var LabourPage = {
       alert(`Opening Advance Balance set to ₹${amount.toLocaleString('en-IN')} for ${labour.name}.`);
     } else {
       const allLogs = Store.LabourLogs.getAll();
-      const existing = allLogs.find(l => String(l.labourId) === String(labourId) && l.date === date);
+      const existingLogs = allLogs.filter(l => String(l.labourId) === String(labourId) && l.date === date);
 
-      if (existing) {
-        const currentMoney = parseFloat(existing.moneyGiven) || 0;
+      if (existingLogs.length > 0) {
+        const primary = existingLogs[0];
+        const currentMoney = parseFloat(primary.moneyGiven) || 0;
         const newMoney = currentMoney + amount;
-        const existingNotes = existing.notes ? existing.notes + ' | ' : '';
+        const existingNotes = primary.notes ? primary.notes + ' | ' : '';
         const newNotes = existingNotes + (notes || `Advance: ₹${amount}`);
-        await Store.LabourLogs.update(existing.id, {
-          ...existing,
+        await Store.LabourLogs.update(primary.id, {
+          ...primary,
           moneyGiven: newMoney,
           notes: newNotes
         });
+        for (let i = 1; i < existingLogs.length; i++) {
+          if (existingLogs[i].id) {
+            await Store.LabourLogs.delete(existingLogs[i].id);
+          }
+        }
       } else {
         const payload = {
           date: date,
@@ -1089,8 +1095,9 @@ var LabourPage = {
         await Store.Labours.update(labourId, { ...labour, defaultWage: dailyWage });
       }
 
-      // Check if existing log for this date & labour exists
-      const existing = this.dailyLogsData[labourId];
+      // Check if existing log(s) for this date & labour exist
+      const allLogs = Store.LabourLogs.getAll();
+      const existingLogs = allLogs.filter(l => String(l.labourId) === String(labourId) && l.date === this.logDate);
 
       const payload = {
         date: this.logDate,
@@ -1105,8 +1112,14 @@ var LabourPage = {
         notes
       };
 
-      if (existing) {
-        await Store.LabourLogs.update(existing.id, payload);
+      if (existingLogs.length > 0) {
+        const primary = existingLogs[0];
+        await Store.LabourLogs.update(primary.id, payload);
+        for (let i = 1; i < existingLogs.length; i++) {
+          if (existingLogs[i].id) {
+            await Store.LabourLogs.delete(existingLogs[i].id);
+          }
+        }
       } else {
         await Store.LabourLogs.addAsync(payload);
       }
@@ -1351,23 +1364,47 @@ var LabourPage = {
             <div style="text-align:center; padding:40px; color:var(--text-tertiary);">No report details match the selected filters.</div>
           ` : this.summaryData.labours.map(l => {
             const fmt = (d) => { const p = (d || '').split('-'); return p.length === 3 ? p[2] + '/' + p[1] : d; };
-            const presentDates = (l.presentDates || []).sort().map(d => `<span style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
-            const halfDates = (l.halfDayDates || []).sort().map(d => `<span style="background:#fef9c3;color:#a16207;border:1px solid #fef08a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
-            const absentDates = (l.absentDates || []).sort().map(d => `<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
+            const uniquePresent = [...new Set(l.presentDates || [])].sort();
+            const uniqueHalf = [...new Set(l.halfDayDates || [])].sort();
+            const uniqueAbsent = [...new Set(l.absentDates || [])].sort();
+
+            const presentDates = uniquePresent.map(d => `<span style="background:#dcfce7;color:#15803d;border:1px solid #bbf7d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
+            const halfDates = uniqueHalf.map(d => `<span style="background:#fef9c3;color:#a16207;border:1px solid #fef08a;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
+            const absentDates = uniqueAbsent.map(d => `<span style="background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(d)}</span>`).join(' ');
             
-            const otLogs = (l.overtimeLogs || []).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(o => {
+            const otMap = {};
+            (l.overtimeLogs || []).forEach(o => {
+              if (!o.date) return;
+              if (!otMap[o.date]) otMap[o.date] = { date: o.date, hours: parseFloat(o.hours) || 0, pay: parseFloat(o.pay) || 0, time: o.time || '' };
+              else {
+                otMap[o.date].hours += (parseFloat(o.hours) || 0);
+                otMap[o.date].pay += (parseFloat(o.pay) || 0);
+              }
+            });
+            const otLogs = Object.values(otMap).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(o => {
               const timeStr = o.time ? ` (${o.time})` : '';
-              const hrsNum = o.hours !== undefined ? Number(parseFloat(o.hours).toFixed(1)) : 0;
+              const hrsNum = Number(parseFloat(o.hours).toFixed(1));
               return `<span style="background:#f3e8ff;color:#6b21a8;border:1px solid #e9d5ff;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(o.date)}: ${hrsNum}h${timeStr} = ₹${Math.round(o.pay)}</span>`;
             }).join(' ');
 
+            const payMap = {};
             let rawPayLogs = (l.paymentLogs || []);
             if (rawPayLogs.length === 0 && (l.totalMoneyGiven || 0) > 0 && Store.LabourLogs) {
               rawPayLogs = Store.LabourLogs.getAll()
                 .filter(log => String(log.labourId) === String(l.id) && (parseFloat(log.moneyGiven) || 0) > 0)
                 .map(log => ({ date: log.date, amount: parseFloat(log.moneyGiven) || 0, notes: log.notes || '' }));
             }
-            const payLogs = rawPayLogs.slice().sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(p => {
+            rawPayLogs.forEach(p => {
+              if (!p.date) return;
+              if (!payMap[p.date]) payMap[p.date] = { date: p.date, amount: parseFloat(p.amount) || 0, notes: p.notes || '' };
+              else {
+                payMap[p.date].amount += (parseFloat(p.amount) || 0);
+                if (p.notes && !payMap[p.date].notes.includes(p.notes)) {
+                  payMap[p.date].notes = payMap[p.date].notes ? (payMap[p.date].notes + ' | ' + p.notes) : p.notes;
+                }
+              }
+            });
+            const payLogs = Object.values(payMap).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(p => {
               const notesStr = p.notes ? ` (${p.notes})` : '';
               return `<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(p.date)}: ₹${Math.round(p.amount)}${notesStr}</span>`;
             }).join(' ');
@@ -1778,7 +1815,37 @@ var LabourPage = {
           })
           .sort((a,b) => (a.date || '').localeCompare(b.date || ''));
 
-        if (periodLogs.length > 0) {
+        const dateLedgerMap = {};
+        periodLogs.forEach(log => {
+          if (!log.date) return;
+          if (!dateLedgerMap[log.date]) {
+            dateLedgerMap[log.date] = {
+              date: log.date,
+              siteId: log.siteId || '',
+              attendance: log.attendance || 'Absent',
+              dailyWage: parseFloat(log.dailyWage) || 0,
+              overtimeHours: parseFloat(log.overtimeHours) || 0,
+              overtime: parseFloat(log.overtime) || 0,
+              moneyGiven: parseFloat(log.moneyGiven) || 0,
+              notes: log.notes || ''
+            };
+          } else {
+            const ex = dateLedgerMap[log.date];
+            if (log.attendance === 'Present') ex.attendance = 'Present';
+            else if (log.attendance === 'Half Day' && ex.attendance !== 'Present') ex.attendance = 'Half Day';
+
+            if ((parseFloat(log.dailyWage) || 0) > ex.dailyWage) ex.dailyWage = parseFloat(log.dailyWage) || 0;
+            ex.overtimeHours += (parseFloat(log.overtimeHours) || 0);
+            ex.overtime += (parseFloat(log.overtime) || 0);
+            ex.moneyGiven += (parseFloat(log.moneyGiven) || 0);
+            if (log.notes && !ex.notes.includes(log.notes)) {
+              ex.notes = ex.notes ? (ex.notes + ' | ' + log.notes) : log.notes;
+            }
+          }
+        });
+        const uniquePeriodLogs = Object.values(dateLedgerMap).sort((a,b) => (a.date || '').localeCompare(b.date || ''));
+
+        if (uniquePeriodLogs.length > 0) {
           dailyLedgerHtml = `
             <div style="margin-top: 14px;">
               <h5 style="margin: 0 0 6px 0; color: #1e3a8a; font-size: 11px; text-transform: uppercase;">📅 Daily Work & Payment Ledger</h5>
@@ -1796,7 +1863,7 @@ var LabourPage = {
                   </tr>
                 </thead>
                 <tbody>
-                  ${periodLogs.map((log, idx) => {
+                  ${uniquePeriodLogs.map((log, idx) => {
                     const siteObj = Store.Sites ? Store.Sites.getById(log.siteId) : null;
                     const sName = siteObj ? siteObj.name : '—';
                     const attVal = log.attendance === 'Present' ? 1.0 : (log.attendance === 'Half Day' ? 0.5 : 0);

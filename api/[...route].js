@@ -925,6 +925,7 @@ module.exports = async function handler(req, res) {
           absentDates: 1,
           overtimeLogs: 1,
           paymentLogs: 1,
+          rawLogs: 1,
           payableAmount: {
             $cond: [{ $gt: ["$totalEarnings", "$totalMoneyGiven"] }, { $subtract: ["$totalEarnings", "$totalMoneyGiven"] }, 0]
           },
@@ -935,6 +936,108 @@ module.exports = async function handler(req, res) {
       });
 
       const laboursData = await getModel('labours').aggregate(pipeline);
+
+      // Deduplicate and consolidate date-wise logs per labour to prevent double counting
+      laboursData.forEach(l => {
+        if (!l.rawLogs || !Array.isArray(l.rawLogs) || l.rawLogs.length === 0) return;
+
+        const dateMap = {};
+        l.rawLogs.forEach(log => {
+          if (!log.date) return;
+          if (startDate && log.date < startDate) return;
+          if (endDate && log.date > endDate) return;
+          if (siteId && String(log.siteId) !== String(siteId)) return;
+
+          const d = log.date;
+          if (!dateMap[d]) {
+            dateMap[d] = {
+              date: d,
+              siteId: log.siteId || '',
+              attendance: log.attendance || 'Absent',
+              dailyWage: parseFloat(log.dailyWage) || (l.defaultWage || 500),
+              overtimeHours: parseFloat(log.overtimeHours) || 0,
+              overtime: parseFloat(log.overtime) || 0,
+              moneyGiven: parseFloat(log.moneyGiven) || 0,
+              notes: log.notes || ''
+            };
+          } else {
+            const ex = dateMap[d];
+            if (log.attendance === 'Present') ex.attendance = 'Present';
+            else if (log.attendance === 'Half Day' && ex.attendance !== 'Present') ex.attendance = 'Half Day';
+
+            if ((parseFloat(log.dailyWage) || 0) > ex.dailyWage) ex.dailyWage = parseFloat(log.dailyWage) || 0;
+            ex.overtimeHours += (parseFloat(log.overtimeHours) || 0);
+            ex.overtime += (parseFloat(log.overtime) || 0);
+            ex.moneyGiven += (parseFloat(log.moneyGiven) || 0);
+            if (log.notes && !ex.notes.includes(log.notes)) {
+              ex.notes = ex.notes ? (ex.notes + ' | ' + log.notes) : log.notes;
+            }
+          }
+        });
+
+        const uniqueDateLogs = Object.values(dateMap).sort((a,b) => a.date.localeCompare(b.date));
+
+        let pDays = 0, hDays = 0, aDays = 0;
+        let gross = 0, otHoursTotal = 0, otPayTotal = 0, moneyTotal = 0;
+        const pDates = [], hDates = [], aDates = [];
+        const otLogs = [], payLogs = [];
+
+        uniqueDateLogs.forEach(log => {
+          const att = log.attendance || 'Absent';
+          if (attendance && att !== attendance) return;
+
+          if (att === 'Present') {
+            pDays++;
+            pDates.push(log.date);
+          } else if (att === 'Half Day') {
+            hDays++;
+            hDates.push(log.date);
+          } else {
+            aDays++;
+            aDates.push(log.date);
+          }
+
+          const attVal = att === 'Present' ? 1.0 : (att === 'Half Day' ? 0.5 : 0);
+          gross += log.dailyWage * attVal;
+
+          const otH = log.overtimeHours;
+          const otP = log.overtime;
+          const otPay = otH > 0 ? (log.dailyWage / 8) * otH : otP;
+          otHoursTotal += otH;
+          otPayTotal += otPay;
+
+          if (otH > 0 || otP > 0) {
+            otLogs.push({ date: log.date, hours: Number(otH.toFixed(1)), pay: Math.round(otPay) });
+          }
+
+          if (log.moneyGiven > 0) {
+            moneyTotal += log.moneyGiven;
+            payLogs.push({ date: log.date, amount: Math.round(log.moneyGiven), notes: log.notes });
+          }
+        });
+
+        l.presentDays = pDays;
+        l.halfDays = hDays;
+        l.absentDays = aDays;
+        l.grossWages = Math.round(gross);
+        l.totalOvertimeHours = Number(otHoursTotal.toFixed(1));
+        l.totalOvertime = Math.round(otPayTotal);
+        l.totalMoneyGiven = Math.round(moneyTotal);
+        l.presentDates = pDates;
+        l.halfDayDates = hDates;
+        l.absentDates = aDates;
+        l.overtimeLogs = otLogs;
+        l.paymentLogs = payLogs;
+
+        const prevBal = parseFloat(l.previousBalance) || 0;
+        const prevType = l.previousBalanceType || 'payable';
+        const effPrev = prevType === 'payable' ? prevBal : -prevBal;
+        const totalEarned = l.grossWages + l.totalOvertime + effPrev;
+
+        l.payableAmount = totalEarned > l.totalMoneyGiven ? Math.round(totalEarned - l.totalMoneyGiven) : 0;
+        l.advanceBalance = l.totalMoneyGiven > totalEarned ? Math.round(l.totalMoneyGiven - totalEarned) : 0;
+        delete l.rawLogs;
+      });
 
       const totalLabour = await getModel('labours').countDocuments({});
       const todayStr = getTodayIST();
