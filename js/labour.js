@@ -1583,16 +1583,23 @@ var LabourPage = {
 
   // EXPORT PRINTABLE PDF
   printPDF(targetLabourId = null) {
-    let rawLabours = Store.Labours ? Store.Labours.getAll() : [];
+    let rawLabours = (this.summaryData && this.summaryData.labours && this.summaryData.labours.length > 0)
+      ? this.summaryData.labours
+      : (Store.Labours ? Store.Labours.getAll() : []);
+
     if (targetLabourId) {
-      rawLabours = rawLabours.filter(l => String(l.id || l._id) === String(targetLabourId));
-    }
-    if (rawLabours.length === 0 && this.summaryData.labours && this.summaryData.labours.length > 0) {
-      rawLabours = this.summaryData.labours;
+      const targetStr = String(targetLabourId);
+      const filtered = rawLabours.filter(l => String(l.id || l._id || '') === targetStr);
+      if (filtered.length > 0) {
+        rawLabours = filtered;
+      } else {
+        const storeLabour = Store.Labours ? Store.Labours.getById(targetLabourId) : null;
+        rawLabours = storeLabour ? [storeLabour] : [];
+      }
     }
 
     if (rawLabours.length === 0) {
-      alert("No labour records found in system.");
+      alert("No labour record found to print.");
       return;
     }
 
