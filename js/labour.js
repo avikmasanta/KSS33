@@ -1409,7 +1409,16 @@ var LabourPage = {
     return `
       <!-- Filters header card -->
       <div class="card" style="margin-bottom: 24px; padding: 20px;">
-        <h4 style="margin: 0 0 16px 0; color: var(--text-primary);">Report Filter Parameters</h4>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
+          <h4 style="margin: 0; color: var(--text-primary);">Report Filter Parameters & 15-Day Fortnightly Hisaab</h4>
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#f0f9ff; border-color:#bae6fd; color:#0369a1;" onclick="LabourPage.setReport15DayCycle('first_half')">🗓️ 1st - 15th (1st Half)</button>
+            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#f0f9ff; border-color:#bae6fd; color:#0369a1;" onclick="LabourPage.setReport15DayCycle('second_half')">🗓️ 16th - End (2nd Half)</button>
+            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#faf5ff; border-color:#e9d5ff; color:#7e22ce;" onclick="LabourPage.setReport15DayCycle('prev_first_half')">🗓️ Prev Month (1-15)</button>
+            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#faf5ff; border-color:#e9d5ff; color:#7e22ce;" onclick="LabourPage.setReport15DayCycle('prev_second_half')">🗓️ Prev Month (16-End)</button>
+            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#f8fafc; border-color:#cbd5e1; color:#475569;" onclick="LabourPage.setReport15DayCycle('full_month')">📅 Full Month</button>
+          </div>
+        </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: flex-end;">
           <div class="form-group" style="margin:0;">
             <label style="font-weight:600;margin-bottom:4px;">Start Date</label>
@@ -1576,6 +1585,11 @@ var LabourPage = {
 
                 <!-- Financial summary cards grid -->
                 <div style="padding:16px 22px; display:grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap:12px;">
+                  <div style="background:${(l.carriedOverBalance || 0) > 0 ? '#fff7ed' : ((l.carriedOverBalance || 0) < 0 ? '#f0fdf4' : '#f8fafc')}; border:1px solid ${(l.carriedOverBalance || 0) > 0 ? '#ffedd5' : ((l.carriedOverBalance || 0) < 0 ? '#bbf7d0' : '#e2e8f0')}; border-radius:10px; padding:12px 14px; text-align:center;">
+                    <div style="font-size:0.72rem; color:${(l.carriedOverBalance || 0) > 0 ? '#c2410c' : '#64748b'}; text-transform:uppercase; font-weight:700; margin-bottom:4px;">🔄 Carried Over Bal</div>
+                    <div style="font-size:1.15rem; font-weight:700; color:${(l.carriedOverBalance || 0) > 0 ? '#ea580c' : ((l.carriedOverBalance || 0) < 0 ? '#16a34a' : 'var(--text-primary)')};">₹${Math.abs(l.carriedOverBalance || 0).toLocaleString('en-IN')} ${(l.carriedOverBalance || 0) > 0 ? '(Baki)' : ((l.carriedOverBalance || 0) < 0 ? '(Adv)' : '')}</div>
+                    <div style="font-size:0.68rem; color:#94a3b8; margin-top:2px;">Prior 15-day balance</div>
+                  </div>
                   <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; color:var(--text-tertiary); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Gross Wages</div>
                     <div style="font-size:1.2rem; font-weight:700; color:var(--text-primary);">₹${Math.round(l.grossWages || 0).toLocaleString('en-IN')}</div>
@@ -1583,7 +1597,7 @@ var LabourPage = {
                   <div style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; color:#6d28d9; text-transform:uppercase; font-weight:600; margin-bottom:4px;">OT Hours</div>
                     <div style="font-size:1.2rem; font-weight:700; color:#6d28d9;">${otHours > 0 ? otHours + ' hrs' : '—'}</div>
-                    ${otHours > 0 ? `<div style="font-size:0.75rem; color:#7c3aed; font-weight:600; margin-top:2px;">= ₹${otPay.toLocaleString('en-IN')}</div>` : ''}
+                    ${otHours > 0 ? `<div style="font-size:0.72rem; color:#7c3aed; font-weight:600; margin-top:2px;">= ₹${otPay.toLocaleString('en-IN')}</div>` : ''}
                   </div>
                   <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; color:#047857; text-transform:uppercase; font-weight:600; margin-bottom:4px;">Money Given</div>
@@ -1591,7 +1605,7 @@ var LabourPage = {
                   </div>
                   <div style="background:${payable > 0 ? '#fef2f2' : '#f0fdf4'}; border:1px solid ${payable > 0 ? '#fecaca' : '#bbf7d0'}; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:${payable > 0 ? '#b91c1c' : '#15803d'}; margin-bottom:4px;">
-                      ${payable > 0 ? '💰 To Pay' : advance > 0 ? '✅ Advance Bal' : '✅ Settled'}
+                      ${payable > 0 ? '💰 Total To Pay' : advance > 0 ? '✅ Advance Bal' : '✅ Settled'}
                     </div>
                     <div style="font-size:1.25rem; font-weight:800; color:${payable > 0 ? '#dc2626' : '#16a34a'};">
                       ₹${(payable > 0 ? payable : advance).toLocaleString('en-IN')}
@@ -1604,6 +1618,47 @@ var LabourPage = {
         </div>
       </div>
     `;
+  },
+
+  setReport15DayCycle(cycle) {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = today.getMonth();
+
+    const pad = (n) => String(n).padStart(2, '0');
+
+    if (cycle === 'first_half') {
+      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
+      this.reportEndDate = `${y}-${pad(m + 1)}-15`;
+    } else if (cycle === 'second_half') {
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      this.reportStartDate = `${y}-${pad(m + 1)}-16`;
+      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+    } else if (cycle === 'prev_first_half') {
+      const prevMonthDate = new Date(y, m - 1, 1);
+      const py = prevMonthDate.getFullYear();
+      const pm = prevMonthDate.getMonth();
+      this.reportStartDate = `${py}-${pad(pm + 1)}-01`;
+      this.reportEndDate = `${py}-${pad(pm + 1)}-15`;
+    } else if (cycle === 'prev_second_half') {
+      const prevMonthDate = new Date(y, m - 1, 1);
+      const py = prevMonthDate.getFullYear();
+      const pm = prevMonthDate.getMonth();
+      const lastDay = new Date(py, pm + 1, 0).getDate();
+      this.reportStartDate = `${py}-${pad(pm + 1)}-16`;
+      this.reportEndDate = `${py}-${pad(pm + 1)}-${pad(lastDay)}`;
+    } else if (cycle === 'full_month') {
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
+      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+    }
+
+    this.fetchData().then(() => {
+      const container = document.getElementById('page-container');
+      if (container) {
+        container.innerHTML = this.render();
+      }
+    });
   },
 
   applyReportFilters() {

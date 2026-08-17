@@ -794,12 +794,30 @@ router.get('/labours-summary', async (req, res) => {
     laboursData.forEach(l => {
       if (!l.rawLogs || !Array.isArray(l.rawLogs) || l.rawLogs.length === 0) return;
 
+      // Calculate prior balance from logs before startDate (for carried over 15-day / fortnightly hisaab)
+      let priorGross = 0;
+      let priorOtPay = 0;
+      let priorMoneyPaid = 0;
+
       const dateMap = {};
       l.rawLogs.forEach(log => {
         if (!log.date) return;
-        if (startDate && log.date < startDate) return;
-        if (endDate && log.date > endDate) return;
         if (siteId && String(log.siteId) !== String(siteId)) return;
+
+        // If log date is before startDate, accumulate into prior balance
+        if (startDate && log.date < startDate) {
+          const att = log.attendance || 'Absent';
+          const attVal = att === 'Present' ? 1.0 : (att === 'Half Day' ? 0.5 : 0);
+          const dw = parseFloat(log.dailyWage) || (l.defaultWage || 500);
+          priorGross += dw * attVal;
+          const otH = parseFloat(log.overtimeHours) || 0;
+          const otP = parseFloat(log.overtime) || 0;
+          priorOtPay += otH > 0 ? (dw / 8) * otH : otP;
+          priorMoneyPaid += parseFloat(log.moneyGiven) || 0;
+          return;
+        }
+
+        if (endDate && log.date > endDate) return;
 
         const d = log.date;
         if (!dateMap[d]) {
@@ -827,6 +845,12 @@ router.get('/labours-summary', async (req, res) => {
           }
         }
       });
+
+      const masterPrevBal = parseFloat(l.previousBalance) || 0;
+      const masterPrevType = l.previousBalanceType || 'payable';
+      const effMasterPrev = masterPrevType === 'payable' ? masterPrevBal : -masterPrevBal;
+      const carriedOverBalance = Math.round(effMasterPrev + priorGross + priorOtPay - priorMoneyPaid);
+      l.carriedOverBalance = carriedOverBalance;
 
       const uniqueDateLogs = Object.values(dateMap).sort((a,b) => a.date.localeCompare(b.date));
 
@@ -882,13 +906,11 @@ router.get('/labours-summary', async (req, res) => {
       l.overtimeLogs = otLogs;
       l.paymentLogs = payLogs;
 
-      const prevBal = parseFloat(l.previousBalance) || 0;
-      const prevType = l.previousBalanceType || 'payable';
-      const effPrev = prevType === 'payable' ? prevBal : -prevBal;
-      const totalEarned = l.grossWages + l.totalOvertime + effPrev;
+      const totalEarnedPeriod = l.grossWages + l.totalOvertime;
+      const netConsolidated = carriedOverBalance + totalEarnedPeriod - l.totalMoneyGiven;
 
-      l.payableAmount = totalEarned > l.totalMoneyGiven ? Math.round(totalEarned - l.totalMoneyGiven) : 0;
-      l.advanceBalance = l.totalMoneyGiven > totalEarned ? Math.round(l.totalMoneyGiven - totalEarned) : 0;
+      l.payableAmount = netConsolidated > 0 ? Math.round(netConsolidated) : 0;
+      l.advanceBalance = netConsolidated < 0 ? Math.round(Math.abs(netConsolidated)) : 0;
       delete l.rawLogs;
     });
 
