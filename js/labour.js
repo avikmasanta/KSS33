@@ -1691,8 +1691,44 @@ var LabourPage = {
       const openingAdvance = prevType === 'advance' ? (parseFloat(prevBal) || 0) : 0;
       const openingPayable = prevType === 'payable' ? (parseFloat(prevBal) || 0) : 0;
 
-      const logs = allLogs.filter(log => String(log.labourId) === lId);
+      // Filter raw logs strictly by reportStartDate, reportEndDate, and reportSiteId
+      let logs = allLogs.filter(log => String(log.labourId) === lId);
+      if (this.reportStartDate) logs = logs.filter(log => log.date >= this.reportStartDate);
+      if (this.reportEndDate) logs = logs.filter(log => log.date <= this.reportEndDate);
+      if (this.reportSiteId) logs = logs.filter(log => String(log.siteId) === String(this.reportSiteId));
 
+      // If labour came from summaryData (already filtered & aggregated for this exact date window)
+      if (labour.presentDays !== undefined && labour.grossWages !== undefined) {
+        const totalMoneyGiven = Math.round(labour.totalMoneyGiven || 0);
+        const totalAdvanceTaken = Math.round(openingAdvance + totalMoneyGiven);
+        const netEarnings = Math.round((labour.grossWages || 0) + (labour.totalOvertime || 0) + openingPayable);
+        const payableAmount = netEarnings > totalAdvanceTaken ? (netEarnings - totalAdvanceTaken) : 0;
+        const advanceBalance = totalAdvanceTaken > netEarnings ? (totalAdvanceTaken - netEarnings) : 0;
+
+        return {
+          id: labour.id || labour._id,
+          name: labour.name,
+          nickname: labour.nickname || '',
+          phone: labour.phone || '',
+          openingAdvance,
+          openingPayable,
+          presentDays: labour.presentDays || 0,
+          halfDays: labour.halfDays || 0,
+          absentDays: labour.absentDays || 0,
+          grossWages: Math.round(labour.grossWages || 0),
+          totalOvertimeHours: Number((labour.totalOvertimeHours || 0).toFixed(1)),
+          totalOvertime: Math.round(labour.totalOvertime || 0),
+          totalMoneyGiven,
+          totalAdvanceTaken,
+          payableAmount: Math.round(payableAmount),
+          advanceBalance: Math.round(advanceBalance),
+          overtimeLogs: labour.overtimeLogs || [],
+          paymentLogs: labour.paymentLogs || [],
+          periodLogs: logs
+        };
+      }
+
+      // Fallback calculation from filtered logs
       let presentDays = 0, halfDays = 0, absentDays = 0;
       let grossWages = 0, totalOtHours = 0, totalOtPay = 0, totalMoneyGiven = 0;
       const overtimeLogs = [], paymentLogs = [];
