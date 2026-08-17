@@ -1163,76 +1163,90 @@ var LabourPage = {
   },
 
   async saveDailyLogs() {
-    const rows = document.querySelectorAll('tr[data-labour-id]');
-    let count = 0;
-    for (const tr of rows) {
-      const labourId = tr.dataset.labourId;
-      
-      // Determine selected attendance
-      let attendance = 'Absent';
-      const successBtn = tr.querySelector('.att-btn.btn-success');
-      const warningBtn = tr.querySelector('.att-btn.btn-warning');
-      const dangerBtn = tr.querySelector('.att-btn.btn-danger');
-      if (successBtn) attendance = 'Present';
-      else if (warningBtn) attendance = 'Half Day';
-      else if (dangerBtn) attendance = 'Absent';
-
-      const siteId = tr.querySelector('.log-site').value;
-      const dailyWage = parseFloat(tr.querySelector('.log-wage').value) || 0;
-      const overtimeHours = parseFloat(tr.querySelector('.log-ot-hours').value) || 0;
-      const overtimeTimeInput = tr.querySelector('.log-ot-time');
-      const overtimeTime = overtimeTimeInput ? overtimeTimeInput.value.trim() : '';
-      // Calculate OT rupee amount for backwards compat display
-      const overtimeAmount = overtimeHours > 0 ? parseFloat(((dailyWage / 8) * overtimeHours).toFixed(2)) : 0;
-      const moneyGiven = parseFloat(tr.querySelector('.log-money').value) || 0;
-      const notes = tr.querySelector('.log-notes').value;
-
-      // Auto-update defaultWage on the master labour so it carries forward for future days
-      const labour = Store.Labours.getById(labourId);
-      if (labour && dailyWage > 0 && (labour.defaultWage !== dailyWage || labour.defaultWage === undefined)) {
-        labour.defaultWage = dailyWage;
-        await Store.Labours.update(labourId, { ...labour, defaultWage: dailyWage });
-      }
-
-      // Check if existing log(s) for this date & labour exist
-      const allLogs = Store.LabourLogs.getAll();
-      const existingLogs = allLogs.filter(l => String(l.labourId) === String(labourId) && l.date === this.logDate);
-
-      const payload = {
-        date: this.logDate,
-        labourId,
-        siteId,
-        attendance,
-        dailyWage,
-        overtimeHours,
-        overtimeTime,
-        overtime: overtimeAmount, // legacy field kept for backward compat
-        moneyGiven,
-        notes
-      };
-
-      if (existingLogs.length > 0) {
-        const primary = existingLogs[0];
-        await Store.LabourLogs.update(primary.id, payload);
-        for (let i = 1; i < existingLogs.length; i++) {
-          if (existingLogs[i].id) {
-            await Store.LabourLogs.delete(existingLogs[i].id);
-          }
-        }
-      } else {
-        await Store.LabourLogs.addAsync(payload);
-      }
-      count++;
+    const saveBtn = document.querySelector('button[onclick="LabourPage.saveDailyLogs()"]');
+    if (saveBtn) {
+      if (saveBtn.disabled) return;
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '⌛ Saving Attendance...';
     }
 
-    alert(`Saved logs for ${count} labours successfully!`);
-    this.isDirty = false;
-    this.fetchData().then(() => {
-      const container = document.getElementById('page-container');
-      if (container) {
-        container.innerHTML = this.render();
+    try {
+      const rows = document.querySelectorAll('tr[data-labour-id]');
+      let count = 0;
+      for (const tr of rows) {
+        const labourId = tr.dataset.labourId;
+        
+        // Determine selected attendance
+        let attendance = 'Absent';
+        const successBtn = tr.querySelector('.att-btn.btn-success');
+        const warningBtn = tr.querySelector('.att-btn.btn-warning');
+        const dangerBtn = tr.querySelector('.att-btn.btn-danger');
+        if (successBtn) attendance = 'Present';
+        else if (warningBtn) attendance = 'Half Day';
+        else if (dangerBtn) attendance = 'Absent';
+
+        const siteId = tr.querySelector('.log-site').value;
+        const dailyWage = parseFloat(tr.querySelector('.log-wage').value) || 0;
+        const overtimeHours = parseFloat(tr.querySelector('.log-ot-hours').value) || 0;
+        const overtimeTimeInput = tr.querySelector('.log-ot-time');
+        const overtimeTime = overtimeTimeInput ? overtimeTimeInput.value.trim() : '';
+        // Calculate OT rupee amount for backwards compat display
+        const overtimeAmount = overtimeHours > 0 ? parseFloat(((dailyWage / 8) * overtimeHours).toFixed(2)) : 0;
+        const moneyGiven = parseFloat(tr.querySelector('.log-money').value) || 0;
+        const notes = tr.querySelector('.log-notes').value;
+
+        // Auto-update defaultWage on the master labour so it carries forward for future days
+        const labour = Store.Labours.getById(labourId);
+        if (labour && dailyWage > 0 && (labour.defaultWage !== dailyWage || labour.defaultWage === undefined)) {
+          labour.defaultWage = dailyWage;
+          await Store.Labours.update(labourId, { ...labour, defaultWage: dailyWage });
+        }
+
+        // Check if existing log(s) for this date & labour exist
+        const allLogs = Store.LabourLogs.getAll();
+        const existingLogs = allLogs.filter(l => String(l.labourId) === String(labourId) && l.date === this.logDate);
+
+        const payload = {
+          date: this.logDate,
+          labourId,
+          siteId,
+          attendance,
+          dailyWage,
+          overtimeHours,
+          overtimeTime,
+          overtime: overtimeAmount, // legacy field kept for backward compat
+          moneyGiven,
+          notes
+        };
+
+        if (existingLogs.length > 0) {
+          const primary = existingLogs[0];
+          await Store.LabourLogs.update(primary.id, payload);
+          for (let i = 1; i < existingLogs.length; i++) {
+            if (existingLogs[i].id) {
+              await Store.LabourLogs.delete(existingLogs[i].id);
+            }
+          }
+        } else {
+          await Store.LabourLogs.addAsync(payload);
+        }
+        count++;
       }
-    });
+
+      alert(`Saved logs for ${count} labours successfully!`);
+      this.isDirty = false;
+      this.fetchData().then(() => {
+        const container = document.getElementById('page-container');
+        if (container) {
+          container.innerHTML = this.render();
+        }
+      });
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '💾 Save Attendance Log Sheet';
+      }
+    }
   },
 
   printDailyAttendanceSheet() {

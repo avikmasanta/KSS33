@@ -151,6 +151,36 @@ router.use('/telegramChats', createCrudRoutes('TelegramChat', models.TelegramCha
 router.use('/smsContacts', createCrudRoutes('SmsContact', models.SmsContact));
 router.use('/whatsappContacts', createCrudRoutes('WhatsappContact', models.WhatsappContact));
 router.use('/separateBillings', createCrudRoutes('SeparateBilling', models.SeparateBilling));
+// Custom upsert route for LabourLog to PREVENT DUPLICATES in MongoDB
+router.post('/labourLogs', async (req, res) => {
+  try {
+    const { labourId, date } = req.body;
+    if (labourId && date) {
+      const updated = await models.LabourLog.findOneAndUpdate(
+        { labourId, date },
+        req.body,
+        { upsert: true, new: true, runValidators: true }
+      );
+
+      // Automatically clean up any existing duplicate logs in MongoDB for this (labourId, date)
+      await models.LabourLog.deleteMany({
+        labourId,
+        date,
+        _id: { $ne: updated._id }
+      });
+
+      return res.status(200).json(updated);
+    }
+
+    const newItem = new models.LabourLog(req.body);
+    const saved = await newItem.save();
+    return res.status(201).json(saved);
+  } catch (err) {
+    console.error('Error saving/upserting labour log:', err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 router.use('/labours', createCrudRoutes('Labour', models.Labour));
 router.use('/labourLogs', createCrudRoutes('LabourLog', models.LabourLog));
 
