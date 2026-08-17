@@ -1399,24 +1399,88 @@ var LabourPage = {
     printWindow.document.close();
   },
 
+  getMonthOptions() {
+    const months = [];
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(currentYear, currentMonth - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const value = `${y}-${String(m + 1).padStart(2, '0')}`;
+      const label = `${monthNames[m]} ${y}`;
+      months.push({ value, label, year: y, month: m });
+    }
+    return months;
+  },
+
   // ==========================================
   // REPORTS TAB
   // ==========================================
   renderReports() {
     const sites = Store.Sites.getAll();
     const labours = Store.Labours.getAll();
+    const monthOptions = this.getMonthOptions();
+
+    // Determine current selected month & period from reportStartDate / reportEndDate
+    let selectedMonthVal = monthOptions[0].value;
+    let selectedPeriodVal = 'custom';
+
+    if (this.reportStartDate && this.reportEndDate) {
+      const startParts = this.reportStartDate.split('-');
+      const endParts = this.reportEndDate.split('-');
+      if (startParts.length === 3 && endParts.length === 3) {
+        selectedMonthVal = `${startParts[0]}-${startParts[1]}`;
+        const startDay = parseInt(startParts[2], 10);
+        const endDay = parseInt(endParts[2], 10);
+        const y = parseInt(startParts[0], 10);
+        const m = parseInt(startParts[1], 10) - 1;
+        const lastDay = new Date(y, m + 1, 0).getDate();
+
+        if (startDay === 1 && endDay === 15) {
+          selectedPeriodVal = 'first_half';
+        } else if (startDay === 16 && endDay === lastDay) {
+          selectedPeriodVal = 'second_half';
+        } else if (startDay === 1 && endDay === lastDay) {
+          selectedPeriodVal = 'full_month';
+        }
+      }
+    }
 
     return `
       <!-- Filters header card -->
       <div class="card" style="margin-bottom: 24px; padding: 20px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:16px;">
-          <h4 style="margin: 0; color: var(--text-primary);">Report Filter Parameters & 15-Day Fortnightly Hisaab</h4>
-          <div style="display:flex; gap:6px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#f0f9ff; border-color:#bae6fd; color:#0369a1;" onclick="LabourPage.setReport15DayCycle('first_half')">🗓️ 1st - 15th (1st Half)</button>
-            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#f0f9ff; border-color:#bae6fd; color:#0369a1;" onclick="LabourPage.setReport15DayCycle('second_half')">🗓️ 16th - End (2nd Half)</button>
-            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#faf5ff; border-color:#e9d5ff; color:#7e22ce;" onclick="LabourPage.setReport15DayCycle('prev_first_half')">🗓️ Prev Month (1-15)</button>
-            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#faf5ff; border-color:#e9d5ff; color:#7e22ce;" onclick="LabourPage.setReport15DayCycle('prev_second_half')">🗓️ Prev Month (16-End)</button>
-            <button type="button" class="btn btn-xs btn-outline" style="font-weight:600; background:#f8fafc; border-color:#cbd5e1; color:#475569;" onclick="LabourPage.setReport15DayCycle('full_month')">📅 Full Month</button>
+        <div style="margin-bottom:16px;">
+          <h4 style="margin: 0 0 6px 0; color: var(--text-primary);">Report Filter Parameters & 15-Day Fortnightly Hisaab</h4>
+          <p style="margin:0; font-size:0.85rem; color:var(--text-tertiary);">Select any month and 15-day period (1st-15th or 16th-End) for automatic 15-day wage settlement & carry-forward balance.</p>
+        </div>
+
+        <!-- 15-Day & Month Quick Selectors Bar -->
+        <div style="background:var(--bg-body); border:1px solid var(--border-color); border-radius:10px; padding:12px 16px; margin-bottom:16px; display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:200px;">
+            <label style="font-weight:700; font-size:0.85rem; color:var(--text-secondary); white-space:nowrap;">🗓️ Select Month:</label>
+            <select id="rep-month-select" class="form-control" style="height:38px; font-weight:600;" onchange="LabourPage.onMonthPeriodChange()">
+              ${monthOptions.map(m => `
+                <option value="${m.value}" ${selectedMonthVal === m.value ? 'selected' : ''}>${m.label}</option>
+              `).join('')}
+            </select>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:220px;">
+            <label style="font-weight:700; font-size:0.85rem; color:var(--text-secondary); white-space:nowrap;">⏱️ 15-Day Period:</label>
+            <select id="rep-period-select" class="form-control" style="height:38px; font-weight:600;" onchange="LabourPage.onMonthPeriodChange()">
+              <option value="first_half" ${selectedPeriodVal === 'first_half' ? 'selected' : ''}>1st Half (1st to 15th)</option>
+              <option value="second_half" ${selectedPeriodVal === 'second_half' ? 'selected' : ''}>2nd Half (16th to End)</option>
+              <option value="full_month" ${selectedPeriodVal === 'full_month' ? 'selected' : ''}>Full Month (1st to End)</option>
+              <option value="custom" ${selectedPeriodVal === 'custom' ? 'selected' : ''}>Custom Date Range</option>
+            </select>
           </div>
         </div>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: flex-end;">
@@ -1618,6 +1682,48 @@ var LabourPage = {
         </div>
       </div>
     `;
+  },
+
+  onMonthPeriodChange() {
+    const monthVal = document.getElementById('rep-month-select').value;
+    const periodVal = document.getElementById('rep-period-select').value;
+
+    if (!monthVal || periodVal === 'custom') return;
+
+    const parts = monthVal.split('-');
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+
+    const pad = (n) => String(n).padStart(2, '0');
+
+    if (periodVal === 'first_half') {
+      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
+      this.reportEndDate = `${y}-${pad(m + 1)}-15`;
+    } else if (periodVal === 'second_half') {
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      this.reportStartDate = `${y}-${pad(m + 1)}-16`;
+      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+    } else if (periodVal === 'full_month') {
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
+      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
+    }
+
+    if (document.getElementById('rep-site-id')) this.reportSiteId = document.getElementById('rep-site-id').value;
+    if (document.getElementById('rep-labour-id')) this.reportLabourId = document.getElementById('rep-labour-id').value;
+
+    this.fetchData().then(() => {
+      const container = document.getElementById('page-container');
+      if (container) {
+        container.innerHTML = this.render();
+      }
+    });
+  },
+
+  onCustomDateChange() {
+    if (document.getElementById('rep-period-select')) {
+      document.getElementById('rep-period-select').value = 'custom';
+    }
   },
 
   setReport15DayCycle(cycle) {
