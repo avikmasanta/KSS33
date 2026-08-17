@@ -227,8 +227,10 @@ var LabourPage = {
               <div class="form-group" style="margin-bottom: 16px;">
                 <label for="adv-type" style="font-weight: 600;">Adjustment Action</label>
                 <select id="adv-type" class="form-control">
-                  <option value="payment">💵 Add Advance Payment Taken (Given On Date)</option>
+                  <option value="payment">💵 Add New Advance Payment (Given On Date)</option>
+                  <option value="set_exact">✏️ Edit / Set Exact Advance Amount On Date (Fix Typo)</option>
                   <option value="opening">⚙️ Set / Adjust Opening Advance Balance</option>
+                  <option value="delete">🗑️ Delete / Clear Advance Payment On Date</option>
                 </select>
               </div>
 
@@ -649,7 +651,7 @@ var LabourPage = {
             <td>${site ? site.name : '-'}</td>
             <td>${wageDisplay}</td>
             <td>${otDisplay}</td>
-            <td>₹${given}</td>
+            <td>₹${given}${given > 0 ? ` <button class="btn btn-xs btn-outline" style="padding:1px 6px; font-size:10px; color:#047857; border-color:#a7f3d0; margin-left:4px; border-radius:4px; font-weight:600;" onclick="LabourPage.openAdvanceModal('${labour.id}', '${l.date}', ${given}, '${(l.notes || '').replace(/'/g, "\\'")}', 'set_exact')" title="Edit/Fix Advance Amount">✏️ Fix</button>` : ''}</td>
             <td style="font-weight:700; color:${runningBalance >= 0 ? 'var(--danger)' : 'var(--success)'}">₹${balFormatted} ${runningBalance >= 0 ? 'Payable' : 'Adv'}</td>
           </tr>
         `;
@@ -736,16 +738,28 @@ var LabourPage = {
     document.getElementById('labour-modal-backdrop').classList.remove('active');
   },
 
-  openAdvanceModal(labourId = null) {
+  openAdvanceModal(labourId = null, targetDate = null, currentAmount = null, currentNotes = null, actionType = 'payment') {
     const backdrop = document.getElementById('advance-modal-backdrop');
     if (!backdrop) return;
     const select = document.getElementById('adv-labour-id');
     if (select && labourId) select.value = labourId;
     else if (select && this.selectedLabourId) select.value = this.selectedLabourId;
-    document.getElementById('adv-type').value = 'payment';
-    document.getElementById('adv-date').value = window.localDateStr();
-    document.getElementById('adv-amount').value = '';
-    document.getElementById('adv-notes').value = '';
+    
+    const typeSelect = document.getElementById('adv-type');
+    if (typeSelect) typeSelect.value = actionType || 'payment';
+
+    document.getElementById('adv-date').value = targetDate || window.localDateStr();
+    document.getElementById('adv-amount').value = (currentAmount !== null && currentAmount !== undefined) ? currentAmount : '';
+    document.getElementById('adv-notes').value = currentNotes || '';
+    
+    const titleEl = document.getElementById('advance-modal-title');
+    if (titleEl) {
+      if (actionType === 'set_exact') titleEl.textContent = '✏️ Edit / Set Exact Advance Amount';
+      else if (actionType === 'opening') titleEl.textContent = '⚙️ Set / Adjust Opening Advance Balance';
+      else if (actionType === 'delete') titleEl.textContent = '🗑️ Delete Advance Payment';
+      else titleEl.textContent = '💵 Add / Adjust Advance Payment';
+    }
+
     backdrop.classList.add('active');
   },
 
@@ -762,8 +776,8 @@ var LabourPage = {
     const amount = parseFloat(document.getElementById('adv-amount').value) || 0;
     const notes = document.getElementById('adv-notes').value.trim();
 
-    if (!labourId || amount <= 0) {
-      alert('Please select a valid labour and enter an advance amount greater than 0.');
+    if (!labourId) {
+      alert('Please select a valid labour / worker.');
       return;
     }
 
@@ -778,6 +792,54 @@ var LabourPage = {
         openingBalanceType: 'advance'
       });
       alert(`Opening Advance Balance set to ₹${amount.toLocaleString('en-IN')} for ${labour.name}.`);
+    } else if (advType === 'set_exact') {
+      const allLogs = Store.LabourLogs.getAll();
+      const existingLogs = allLogs.filter(l => String(l.labourId) === String(labourId) && l.date === date);
+
+      if (existingLogs.length > 0) {
+        const primary = existingLogs[0];
+        await Store.LabourLogs.update(primary.id, {
+          ...primary,
+          moneyGiven: amount,
+          notes: notes || primary.notes || `Advance Payment: ₹${amount}`
+        });
+        for (let i = 1; i < existingLogs.length; i++) {
+          if (existingLogs[i].id) {
+            await Store.LabourLogs.delete(existingLogs[i].id);
+          }
+        }
+      } else {
+        const payload = {
+          date: date,
+          labourId: labourId,
+          siteId: '',
+          attendance: 'Absent',
+          dailyWage: labour.defaultWage !== undefined ? labour.defaultWage : 500,
+          overtimeHours: 0,
+          overtimeTime: '',
+          overtime: 0,
+          moneyGiven: amount,
+          notes: notes || `Advance Payment: ₹${amount}`
+        };
+        await Store.LabourLogs.addAsync(payload);
+      }
+      alert(`Advance payment for ${labour.name} on ${date} successfully updated to ₹${amount.toLocaleString('en-IN')}.`);
+    } else if (advType === 'delete') {
+      const allLogs = Store.LabourLogs.getAll();
+      const existingLogs = allLogs.filter(l => String(l.labourId) === String(labourId) && l.date === date);
+
+      if (existingLogs.length > 0) {
+        for (const log of existingLogs) {
+          if (log.attendance === 'Absent' && (parseFloat(log.overtimeHours) || 0) === 0) {
+            await Store.LabourLogs.delete(log.id);
+          } else {
+            await Store.LabourLogs.update(log.id, { ...log, moneyGiven: 0 });
+          }
+        }
+        alert(`Advance payment for ${labour.name} on ${date} deleted successfully.`);
+      } else {
+        alert(`No advance payment record found on ${date}.`);
+      }
     } else {
       const allLogs = Store.LabourLogs.getAll();
       const existingLogs = allLogs.filter(l => String(l.labourId) === String(labourId) && l.date === date);
@@ -1406,7 +1468,12 @@ var LabourPage = {
             });
             const payLogs = Object.values(payMap).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(p => {
               const notesStr = p.notes ? ` (${p.notes})` : '';
-              return `<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">${fmt(p.date)}: ₹${Math.round(p.amount)}${notesStr}</span>`;
+              const safeNotes = (p.notes || '').replace(/'/g, "\\'");
+              const lId = l.id || l._id;
+              return `<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
+                ${fmt(p.date)}: ₹${Math.round(p.amount)}${notesStr}
+                <span onclick="event.stopPropagation(); LabourPage.openAdvanceModal('${lId}', '${p.date}', ${Math.round(p.amount)}, '${safeNotes}', 'set_exact')" title="Edit/Fix Wrong Advance Amount" style="cursor:pointer;background:rgba(4,120,87,0.15);border-radius:4px;padding:1px 5px;font-size:10px;color:#047857;font-weight:700;">✏️ Edit</span>
+              </span>`;
             }).join(' ');
             
             const rawOtHours = parseFloat(l.totalOvertimeHours) || 0;
