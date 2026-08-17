@@ -404,7 +404,10 @@ var LabourPage = {
   // LABOUR MASTER TAB
   // ==========================================
   renderMaster() {
-    let filteredLabours = Store.Labours.getAll();
+    let filteredLabours = Store.Labours ? Store.Labours.getAll() : [];
+    if ((!filteredLabours || filteredLabours.length === 0) && this.summaryData && this.summaryData.labours && this.summaryData.labours.length > 0) {
+      filteredLabours = this.summaryData.labours;
+    }
 
     // Filter by search
     if (this.searchTerm) {
@@ -418,14 +421,17 @@ var LabourPage = {
 
     // Filter by status
     if (this.statusFilter) {
-      filteredLabours = filteredLabours.filter(l => l.status === this.statusFilter);
+      filteredLabours = filteredLabours.filter(l => (l.status || 'Active') === this.statusFilter);
     }
 
     if (!this.selectedLabourId && filteredLabours.length > 0) {
       this.selectedLabourId = String(filteredLabours[0].id || filteredLabours[0]._id);
     }
 
-    const selectedLabour = this.selectedLabourId ? Store.Labours.getById(this.selectedLabourId) : null;
+    let selectedLabour = this.selectedLabourId ? Store.Labours.getById(this.selectedLabourId) : null;
+    if (!selectedLabour && this.selectedLabourId && filteredLabours.length > 0) {
+      selectedLabour = filteredLabours.find(l => String(l.id || l._id) === String(this.selectedLabourId)) || filteredLabours[0];
+    }
 
     return `
       <div class="split-layout">
