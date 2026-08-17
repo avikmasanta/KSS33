@@ -552,9 +552,12 @@ var LabourPage = {
   },
 
   renderLabourProfile(labour) {
-    const summary = this.summaryData.labours.find(l => l.id === labour.id) || {
-      presentDays: 0, halfDays: 0, absentDays: 0, grossWages: 0, totalOvertime: 0, totalMoneyGiven: 0, totalEarnings: 0, payableAmount: 0, advanceBalance: 0
-    };
+    const lId = String(labour.id || labour._id || '');
+    const summary = (this.summaryData && this.summaryData.labours)
+      ? (this.summaryData.labours.find(l => String(l.id || l._id || '') === lId) || {
+          presentDays: 0, halfDays: 0, absentDays: 0, grossWages: 0, totalOvertime: 0, totalMoneyGiven: 0, totalEarnings: 0, payableAmount: 0, advanceBalance: 0
+        })
+      : { presentDays: 0, halfDays: 0, absentDays: 0, grossWages: 0, totalOvertime: 0, totalMoneyGiven: 0, totalEarnings: 0, payableAmount: 0, advanceBalance: 0 };
 
     return `
       <!-- Worker Header & Actions -->
@@ -564,13 +567,13 @@ var LabourPage = {
           <p style="margin:2px 0 0 0; color:var(--text-tertiary); font-size:0.85rem;">Registered Worker Profile & Financial Ledger</p>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-success" onclick="LabourPage.openAdvanceModal('${labour.id}')" style="background:#047857; color:white; border-color:#047857; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+          <button class="btn btn-success" onclick="LabourPage.openAdvanceModal('${lId}')" style="background:#047857; color:white; border-color:#047857; display:inline-flex; align-items:center; gap:6px; font-weight:600;">
             💵 Add / Adjust Advance
           </button>
-          <button class="btn btn-primary" onclick="LabourPage.printPDF('${labour.id || labour._id}')" style="display:inline-flex; align-items:center; gap:6px;">
+          <button class="btn btn-primary" onclick="LabourPage.printPDF('${lId}')" style="display:inline-flex; align-items:center; gap:6px;">
             ${Icons.printer || Icons.fileText} Print Worker Statement / Payslip
           </button>
-          <button class="btn btn-outline" onclick="LabourPage.openEditLabourModal('${labour.id}')" style="display:inline-flex; align-items:center; gap:6px;">
+          <button class="btn btn-outline" onclick="LabourPage.openEditLabourModal('${lId}')" style="display:inline-flex; align-items:center; gap:6px;">
             ${Icons.edit} Edit Details
           </button>
         </div>
@@ -623,7 +626,7 @@ var LabourPage = {
       </div>
 
       <div id="profile-subtab-content">
-        ${this.renderProfileTabContent(labour.id)}
+        ${this.renderProfileTabContent(lId)}
       </div>
     `;
   },
@@ -632,7 +635,7 @@ var LabourPage = {
     this.profileTab = tab;
     const body = document.getElementById('labour-detail-body');
     if (body && this.selectedLabourId) {
-      const labour = Store.Labours.getById(this.selectedLabourId);
+      const labour = Store.Labours.getById(this.selectedLabourId) || (this.summaryData && this.summaryData.labours ? this.summaryData.labours.find(l => String(l.id || l._id) === String(this.selectedLabourId)) : null);
       if (labour) {
         body.innerHTML = this.renderLabourProfile(labour);
       }
@@ -643,7 +646,7 @@ var LabourPage = {
     // We will render chronological logs for this labour
     // Fetch logs from store (filtered by labourId)
     let logs = Store.LabourLogs.getAll()
-      .filter(l => l.labourId === labourId)
+      .filter(l => String(l.labourId || '') === String(labourId || ''))
       .sort((a, b) => new Date(a.date) - new Date(b.date)); // chronological for ledger
 
     if (this.profileTab === 'overview') {
