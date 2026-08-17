@@ -688,7 +688,7 @@ var LabourPage = {
             <td>${site ? site.name : '-'}</td>
             <td>${wageDisplay}</td>
             <td>${otDisplay}</td>
-            <td>₹${given}${given > 0 ? ` <button class="btn btn-xs btn-outline" style="padding:1px 6px; font-size:10px; color:#047857; border-color:#a7f3d0; margin-left:4px; border-radius:4px; font-weight:600;" onclick="LabourPage.openAdvanceModal('${labour.id}', '${l.date}', ${given}, '${(l.notes || '').replace(/'/g, "\\'")}', 'set_exact')" title="Edit/Fix Advance Amount">✏️ Fix</button>` : ''}</td>
+            <td>₹${given}${given > 0 ? ` <button class="btn btn-xs btn-outline" style="padding:1px 6px; font-size:10px; color:#047857; border-color:#a7f3d0; margin-left:4px; border-radius:4px; font-weight:600;" onclick="LabourPage.openAdvanceModal('${labourId}', '${l.date}', ${given}, '${(l.notes || '').replace(/'/g, "\\'")}', 'set_exact')" title="Edit/Fix Advance Amount">✏️ Fix</button>` : ''}</td>
             <td style="font-weight:700; color:${runningBalance >= 0 ? 'var(--danger)' : 'var(--success)'}">₹${balFormatted} ${runningBalance >= 0 ? 'Payable' : 'Adv'}</td>
           </tr>
         `;
