@@ -277,13 +277,18 @@ var LabourPage = {
 
   switchTab(tab) {
     this.activeTab = tab;
+    const container = document.getElementById('page-container');
+    if (container) {
+      container.innerHTML = this.render();
+      this.bindEvents();
+    }
     this.fetchData().then(() => {
-      const container = document.getElementById('page-container');
-      if (container) {
-        container.innerHTML = this.render();
+      const updatedContainer = document.getElementById('page-container');
+      if (updatedContainer && window.location.hash === '#labour') {
+        updatedContainer.innerHTML = this.render();
         this.bindEvents();
       }
-    });
+    }).catch(e => console.error("Tab background sync error:", e));
   },
 
   // ==========================================
