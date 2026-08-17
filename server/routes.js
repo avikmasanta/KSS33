@@ -893,16 +893,20 @@ router.get('/labours-summary', async (req, res) => {
         }
       });
 
-      l.presentDays = pDays;
-      l.halfDays = hDays;
-      l.absentDays = aDays;
+      const finalPDates = [...new Set(pDates)].sort();
+      const finalHDates = [...new Set(hDates)].filter(d => !finalPDates.includes(d)).sort();
+      const finalADates = [...new Set(aDates)].filter(d => !finalPDates.includes(d) && !finalHDates.includes(d)).sort();
+
+      l.presentDays = finalPDates.length;
+      l.halfDays = finalHDates.length;
+      l.absentDays = finalADates.length;
       l.grossWages = Math.round(gross);
       l.totalOvertimeHours = Number(otHoursTotal.toFixed(1));
       l.totalOvertime = Math.round(otPayTotal);
       l.totalMoneyGiven = Math.round(moneyTotal);
-      l.presentDates = pDates;
-      l.halfDayDates = hDates;
-      l.absentDates = aDates;
+      l.presentDates = finalPDates;
+      l.halfDayDates = finalHDates;
+      l.absentDates = finalADates;
       l.overtimeLogs = otLogs;
       l.paymentLogs = payLogs;
 
