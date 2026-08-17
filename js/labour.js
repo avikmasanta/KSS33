@@ -1399,90 +1399,17 @@ var LabourPage = {
     printWindow.document.close();
   },
 
-  getMonthOptions() {
-    const months = [];
-    const today = new Date();
-    const currentYear = today.getFullYear();
-    const currentMonth = today.getMonth();
-
-    const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    for (let i = 0; i < 12; i++) {
-      const d = new Date(currentYear, currentMonth - i, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth();
-      const value = `${y}-${String(m + 1).padStart(2, '0')}`;
-      const label = `${monthNames[m]} ${y}`;
-      months.push({ value, label, year: y, month: m });
-    }
-    return months;
-  },
-
   // ==========================================
   // REPORTS TAB
   // ==========================================
   renderReports() {
     const sites = Store.Sites.getAll();
     const labours = Store.Labours.getAll();
-    const monthOptions = this.getMonthOptions();
-
-    // Determine current selected month & period from reportStartDate / reportEndDate
-    let selectedMonthVal = monthOptions[0].value;
-    let selectedPeriodVal = 'custom';
-
-    if (this.reportStartDate && this.reportEndDate) {
-      const startParts = this.reportStartDate.split('-');
-      const endParts = this.reportEndDate.split('-');
-      if (startParts.length === 3 && endParts.length === 3) {
-        selectedMonthVal = `${startParts[0]}-${startParts[1]}`;
-        const startDay = parseInt(startParts[2], 10);
-        const endDay = parseInt(endParts[2], 10);
-        const y = parseInt(startParts[0], 10);
-        const m = parseInt(startParts[1], 10) - 1;
-        const lastDay = new Date(y, m + 1, 0).getDate();
-
-        if (startDay === 1 && endDay === 15) {
-          selectedPeriodVal = 'first_half';
-        } else if (startDay === 16 && endDay === lastDay) {
-          selectedPeriodVal = 'second_half';
-        } else if (startDay === 1 && endDay === lastDay) {
-          selectedPeriodVal = 'full_month';
-        }
-      }
-    }
 
     return `
       <!-- Filters header card -->
       <div class="card" style="margin-bottom: 24px; padding: 20px;">
-        <div style="margin-bottom:16px;">
-          <h4 style="margin: 0 0 6px 0; color: var(--text-primary);">Report Filter Parameters & 15-Day Fortnightly Hisaab</h4>
-          <p style="margin:0; font-size:0.85rem; color:var(--text-tertiary);">Select any month and 15-day period (1st-15th or 16th-End) for automatic 15-day wage settlement & carry-forward balance.</p>
-        </div>
-
-        <!-- 15-Day & Month Quick Selectors Bar -->
-        <div style="background:var(--bg-body); border:1px solid var(--border-color); border-radius:10px; padding:12px 16px; margin-bottom:16px; display:flex; gap:16px; align-items:center; flex-wrap:wrap;">
-          <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:200px;">
-            <label style="font-weight:700; font-size:0.85rem; color:var(--text-secondary); white-space:nowrap;">🗓️ Select Month:</label>
-            <select id="rep-month-select" class="form-control" style="height:38px; font-weight:600;" onchange="LabourPage.onMonthPeriodChange()">
-              ${monthOptions.map(m => `
-                <option value="${m.value}" ${selectedMonthVal === m.value ? 'selected' : ''}>${m.label}</option>
-              `).join('')}
-            </select>
-          </div>
-
-          <div style="display:flex; align-items:center; gap:8px; flex:1; min-width:220px;">
-            <label style="font-weight:700; font-size:0.85rem; color:var(--text-secondary); white-space:nowrap;">⏱️ 15-Day Period:</label>
-            <select id="rep-period-select" class="form-control" style="height:38px; font-weight:600;" onchange="LabourPage.onMonthPeriodChange()">
-              <option value="first_half" ${selectedPeriodVal === 'first_half' ? 'selected' : ''}>1st Half (1st to 15th)</option>
-              <option value="second_half" ${selectedPeriodVal === 'second_half' ? 'selected' : ''}>2nd Half (16th to End)</option>
-              <option value="full_month" ${selectedPeriodVal === 'full_month' ? 'selected' : ''}>Full Month (1st to End)</option>
-              <option value="custom" ${selectedPeriodVal === 'custom' ? 'selected' : ''}>Custom Date Range</option>
-            </select>
-          </div>
-        </div>
+        <h4 style="margin: 0 0 16px 0; color: var(--text-primary);">Report Filter Parameters</h4>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; align-items: flex-end;">
           <div class="form-group" style="margin:0;">
             <label style="font-weight:600;margin-bottom:4px;">Start Date</label>
@@ -1649,11 +1576,6 @@ var LabourPage = {
 
                 <!-- Financial summary cards grid -->
                 <div style="padding:16px 22px; display:grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap:12px;">
-                  <div style="background:${(l.carriedOverBalance || 0) > 0 ? '#fff7ed' : ((l.carriedOverBalance || 0) < 0 ? '#f0fdf4' : '#f8fafc')}; border:1px solid ${(l.carriedOverBalance || 0) > 0 ? '#ffedd5' : ((l.carriedOverBalance || 0) < 0 ? '#bbf7d0' : '#e2e8f0')}; border-radius:10px; padding:12px 14px; text-align:center;">
-                    <div style="font-size:0.72rem; color:${(l.carriedOverBalance || 0) > 0 ? '#c2410c' : '#64748b'}; text-transform:uppercase; font-weight:700; margin-bottom:4px;">🔄 Carried Over Bal</div>
-                    <div style="font-size:1.15rem; font-weight:700; color:${(l.carriedOverBalance || 0) > 0 ? '#ea580c' : ((l.carriedOverBalance || 0) < 0 ? '#16a34a' : 'var(--text-primary)')};">₹${Math.abs(l.carriedOverBalance || 0).toLocaleString('en-IN')} ${(l.carriedOverBalance || 0) > 0 ? '(Baki)' : ((l.carriedOverBalance || 0) < 0 ? '(Adv)' : '')}</div>
-                    <div style="font-size:0.68rem; color:#94a3b8; margin-top:2px;">Prior 15-day balance</div>
-                  </div>
                   <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; color:var(--text-tertiary); text-transform:uppercase; font-weight:600; margin-bottom:4px;">Gross Wages</div>
                     <div style="font-size:1.2rem; font-weight:700; color:var(--text-primary);">₹${Math.round(l.grossWages || 0).toLocaleString('en-IN')}</div>
@@ -1661,7 +1583,7 @@ var LabourPage = {
                   <div style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; color:#6d28d9; text-transform:uppercase; font-weight:600; margin-bottom:4px;">OT Hours</div>
                     <div style="font-size:1.2rem; font-weight:700; color:#6d28d9;">${otHours > 0 ? otHours + ' hrs' : '—'}</div>
-                    ${otHours > 0 ? `<div style="font-size:0.72rem; color:#7c3aed; font-weight:600; margin-top:2px;">= ₹${otPay.toLocaleString('en-IN')}</div>` : ''}
+                    ${otHours > 0 ? `<div style="font-size:0.75rem; color:#7c3aed; font-weight:600; margin-top:2px;">= ₹${otPay.toLocaleString('en-IN')}</div>` : ''}
                   </div>
                   <div style="background:#ecfdf5; border:1px solid #a7f3d0; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; color:#047857; text-transform:uppercase; font-weight:600; margin-bottom:4px;">Money Given</div>
@@ -1669,7 +1591,7 @@ var LabourPage = {
                   </div>
                   <div style="background:${payable > 0 ? '#fef2f2' : '#f0fdf4'}; border:1px solid ${payable > 0 ? '#fecaca' : '#bbf7d0'}; border-radius:10px; padding:12px 14px; text-align:center;">
                     <div style="font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; color:${payable > 0 ? '#b91c1c' : '#15803d'}; margin-bottom:4px;">
-                      ${payable > 0 ? '💰 Total To Pay' : advance > 0 ? '✅ Advance Bal' : '✅ Settled'}
+                      ${payable > 0 ? '💰 To Pay' : advance > 0 ? '✅ Advance Bal' : '✅ Settled'}
                     </div>
                     <div style="font-size:1.25rem; font-weight:800; color:${payable > 0 ? '#dc2626' : '#16a34a'};">
                       ₹${(payable > 0 ? payable : advance).toLocaleString('en-IN')}
@@ -1682,89 +1604,6 @@ var LabourPage = {
         </div>
       </div>
     `;
-  },
-
-  onMonthPeriodChange() {
-    const monthVal = document.getElementById('rep-month-select').value;
-    const periodVal = document.getElementById('rep-period-select').value;
-
-    if (!monthVal || periodVal === 'custom') return;
-
-    const parts = monthVal.split('-');
-    const y = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10) - 1;
-
-    const pad = (n) => String(n).padStart(2, '0');
-
-    if (periodVal === 'first_half') {
-      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
-      this.reportEndDate = `${y}-${pad(m + 1)}-15`;
-    } else if (periodVal === 'second_half') {
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      this.reportStartDate = `${y}-${pad(m + 1)}-16`;
-      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
-    } else if (periodVal === 'full_month') {
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
-      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
-    }
-
-    if (document.getElementById('rep-site-id')) this.reportSiteId = document.getElementById('rep-site-id').value;
-    if (document.getElementById('rep-labour-id')) this.reportLabourId = document.getElementById('rep-labour-id').value;
-
-    this.fetchData().then(() => {
-      const container = document.getElementById('page-container');
-      if (container) {
-        container.innerHTML = this.render();
-      }
-    });
-  },
-
-  onCustomDateChange() {
-    if (document.getElementById('rep-period-select')) {
-      document.getElementById('rep-period-select').value = 'custom';
-    }
-  },
-
-  setReport15DayCycle(cycle) {
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = today.getMonth();
-
-    const pad = (n) => String(n).padStart(2, '0');
-
-    if (cycle === 'first_half') {
-      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
-      this.reportEndDate = `${y}-${pad(m + 1)}-15`;
-    } else if (cycle === 'second_half') {
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      this.reportStartDate = `${y}-${pad(m + 1)}-16`;
-      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
-    } else if (cycle === 'prev_first_half') {
-      const prevMonthDate = new Date(y, m - 1, 1);
-      const py = prevMonthDate.getFullYear();
-      const pm = prevMonthDate.getMonth();
-      this.reportStartDate = `${py}-${pad(pm + 1)}-01`;
-      this.reportEndDate = `${py}-${pad(pm + 1)}-15`;
-    } else if (cycle === 'prev_second_half') {
-      const prevMonthDate = new Date(y, m - 1, 1);
-      const py = prevMonthDate.getFullYear();
-      const pm = prevMonthDate.getMonth();
-      const lastDay = new Date(py, pm + 1, 0).getDate();
-      this.reportStartDate = `${py}-${pad(pm + 1)}-16`;
-      this.reportEndDate = `${py}-${pad(pm + 1)}-${pad(lastDay)}`;
-    } else if (cycle === 'full_month') {
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      this.reportStartDate = `${y}-${pad(m + 1)}-01`;
-      this.reportEndDate = `${y}-${pad(m + 1)}-${pad(lastDay)}`;
-    }
-
-    this.fetchData().then(() => {
-      const container = document.getElementById('page-container');
-      if (container) {
-        container.innerHTML = this.render();
-      }
-    });
   },
 
   applyReportFilters() {
