@@ -416,6 +416,10 @@ var LabourPage = {
       filteredLabours = filteredLabours.filter(l => l.status === this.statusFilter);
     }
 
+    if (!this.selectedLabourId && filteredLabours.length > 0) {
+      this.selectedLabourId = String(filteredLabours[0].id || filteredLabours[0]._id);
+    }
+
     const selectedLabour = this.selectedLabourId ? Store.Labours.getById(this.selectedLabourId) : null;
 
     return `
@@ -435,22 +439,26 @@ var LabourPage = {
             </div>
           </div>
           <div style="max-height: 60vh; overflow-y: auto;">
-            ${filteredLabours.map(l => `
-              <div class="list-item ${this.selectedLabourId === l.id ? 'active' : ''}" style="cursor: pointer; position: relative;" onclick="LabourPage.selectLabour('${l.id}')">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                  <div style="font-weight: 600; color: var(--text-primary);">${l.name}</div>
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <span class="badge ${l.status === 'Active' ? 'badge-success' : 'badge-danger'}">${l.status}</span>
-                    <button class="btn btn-icon btn-sm text-danger" style="padding: 2px; color: var(--danger); border: none; background: transparent; display: inline-flex; align-items: center;" onclick="event.stopPropagation(); LabourPage.deleteLabour('${l.id}')" title="Delete Labour">
-                      ${Icons.trash}
-                    </button>
+            ${filteredLabours.map(l => {
+              const lId = String(l.id || l._id);
+              const isActive = String(this.selectedLabourId) === lId;
+              return `
+                <div class="list-item ${isActive ? 'active' : ''}" style="cursor: pointer; position: relative;" onclick="LabourPage.selectLabour('${lId}')">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-weight: 600; color: var(--text-primary);">${l.name}</div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span class="badge ${l.status === 'Active' ? 'badge-success' : 'badge-danger'}">${l.status}</span>
+                      <button class="btn btn-icon btn-sm text-danger" style="padding: 2px; color: var(--danger); border: none; background: transparent; display: inline-flex; align-items: center;" onclick="event.stopPropagation(); LabourPage.deleteLabour('${lId}')" title="Delete Labour">
+                        ${Icons.trash}
+                      </button>
+                    </div>
+                  </div>
+                  <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
+                    Nickname: ${l.nickname || '-'} • Phone: ${l.phone || '-'}
                   </div>
                 </div>
-                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">
-                  Nickname: ${l.nickname || '-'} • Phone: ${l.phone || '-'}
-                </div>
-              </div>
-            `).join('')}
+              `;
+            }).join('')}
             ${filteredLabours.length === 0 ? '<div style="padding:24px; text-align:center; color: var(--text-tertiary);">No labour matching filters</div>' : ''}
           </div>
         </div>
@@ -462,16 +470,16 @@ var LabourPage = {
             ${selectedLabour ? `
               <div style="display:flex; gap:6px;">
                 <button class="btn btn-sm btn-primary" style="display:inline-flex; align-items:center; gap:4px;" onclick="LabourPage.printPDF('${selectedLabour.id || selectedLabour._id}')">${Icons.fileText} Print Statement</button>
-                <button class="btn btn-sm btn-outline" onclick="LabourPage.openEditLabourModal('${selectedLabour.id}')">${Icons.edit} Edit</button>
-                <button class="btn btn-sm btn-danger" style="background:var(--danger);color:white" onclick="LabourPage.deleteLabour('${selectedLabour.id}')">${Icons.trash} Delete</button>
+                <button class="btn btn-sm btn-outline" onclick="LabourPage.openEditLabourModal('${selectedLabour.id || selectedLabour._id}')">${Icons.edit} Edit</button>
+                <button class="btn btn-sm btn-danger" style="background:var(--danger);color:white" onclick="LabourPage.deleteLabour('${selectedLabour.id || selectedLabour._id}')">${Icons.trash} Delete</button>
               </div>
             ` : ''}
           </div>
           <div class="card-body" id="labour-detail-body">
             ${selectedLabour ? this.renderLabourProfile(selectedLabour) : `
               <div style="text-align: center; padding: 80px 20px; color: var(--text-tertiary);">
-                <div style="width: 64px; height: 64px; margin: 0 auto 16px; opacity: 0.3;">${Icons.users}</div>
-                <h3 style="margin: 0 0 8px 0; color: var(--text-secondary);">No Labour Selected</h3>
+                ${Icons.user}
+                <h4 style="margin-top: 12px; margin-bottom: 6px;">No Labour Selected</h4>
                 <p style="margin: 0; font-size: 0.9rem;">Select a labour from the left list to see personal details, ledger and payment histories.</p>
               </div>
             `}
@@ -482,7 +490,8 @@ var LabourPage = {
   },
 
   selectLabour(id) {
-    this.selectedLabourId = id;
+    if (!id || id === 'undefined' || id === 'null') return;
+    this.selectedLabourId = String(id);
     this.profileTab = 'overview';
     const container = document.getElementById('page-container');
     if (container) {
