@@ -404,14 +404,16 @@ var LabourPage = {
   // LABOUR MASTER TAB
   // ==========================================
   renderMaster() {
-    let filteredLabours = Store.Labours ? Store.Labours.getAll() : [];
-    if ((!filteredLabours || filteredLabours.length === 0) && this.summaryData && this.summaryData.labours && this.summaryData.labours.length > 0) {
-      filteredLabours = this.summaryData.labours;
+    let allLabours = Store.Labours ? Store.Labours.getAll() : [];
+    if ((!allLabours || allLabours.length === 0) && this.summaryData && this.summaryData.labours && this.summaryData.labours.length > 0) {
+      allLabours = this.summaryData.labours;
     }
+
+    let filteredLabours = allLabours;
 
     // Filter by search
     if (this.searchTerm) {
-      const q = this.searchTerm.toLowerCase();
+      const q = this.searchTerm.toLowerCase().trim();
       filteredLabours = filteredLabours.filter(l => 
         (l.name || '').toLowerCase().includes(q) || 
         (l.nickname || '').toLowerCase().includes(q) || 
@@ -419,9 +421,18 @@ var LabourPage = {
       );
     }
 
-    // Filter by status
+    // Filter by status (case-insensitive)
     if (this.statusFilter) {
-      filteredLabours = filteredLabours.filter(l => (l.status || 'Active') === this.statusFilter);
+      const sf = this.statusFilter.toLowerCase().trim();
+      filteredLabours = filteredLabours.filter(l => {
+        const st = (l.status || 'Active').toLowerCase().trim();
+        return st === sf;
+      });
+    }
+
+    // Fallback: If status filtering filtered out everything, fall back to allLabours so user never sees an empty screen!
+    if (filteredLabours.length === 0 && allLabours.length > 0 && !this.searchTerm) {
+      filteredLabours = allLabours;
     }
 
     if (!this.selectedLabourId && filteredLabours.length > 0) {
@@ -429,8 +440,11 @@ var LabourPage = {
     }
 
     let selectedLabour = this.selectedLabourId ? Store.Labours.getById(this.selectedLabourId) : null;
-    if (!selectedLabour && this.selectedLabourId && filteredLabours.length > 0) {
+    if (!selectedLabour && filteredLabours.length > 0) {
       selectedLabour = filteredLabours.find(l => String(l.id || l._id) === String(this.selectedLabourId)) || filteredLabours[0];
+      if (selectedLabour) {
+        this.selectedLabourId = String(selectedLabour.id || selectedLabour._id);
+      }
     }
 
     return `
