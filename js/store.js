@@ -304,7 +304,7 @@ const Store = (() => {
 
       remove: (id) => {
         // 1. Instantly update in-memory cache
-        cache[cacheKey] = cache[cacheKey].filter(x => x.id !== id);
+        cache[cacheKey] = cache[cacheKey].filter(x => x && String(x.id || x._id) !== String(id || ''));
         persistLocal(lsKey, cache[cacheKey]);
 
         // 2. Async background HTTP DELETE call
@@ -313,6 +313,10 @@ const Store = (() => {
         }).catch(err => console.error(`Error syncing DELETE ${path}:`, err));
 
         return { success: true };
+      },
+
+      delete: function(id) {
+        return this.remove(id);
       }
     };
   }

@@ -841,8 +841,9 @@ var LabourPage = {
           notes: notes || primary.notes || `Advance Payment: ₹${amount}`
         });
         for (let i = 1; i < existingLogs.length; i++) {
-          if (existingLogs[i].id) {
-            await Store.LabourLogs.delete(existingLogs[i].id);
+          const delId = existingLogs[i].id || existingLogs[i]._id;
+          if (delId) {
+            await Store.LabourLogs.remove(delId);
           }
         }
       } else {
@@ -867,10 +868,11 @@ var LabourPage = {
 
       if (existingLogs.length > 0) {
         for (const log of existingLogs) {
+          const targetId = log.id || log._id;
           if (log.attendance === 'Absent' && (parseFloat(log.overtimeHours) || 0) === 0) {
-            await Store.LabourLogs.delete(log.id);
+            await Store.LabourLogs.remove(targetId);
           } else {
-            await Store.LabourLogs.update(log.id, { ...log, moneyGiven: 0 });
+            await Store.LabourLogs.update(targetId, { ...log, moneyGiven: 0 });
           }
         }
         alert(`Advance payment for ${labour.name} on ${date} deleted successfully.`);
@@ -883,18 +885,20 @@ var LabourPage = {
 
       if (existingLogs.length > 0) {
         const primary = existingLogs[0];
+        const primaryId = primary.id || primary._id;
         const currentMoney = parseFloat(primary.moneyGiven) || 0;
         const newMoney = currentMoney + amount;
         const existingNotes = primary.notes ? primary.notes + ' | ' : '';
         const newNotes = existingNotes + (notes || `Advance: ₹${amount}`);
-        await Store.LabourLogs.update(primary.id, {
+        await Store.LabourLogs.update(primaryId, {
           ...primary,
           moneyGiven: newMoney,
           notes: newNotes
         });
         for (let i = 1; i < existingLogs.length; i++) {
-          if (existingLogs[i].id) {
-            await Store.LabourLogs.delete(existingLogs[i].id);
+          const delId = existingLogs[i].id || existingLogs[i]._id;
+          if (delId) {
+            await Store.LabourLogs.remove(delId);
           }
         }
       } else {
@@ -1223,8 +1227,9 @@ var LabourPage = {
           const primary = existingLogs[0];
           await Store.LabourLogs.update(primary.id, payload);
           for (let i = 1; i < existingLogs.length; i++) {
-            if (existingLogs[i].id) {
-              await Store.LabourLogs.delete(existingLogs[i].id);
+            const delId = existingLogs[i].id || existingLogs[i]._id;
+            if (delId) {
+              await Store.LabourLogs.remove(delId);
             }
           }
         } else {
