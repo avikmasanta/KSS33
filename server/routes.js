@@ -125,7 +125,7 @@ router.get('/sync', async (req, res) => {
     const results = {};
     await Promise.all(Object.entries(map).map(async ([key, Model]) => {
       if (Model) {
-        results[key] = await Model.find();
+        results[key] = await Model.find().lean().select('-__v');
       }
     }));
     res.json(results);

@@ -195,7 +195,7 @@ module.exports = async function handler(req, res) {
       const keys = Object.keys(schemas);
       const results = {};
       await Promise.all(keys.map(async (key) => {
-        results[key] = await getModel(key).find();
+        results[key] = await getModel(key).find().lean().select('-__v');
       }));
       return json(res, 200, results);
     } catch (err) {
