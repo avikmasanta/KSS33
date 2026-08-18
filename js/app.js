@@ -83,7 +83,17 @@ var App = (() => {
       bindEvents();
       App.eventsBound = true;
 
-      // Silent background cloud sync every 60 seconds (zero DOM lag or scroll stutter)
+      // Trigger immediate background cloud sync on app load
+      Store.init();
+
+      // Trigger background sync when tab becomes visible (user unlocks phone or switches back to app tab)
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && !document.querySelector('.modal-backdrop.active') && !document.querySelector('.modal.active') && !isPageDirty()) {
+          Store.init();
+        }
+      });
+
+      // Silent background cloud sync every 15 seconds for real-time cross-device sync
       setInterval(async () => {
         if (document.querySelector('.modal-backdrop.active') || document.querySelector('.modal.active') || isPageDirty()) {
           return;
@@ -91,7 +101,7 @@ var App = (() => {
         try {
           await Store.init();
         } catch (e) {}
-      }, 60000);
+      }, 15000);
     }
     navigate(getHash());
   }
