@@ -69,6 +69,24 @@ const Store = (() => {
     bm_labourContracts: { cacheKey: 'labourContracts', url: 'labourContracts' }
   };
 
+  function normalizeItem(x) {
+    if (!x || typeof x !== 'object') return x;
+    const idVal = String(x.id || x._id || '');
+    if (idVal) {
+      if (x.id !== idVal) x.id = idVal;
+      if (x._id !== idVal) x._id = idVal;
+    }
+    return x;
+  }
+
+  function normalizeArray(arr) {
+    if (!Array.isArray(arr)) return [];
+    for (let i = 0; i < arr.length; i++) {
+      normalizeItem(arr[i]);
+    }
+    return arr;
+  }
+
   // Phase 1: Load from localStorage INSTANTLY (zero wait)
   function initFromLocal() {
     const CACHE_VERSION = 'kss33_v9';
@@ -80,7 +98,8 @@ const Store = (() => {
     Object.keys(endpointMap).forEach(key => {
       const config = endpointMap[key];
       try {
-        cache[config.cacheKey] = JSON.parse(localStorage.getItem(key)) || [];
+        const parsed = JSON.parse(localStorage.getItem(key)) || [];
+        cache[config.cacheKey] = normalizeArray(parsed);
       } catch (err) {
         console.error('Error parsing localStorage for', key, err);
         cache[config.cacheKey] = [];
@@ -102,8 +121,9 @@ const Store = (() => {
         Object.keys(endpointMap).forEach(key => {
           const config = endpointMap[key];
           if (batchData[config.cacheKey] && Array.isArray(batchData[config.cacheKey])) {
-            cache[config.cacheKey] = batchData[config.cacheKey];
-            persistLocal(key, batchData[config.cacheKey]);
+            const normalized = normalizeArray(batchData[config.cacheKey]);
+            cache[config.cacheKey] = normalized;
+            persistLocal(key, normalized);
           }
         });
         syncSuccess = true;
@@ -124,8 +144,9 @@ const Store = (() => {
 
           if (res.ok) {
             const cloudData = await res.json();
-            cache[config.cacheKey] = cloudData;
-            persistLocal(key, cloudData);
+            const normalized = normalizeArray(cloudData);
+            cache[config.cacheKey] = normalized;
+            persistLocal(key, normalized);
           }
         } catch (e) {
           // Network error — keep local data silently
@@ -415,11 +436,12 @@ const Store = (() => {
   };
 
   const Sites = {
-    getAll: () => (cache.sites || []).map(s => {
-      if (s && !s.id && s._id) s.id = String(s._id);
-      return s;
-    }),
-    getById: (id) => (cache.sites || []).find(s => s && String(s.id || s._id) === String(id || '')) || null,
+    getAll: () => (cache.sites || []).map(s => normalizeItem(s)),
+    getById: (id) => {
+      const sid = String(id || '');
+      const s = (cache.sites || []).find(x => x && String(x.id || x._id || '') === sid);
+      return s ? normalizeItem(s) : null;
+    },
     getByCustomer: (customerId) => cache.sites.filter(s => s.customerId === customerId),
     add: (s) => SitesStore.add(s),
     update: (id, s) => SitesStore.update(id, s),

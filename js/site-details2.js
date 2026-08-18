@@ -55,7 +55,10 @@ var SiteDetailsPage = {
       `;
     }
 
-    const site = Store.Sites.getById(this.siteId);
+    let site = Store.Sites.getById(this.siteId);
+    if (!site && this.siteId) {
+      site = (Store.Sites.getAll() || []).find(s => s && String(s.id || s._id || '') === String(this.siteId));
+    }
     if (!site) {
       return `
         <div class="empty-state">
@@ -65,6 +68,10 @@ var SiteDetailsPage = {
         </div>
       `;
     }
+
+    const sid = String(site.id || site._id || '');
+    site.id = sid;
+    site._id = sid;
 
     // For the return material dropdown, get materials currently at site
     const materials = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll() || []).filter(m => m && m.status !== 'Archived');
@@ -263,10 +270,11 @@ var SiteDetailsPage = {
   init() { },
 
   renderStockMovements(site) {
+    const sId = _resolveMatId(site.id || site._id);
     const materials = Store.Materials.getAll();
-    const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
-    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
-    const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
+    const allOutgoing = Store.Outgoing.getAll().filter(r => _resolveMatId(r.siteId) === sId);
+    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && _resolveMatId(r.destinationSiteId) === sId);
+    const siteReturns = Store.SiteReturns.getAll().filter(r => _resolveMatId(r.siteId) === sId);
 
     const rows = [];
     let totalDispatched = 0;
@@ -964,10 +972,11 @@ var SiteDetailsPage = {
     const site = Store.Sites.getById(this.siteId);
     if (!site) return;
     
+    const sId = _resolveMatId(site.id || site._id);
     const materials = Store.Materials.getAll();
-    const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
-    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
-    const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
+    const allOutgoing = Store.Outgoing.getAll().filter(r => _resolveMatId(r.siteId) === sId);
+    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && _resolveMatId(r.destinationSiteId) === sId);
+    const siteReturns = Store.SiteReturns.getAll().filter(r => _resolveMatId(r.siteId) === sId);
 
     const rows = [];
     allOutgoing.forEach(record => {
@@ -1000,7 +1009,7 @@ var SiteDetailsPage = {
       csv += `${r.date},"${r.type}","${r.material}",${r.qty},"${r.unit}","${r.ref}","${r.note.replace(/\n/g, ' ')}"\n`;
     });
 
-    const payments = Store.SitePayments.getAll().filter(p => p.siteId === site.id);
+    const payments = Store.SitePayments.getAll().filter(p => _resolveMatId(p.siteId) === sId);
     if (payments.length > 0) {
       csv += '\n\nPAYMENT HISTORY\n';
       csv += 'Date,Amount,Payment Mode,Reference,Notes\n';
@@ -1035,10 +1044,11 @@ var SiteDetailsPage = {
     const site = Store.Sites.getById(this.siteId);
     if (!site) return;
 
+    const sId = _resolveMatId(site.id || site._id);
     const materials = Store.Materials.getAll();
-    const allOutgoing = Store.Outgoing.getAll().filter(r => r.siteId === site.id);
-    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id);
-    const siteReturns = Store.SiteReturns.getAll().filter(r => r.siteId === site.id);
+    const allOutgoing = Store.Outgoing.getAll().filter(r => _resolveMatId(r.siteId) === sId);
+    const allIncomingDirect = Store.Incoming.getAll().filter(r => r.destinationType === 'site' && _resolveMatId(r.destinationSiteId) === sId);
+    const siteReturns = Store.SiteReturns.getAll().filter(r => _resolveMatId(r.siteId) === sId);
 
     // Build cross-tab maps: rowKey -> materialId -> qty
     const dispatchMap = {};
@@ -1258,13 +1268,13 @@ var SiteDetailsPage = {
     const materials = Store.Materials.getAll();
     const rows = [];
     
-    // Find all material IDs that have any history at this site (including deleted ones)
+    const sId = _resolveMatId(site.id || site._id);
     const activeMatIds = new Set();
-    Store.Outgoing.getAll().filter(r => r.siteId === site.id).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
-    Store.Incoming.getAll().filter(r => r.destinationType === 'site' && r.destinationSiteId === site.id).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(i.materialId)));
-    Store.SiteReturns.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
-    Store.SiteUsage.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
-    Store.SiteDamaged.getAll().filter(r => r.siteId === site.id).forEach(r => activeMatIds.add(r.materialId));
+    Store.Outgoing.getAll().filter(r => _resolveMatId(r.siteId) === sId).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(_resolveMatId(i.materialId))));
+    Store.Incoming.getAll().filter(r => r.destinationType === 'site' && _resolveMatId(r.destinationSiteId) === sId).forEach(r => (r.items||[]).forEach(i => activeMatIds.add(_resolveMatId(i.materialId))));
+    Store.SiteReturns.getAll().filter(r => _resolveMatId(r.siteId) === sId).forEach(r => activeMatIds.add(_resolveMatId(r.materialId)));
+    Store.SiteUsage.getAll().filter(r => _resolveMatId(r.siteId) === sId).forEach(r => activeMatIds.add(_resolveMatId(r.materialId)));
+    Store.SiteDamaged.getAll().filter(r => _resolveMatId(r.siteId) === sId).forEach(r => activeMatIds.add(_resolveMatId(r.materialId)));
 
     // Also include all current active materials
     materials.forEach(m => activeMatIds.add(m.id));
@@ -1365,7 +1375,8 @@ var SiteDetailsPage = {
   },
 
   renderPaymentsLedger(site) {
-    const payments = Store.SitePayments.getAll().filter(p => p.siteId === site.id);
+    const sId = _resolveMatId(site.id || site._id);
+    const payments = Store.SitePayments.getAll().filter(p => _resolveMatId(p.siteId) === sId);
     payments.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     if (payments.length === 0) {
