@@ -297,6 +297,7 @@ var SiteDetailsPage = {
         totalDispatched += qty;
         totalSqFtIssued += sqFt;
         rows.push({
+          outgoingId: record.id,
           date: record.date,
           type: 'Incoming',
           material: matName,
@@ -319,6 +320,7 @@ var SiteDetailsPage = {
         totalDispatched += qty;
         totalSqFtIssued += sqFt;
         rows.push({
+          incomingId: record.id,
           date: record.date,
           type: 'Incoming',
           material: matName,
@@ -416,6 +418,16 @@ var SiteDetailsPage = {
               </div>
               <div style="font-size:0.72rem; color:var(--text-tertiary); margin-top:3px;">${safeFormatDate(r.date)}</div>
             </div>
+            ${r.outgoingId ? `
+              <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteDispatch('${r.outgoingId}')" title="Delete Dispatch Record (Challan)" style="color:var(--danger); padding:4px;">
+                ${Icons.trash}
+              </button>
+            ` : ''}
+            ${r.incomingId ? `
+              <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteIncoming('${r.incomingId}')" title="Delete Direct Dispatch Record (Challan)" style="color:var(--danger); padding:4px;">
+                ${Icons.trash}
+              </button>
+            ` : ''}
             ${r.returnId ? `
               <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteReturn('${r.returnId}')" title="Delete Return Record" style="color:var(--danger); padding:4px;">
                 ${Icons.trash}
@@ -964,6 +976,20 @@ var SiteDetailsPage = {
   deleteReturn(returnId) {
     if (confirm('Are you sure you want to delete this material return entry?')) {
       Store.SiteReturns.delete(returnId);
+      this.refresh();
+    }
+  },
+
+  deleteDispatch(dispatchId) {
+    if (confirm('Are you sure you want to delete this material dispatch (challan) entry?')) {
+      Store.Outgoing.delete(dispatchId);
+      this.refresh();
+    }
+  },
+
+  deleteIncoming(incomingId) {
+    if (confirm('Are you sure you want to delete this direct material dispatch (challan) entry?')) {
+      Store.Incoming.delete(incomingId);
       this.refresh();
     }
   },

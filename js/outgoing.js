@@ -200,7 +200,10 @@ var OutgoingPage = {
         </div>
 
         <div class="flex justify-between mt-4">
-          <button class="btn btn-outline" onclick="OutgoingPage.newRecord()">Cancel</button>
+          <div>
+            <button class="btn btn-outline" onclick="OutgoingPage.newRecord()">Cancel</button>
+            ${record ? `<button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); margin-left:8px;" onclick="OutgoingPage.deleteRecord('${record.id}')">${Icons.trash} Delete Record</button>` : ''}
+          </div>
           <button class="btn btn-danger" onclick="OutgoingPage.save()">
             ${Icons.arrowUpCircle} Save Outgoing Stock
           </button>
@@ -312,6 +315,20 @@ var OutgoingPage = {
     if (container) {
       container.innerHTML = this.render();
       this.init();
+    }
+  },
+
+  deleteRecord(id) {
+    const recId = id || this.selectedId;
+    if (!recId) return;
+    if (confirm('Are you sure you want to delete this outgoing stock record (challan)?')) {
+      Store.Outgoing.delete(recId);
+      this.selectedId = null;
+      const container = document.getElementById('page-container');
+      if (container) {
+        container.innerHTML = this.render();
+        this.init();
+      }
     }
   }
 };

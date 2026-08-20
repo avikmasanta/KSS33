@@ -259,7 +259,10 @@ var IncomingPage = {
         </div>
 
         <div class="flex justify-between mt-4">
-          <button class="btn btn-outline" onclick="IncomingPage.newRecord()">Cancel</button>
+          <div>
+            <button class="btn btn-outline" onclick="IncomingPage.newRecord()">Cancel</button>
+            ${record ? `<button class="btn btn-outline" style="color:var(--danger); border-color:var(--danger); margin-left:8px;" onclick="IncomingPage.deleteRecord('${record.id}')">${Icons.trash} Delete Record</button>` : ''}
+          </div>
           <button class="btn btn-primary" onclick="IncomingPage.save()">
             ${Icons.arrowDownCircle} Save Incoming Stock
           </button>
@@ -375,6 +378,20 @@ var IncomingPage = {
     if (container) {
       container.innerHTML = this.render();
       this.init();
+    }
+  },
+
+  deleteRecord(id) {
+    const recId = id || this.selectedId;
+    if (!recId) return;
+    if (confirm('Are you sure you want to delete this incoming stock record (challan)?')) {
+      Store.Incoming.delete(recId);
+      this.selectedId = null;
+      const container = document.getElementById('page-container');
+      if (container) {
+        container.innerHTML = this.render();
+        this.init();
+      }
     }
   }
 };
