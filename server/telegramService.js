@@ -2,6 +2,14 @@ const { generateDailyWarehouseSummary } = require('./reportGenerator');
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8972213770:AAFs_jZDhWOefugIbXsSxdY72Jwsv5cyThI';
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 /**
  * Generates the clean readable operations summary text (Warehouse, Sites, Rentals, Lintel)
  */
@@ -156,13 +164,13 @@ async function generateTelegramReportText({ date, models }) {
         totalMoneyGiven += parseFloat(l.moneyGiven) || 0;
       });
 
-      labourReportText += `\n👷 *Daily Labour & Payroll Summary:*\n`;
+      labourReportText += `\n👷 <b>Daily Labour &amp; Payroll Summary:</b>\n`;
       if (dayLogs.length === 0) {
-        labourReportText += `_- No attendance logged for this date_\n`;
+        labourReportText += `<i>- No attendance logged for this date</i>\n`;
       } else {
-        labourReportText += `- Attendance: *${presentCount}* Present, *${halfCount}* Half Day, *${absentCount}* Absent\n`;
-        labourReportText += `- Overtime: *${totalOtHours} hrs* (₹${Math.round(totalOtPay).toLocaleString('en-IN')})\n`;
-        labourReportText += `- Money Paid Today: *₹${Math.round(totalMoneyGiven).toLocaleString('en-IN')}*\n`;
+        labourReportText += `- Attendance: <b>${presentCount}</b> Present, <b>${halfCount}</b> Half Day, <b>${absentCount}</b> Absent\n`;
+        labourReportText += `- Overtime: <b>${totalOtHours} hrs</b> (₹${Math.round(totalOtPay).toLocaleString('en-IN')})\n`;
+        labourReportText += `- Money Paid Today: <b>₹${Math.round(totalMoneyGiven).toLocaleString('en-IN')}</b>\n`;
 
         // Worker-wise details
         let allLabours = [];
@@ -187,11 +195,11 @@ async function generateTelegramReportText({ date, models }) {
           if (l.attendance) info.push(l.attendance);
           if (otH > 0) info.push(`OT: ${otH}h (₹${Math.round(otP)})`);
           if (mg > 0) info.push(`Paid: ₹${Math.round(mg)}`);
-          return `  • *${name}${nick}*: ${info.join(' | ')}`;
+          return `  • <b>${escapeHtml(name)}${escapeHtml(nick)}</b>: ${info.map(escapeHtml).join(' | ')}`;
         });
 
         if (workerLines.length > 0) {
-          labourReportText += `  *Worker Details:*\n` + workerLines.join('\n') + `\n`;
+          labourReportText += `  <b>Worker Details:</b>\n` + workerLines.join('\n') + `\n`;
         }
       }
     } catch (e) {
@@ -221,14 +229,14 @@ async function generateTelegramReportText({ date, models }) {
           
           const sName = b.siteName || 'Bill';
           const cName = b.contractorName || 'Contractor';
-          billSummaries.push(`• *${sName}* (${cName}): Net *${Math.round(net)} Sq Ft* | Amt: *₹${Math.round(amt).toLocaleString('en-IN')}* | Rec: *₹${Math.round(rec).toLocaleString('en-IN')}* | Bal: *₹${Math.round(bal).toLocaleString('en-IN')}*`);
+          billSummaries.push(`• <b>${escapeHtml(sName)}</b> (${escapeHtml(cName)}): Net <b>${Math.round(net)} Sq Ft</b> | Amt: <b>₹${Math.round(amt).toLocaleString('en-IN')}</b> | Rec: <b>₹${Math.round(rec).toLocaleString('en-IN')}</b> | Bal: <b>₹${Math.round(bal).toLocaleString('en-IN')}</b>`);
         });
 
-        billsReportText += `\n📐 *Separate Measurement Bills & Invoices:*\n`;
-        billsReportText += `- Total Bills: *${allBills.length}* | Net Area: *${Math.round(totalNetArea).toLocaleString('en-IN')} Sq Ft*\n`;
-        billsReportText += `- Total Amount: *₹${Math.round(totalBillAmt).toLocaleString('en-IN')}* | Total Received: *₹${Math.round(totalReceivedAmt).toLocaleString('en-IN')}*\n`;
+        billsReportText += `\n📐 <b>Separate Measurement Bills &amp; Invoices:</b>\n`;
+        billsReportText += `- Total Bills: <b>${allBills.length}</b> | Net Area: <b>${Math.round(totalNetArea).toLocaleString('en-IN')} Sq Ft</b>\n`;
+        billsReportText += `- Total Amount: <b>₹${Math.round(totalBillAmt).toLocaleString('en-IN')}</b> | Total Received: <b>₹${Math.round(totalReceivedAmt).toLocaleString('en-IN')}</b>\n`;
         if (billSummaries.length > 0) {
-          billsReportText += `  *Bills Breakdown:*\n  ` + billSummaries.join('\n  ') + `\n`;
+          billsReportText += `  <b>Bills Breakdown:</b>\n  ` + billSummaries.join('\n  ') + `\n`;
         }
       }
     } catch (e) {
@@ -244,55 +252,55 @@ async function generateTelegramReportText({ date, models }) {
     year: 'numeric'
   });
 
-  // 8. Build Text Message
-  let text = `📋 *KSS Daily Operations & Warehouse Backup Report*\n📅 *Date:* ${dateFormatted}\n\n`;
+  // 8. Build Text Message (HTML mode for Telegram)
+  let text = `📋 <b>KSS Daily Operations &amp; Warehouse Backup Report</b>\n📅 <b>Date:</b> ${escapeHtml(dateFormatted)}\n\n`;
 
   // Warehouse Stock
-  text += `🏢 *Warehouse Stock:*\n`;
+  text += `🏢 <b>Warehouse Stock:</b>\n`;
   if (warehouseRows.length === 0) {
-    text += `_- No stock in warehouse_\n`;
+    text += `<i>- No stock in warehouse</i>\n`;
   } else {
     warehouseRows.forEach(row => {
-      text += `- ${row.name}: *${row.qty.toLocaleString('en-IN')}* ${row.unit}\n`;
+      text += `- ${escapeHtml(row.name)}: <b>${row.qty.toLocaleString('en-IN')}</b> ${escapeHtml(row.unit)}\n`;
     });
   }
 
   // Active Sites
-  text += `\n📍 *Active Sites (Net Balance):*\n`;
+  text += `\n📍 <b>Active Sites (Net Balance):</b>\n`;
   if (activeSitesData.length === 0) {
-    text += `_- No active sites_\n`;
+    text += `<i>- No active sites</i>\n`;
   } else {
     activeSitesData.forEach(site => {
-      const custStr = site.customer ? ` (${site.customer})` : '';
-      text += `*${site.name}*${custStr}:\n`;
+      const custStr = site.customer ? ` (${escapeHtml(site.customer)})` : '';
+      text += `<b>${escapeHtml(site.name)}</b>${custStr}:\n`;
       site.items.forEach(item => {
-        text += `  - ${item.name}: *${item.qty.toLocaleString('en-IN')}* ${item.unit}\n`;
+        text += `  - ${escapeHtml(item.name)}: <b>${item.qty.toLocaleString('en-IN')}</b> ${escapeHtml(item.unit)}\n`;
       });
     });
   }
 
   // Active Rentals
-  text += `\n🏠 *Active Rentals:*\n`;
+  text += `\n🏠 <b>Active Rentals:</b>\n`;
   if (activeRentalsData.length === 0) {
-    text += `_- No active rentals_\n`;
+    text += `<i>- No active rentals</i>\n`;
   } else {
     activeRentalsData.forEach(rental => {
-      const custStr = rental.customer ? ` (${rental.customer})` : '';
-      text += `*${rental.name}*${custStr}:\n`;
+      const custStr = rental.customer ? ` (${escapeHtml(rental.customer)})` : '';
+      text += `<b>${escapeHtml(rental.name)}</b>${custStr}:\n`;
       rental.items.forEach(item => {
-        text += `  - ${item.name}: *${item.qty.toLocaleString('en-IN')}* ${item.unit}\n`;
+        text += `  - ${escapeHtml(item.name)}: <b>${item.qty.toLocaleString('en-IN')}</b> ${escapeHtml(item.unit)}\n`;
       });
     });
   }
 
   // Lintel Warnings
-  text += `\n⏳ *Sites Crossed 13 Days (Lintel):*\n`;
+  text += `\n⏳ <b>Sites Crossed 13 Days (Lintel):</b>\n`;
   if (lintelAlertSites.length === 0) {
-    text += `_- None_\n`;
+    text += `<i>- None</i>\n`;
   } else {
     lintelAlertSites.forEach(s => {
-      const custStr = s.customerName ? ` (${s.customerName})` : '';
-      text += `- *${s.name}*${custStr}: *${s.daysPassed}* Days (since ${s.lintelDate})\n`;
+      const custStr = s.customerName ? ` (${escapeHtml(s.customerName)})` : '';
+      text += `- <b>${escapeHtml(s.name)}</b>${custStr}: <b>${s.daysPassed}</b> Days (since ${escapeHtml(s.lintelDate)})\n`;
     });
   }
 
@@ -301,6 +309,75 @@ async function generateTelegramReportText({ date, models }) {
   text += billsReportText;
 
   return text;
+}
+
+/**
+ * Safely sends text messages to Telegram with chunking and HTML fallback.
+ */
+async function sendTelegramTextMessage(chatId, fullText) {
+  const MAX_CHUNK = 3800; // Telegram limit is 4096, keep chunk size safe
+  const chunks = [];
+
+  if (fullText.length <= MAX_CHUNK) {
+    chunks.push(fullText);
+  } else {
+    const lines = fullText.split('\n');
+    let currentChunk = '';
+    for (const line of lines) {
+      if ((currentChunk + '\n' + line).length > MAX_CHUNK) {
+        if (currentChunk) chunks.push(currentChunk);
+        currentChunk = line;
+      } else {
+        currentChunk = currentChunk ? (currentChunk + '\n' + line) : line;
+      }
+    }
+    if (currentChunk) chunks.push(currentChunk);
+  }
+
+  const textUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  let overallSuccess = true;
+
+  for (const chunk of chunks) {
+    try {
+      // Attempt 1: HTML parse mode
+      let res = await fetch(textUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: chunk,
+          parse_mode: 'HTML'
+        })
+      });
+
+      let resData = await res.json();
+
+      // Attempt 2: If HTML parsing failed, fallback to plain text (strip tags)
+      if (!res.ok || !resData.ok) {
+        console.warn(`Telegram HTML send failed for chat ${chatId}, retrying as plain text:`, resData.description);
+        const plainText = chunk.replace(/<[^>]*>/g, '');
+        res = await fetch(textUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: plainText
+          })
+        });
+        resData = await res.json();
+      }
+
+      if (!res.ok || !resData.ok) {
+        console.error(`Telegram text message send failed for chat ${chatId}:`, resData);
+        overallSuccess = false;
+      }
+    } catch (err) {
+      console.error(`Error sending telegram text message to chat ${chatId}:`, err);
+      overallSuccess = false;
+    }
+  }
+
+  return overallSuccess;
 }
 
 /**
@@ -339,7 +416,7 @@ async function sendTelegramReport({ date, models }) {
     throw new Error('PDF generation failed: ' + err.message);
   }
 
-  // 3. Generate Markdown text summary
+  // 3. Generate HTML text summary
   let reportText = '';
   try {
     reportText = await generateTelegramReportText({ date, models });
@@ -354,21 +431,7 @@ async function sendTelegramReport({ date, models }) {
   for (const chatId of chatIds) {
     try {
       // Step A: Send the detailed text summary first
-      const textUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-      const textResponse = await fetch(textUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: reportText,
-          parse_mode: 'Markdown'
-        })
-      });
-
-      const textResData = await textResponse.json();
-      if (!textResponse.ok || !textResData.ok) {
-        console.error(`Telegram API text error for chat ${chatId}:`, textResData);
-      }
+      const textSent = await sendTelegramTextMessage(chatId, reportText);
 
       // Step B: Send the PDF document backup
       const formData = new FormData();
@@ -378,8 +441,9 @@ async function sendTelegramReport({ date, models }) {
       formData.append('document', blob, `KSS_Warehouse_Summary_${date}.pdf`);
       formData.append(
         'caption',
-        `📋 *Daily PDF Backup*\n🏢 KSS Construction Materials\n\nDownload for offline copy.`
+        `📋 <b>Daily PDF Backup</b>\n🏢 KSS Construction Materials\n\nDownload for offline copy.`
       );
+      formData.append('parse_mode', 'HTML');
 
       const docUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
       const response = await fetch(docUrl, {
@@ -388,12 +452,19 @@ async function sendTelegramReport({ date, models }) {
       });
 
       const resData = await response.json();
-      if (response.ok && resData.ok) {
-        results.push({ chatId, success: true });
-      } else {
+      const docSent = response.ok && resData.ok;
+
+      if (!docSent) {
         console.error(`Telegram API document error for chat ${chatId}:`, resData);
-        results.push({ chatId, success: false, error: resData.description || 'Unknown error' });
       }
+
+      results.push({
+        chatId,
+        success: textSent || docSent,
+        textSent,
+        docSent,
+        error: (!textSent && !docSent) ? (resData.description || 'Failed to send text and document') : undefined
+      });
     } catch (err) {
       console.error(`Failed to send telegram report to ${chatId}:`, err);
       results.push({ chatId, success: false, error: err.message });
@@ -408,4 +479,5 @@ async function sendTelegramReport({ date, models }) {
   };
 }
 
-module.exports = { sendTelegramReport };
+module.exports = { sendTelegramReport, generateTelegramReportText };
+
