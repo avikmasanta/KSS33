@@ -333,7 +333,8 @@ var SiteDetailsPage = {
       });
     });
 
-    // Site Returns (Returned)
+    // Site Returns (Returned) - Grouped by Date & Reference (1 row per return date)
+    const groupedReturns = {};
     siteReturns.forEach(record => {
       const matName = getMaterialName(record, materials);
       if (!matName) return; // skip deleted materials
@@ -341,16 +342,44 @@ var SiteDetailsPage = {
       const sqFt = getSqFt(typeof record.materialId === 'object' ? (record.materialId._id || record.materialId.id) : record.materialId, qty);
       totalReturned += qty;
       totalSqFtReturned += sqFt;
-      rows.push({
-        returnId: record.id,
-        date: record.date,
-        type: 'Outgoing',
-        material: matName,
-        unit: getMaterialUnit(record, materials),
+
+      const refStr = (record.referenceNo && record.referenceNo !== 'SITE-RETURN') ? record.referenceNo : 'SITE-RETURN';
+      const key = record.date + '_' + refStr;
+
+      if (!groupedReturns[key]) {
+        groupedReturns[key] = {
+          date: record.date,
+          type: 'Outgoing',
+          ref: refStr,
+          note: record.notes || 'Returned from site',
+          items: [],
+          returnIds: []
+        };
+      }
+      groupedReturns[key].items.push({
+        name: matName,
         qty: qty,
+        unit: getMaterialUnit(record, materials),
         sqFt: sqFt,
-        ref: 'SITE-RETURN',
-        note: 'Returned from site'
+        id: record.id
+      });
+      groupedReturns[key].returnIds.push(record.id);
+    });
+
+    Object.values(groupedReturns).forEach(grp => {
+      const matSummary = grp.items.map(i => `${i.name}: ${i.qty} ${i.unit}`).join(', ');
+      const totalSqFt = grp.items.reduce((sum, i) => sum + (i.sqFt || 0), 0);
+      rows.push({
+        returnIds: grp.returnIds,
+        returnId: grp.returnIds[0],
+        date: grp.date,
+        type: 'Outgoing',
+        material: matSummary,
+        unit: '',
+        qty: grp.items.reduce((sum, i) => sum + i.qty, 0),
+        sqFt: totalSqFt,
+        ref: grp.ref,
+        note: grp.note
       });
     });
 
@@ -1108,8 +1137,9 @@ var SiteDetailsPage = {
       const matId = _resolveMatId(record.materialId);
       if (!matId || !Store.Materials.getById(matId)) return;
       returnedMatIds.add(matId);
-      const rowKey = record.id || (record.date + '-ret-' + index);
-      returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
+      const refStr = (record.referenceNo && record.referenceNo !== 'SITE-RETURN') ? record.referenceNo : 'SITE-RETURN';
+      const rowKey = record.date + '_' + refStr;
+      returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: refStr };
       returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
     });
 

@@ -648,8 +648,9 @@ var SitesPage = {
         const matId = _resolveMatId(record.materialId);
         if (!matId || !Store.Materials.getById(matId)) return;
         returnedMatIds.add(matId);
-        const rowKey = record.id || (record.date + '-ret-' + index);
-        returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
+        const refStr = (record.referenceNo && record.referenceNo !== 'SITE-RETURN') ? record.referenceNo : 'SITE-RETURN';
+        const rowKey = record.date + '_' + refStr;
+        returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: refStr };
         returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
       });
 
