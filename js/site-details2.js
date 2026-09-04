@@ -267,7 +267,32 @@ var SiteDetailsPage = {
     `;
   },
 
-  init() { },
+  deleteDispatch(id) {
+    if (!id) return;
+    if (confirm('Are you sure you want to delete this dispatch record?')) {
+      Store.Outgoing.delete(id);
+      this.refresh();
+    }
+  },
+
+  deleteIncoming(id) {
+    if (!id) return;
+    if (confirm('Are you sure you want to delete this direct dispatch record?')) {
+      Store.Incoming.delete(id);
+      this.refresh();
+    }
+  },
+
+  deleteReturn(ids) {
+    if (!ids) return;
+    if (confirm('Are you sure you want to delete this return record?')) {
+      const idArray = String(ids).split(',');
+      idArray.forEach(id => {
+        if (id && id.trim()) Store.SiteReturns.delete(id.trim());
+      });
+      this.refresh();
+    }
+  },
 
   renderStockMovements(site) {
     const sId = _resolveMatId(site.id || site._id);
@@ -289,48 +314,74 @@ var SiteDetailsPage = {
 
     // Outgoing from warehouse to site (Dispatched)
     allOutgoing.forEach(record => {
-      record.items.forEach(item => {
+      const itemsList = [];
+      let recSqFt = 0;
+      let recQty = 0;
+      (record.items || []).forEach(item => {
         const matName = getMaterialName(item, materials);
         if (!matName) return; // skip deleted materials
         const qty = parseFloat(item.quantity) || 0;
         const sqFt = getSqFt(typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId, qty);
         totalDispatched += qty;
         totalSqFtIssued += sqFt;
+        recSqFt += sqFt;
+        recQty += qty;
+        itemsList.push({
+          name: matName,
+          qty: qty,
+          unit: getMaterialUnit(item, materials),
+          sqFt: sqFt
+        });
+      });
+
+      if (itemsList.length > 0) {
         rows.push({
           outgoingId: record.id,
           date: record.date,
           type: 'Incoming',
-          material: matName,
-          unit: getMaterialUnit(item, materials),
-          qty: qty,
-          sqFt: sqFt,
           ref: record.referenceNo || '-',
-          note: record.notes || '-'
+          note: record.notes || '-',
+          qty: recQty,
+          sqFt: recSqFt,
+          items: itemsList
         });
-      });
+      }
     });
 
     // Incoming direct to site (Dispatched)
     allIncomingDirect.forEach(record => {
-      record.items.forEach(item => {
+      const itemsList = [];
+      let recSqFt = 0;
+      let recQty = 0;
+      (record.items || []).forEach(item => {
         const matName = getMaterialName(item, materials);
         if (!matName) return; // skip deleted materials
         const qty = parseFloat(item.quantity) || 0;
         const sqFt = getSqFt(typeof item.materialId === 'object' ? (item.materialId._id || item.materialId.id) : item.materialId, qty);
         totalDispatched += qty;
         totalSqFtIssued += sqFt;
+        recSqFt += sqFt;
+        recQty += qty;
+        itemsList.push({
+          name: matName,
+          qty: qty,
+          unit: getMaterialUnit(item, materials),
+          sqFt: sqFt
+        });
+      });
+
+      if (itemsList.length > 0) {
         rows.push({
           incomingId: record.id,
           date: record.date,
           type: 'Incoming',
-          material: matName,
-          unit: getMaterialUnit(item, materials),
-          qty: qty,
-          sqFt: sqFt,
           ref: record.referenceNo || record.invoiceNo || '-',
-          note: record.notes || 'Direct from supplier'
+          note: record.notes || 'Direct from supplier',
+          qty: recQty,
+          sqFt: recSqFt,
+          items: itemsList
         });
-      });
+      }
     });
 
     // Site Returns (Returned) - Grouped by Date & Reference (1 row per return date)
@@ -353,7 +404,9 @@ var SiteDetailsPage = {
           ref: refStr,
           note: record.notes || 'Returned from site',
           items: [],
-          returnIds: []
+          returnIds: [],
+          sqFt: 0,
+          qty: 0
         };
       }
       groupedReturns[key].items.push({
@@ -364,22 +417,21 @@ var SiteDetailsPage = {
         id: record.id
       });
       groupedReturns[key].returnIds.push(record.id);
+      groupedReturns[key].sqFt += sqFt;
+      groupedReturns[key].qty += qty;
     });
 
     Object.values(groupedReturns).forEach(grp => {
-      const matSummary = grp.items.map(i => `${i.name}: ${i.qty} ${i.unit}`).join(', ');
-      const totalSqFt = grp.items.reduce((sum, i) => sum + (i.sqFt || 0), 0);
       rows.push({
         returnIds: grp.returnIds,
         returnId: grp.returnIds[0],
         date: grp.date,
         type: 'Outgoing',
-        material: matSummary,
-        unit: '',
-        qty: grp.items.reduce((sum, i) => sum + i.qty, 0),
-        sqFt: totalSqFt,
         ref: grp.ref,
-        note: grp.note
+        note: grp.note,
+        qty: grp.qty,
+        sqFt: grp.sqFt,
+        items: grp.items
       });
     });
 
@@ -406,7 +458,7 @@ var SiteDetailsPage = {
       `;
     }
 
-    let html = `<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 16px;">`;
+    let html = `<div style="display: flex; flex-direction: column; gap: 8px; padding: 12px 16px;">`;
 
     rows.forEach(r => {
       const isReturn = r.type === 'Outgoing';
@@ -414,58 +466,69 @@ var SiteDetailsPage = {
       const bgLight   = isReturn ? '#fef2f2' : '#f0fdf4';
       const borderClr = isReturn ? '#fca5a5' : '#86efac';
       const sign      = isReturn ? '−' : '+';
-      const label     = isReturn ? 'Returned' : 'Received';
       const sqFtFmt   = r.sqFt > 0 ? (r.sqFt % 1 === 0 ? r.sqFt.toLocaleString('en-IN') : r.sqFt.toFixed(2)) : null;
+
+      const itemsList = r.items && r.items.length > 0 ? r.items : [{ name: r.material || 'Material', qty: r.qty, unit: r.unit || '' }];
 
       html += `
         <div style="
-          display: flex; align-items: center; justify-content: space-between;
-          padding: 12px 14px;
+          padding: 14px 16px;
           background: var(--surface);
           border: 1px solid var(--border);
-          border-left: 4px solid ${color};
+          border-left: 5px solid ${color};
           border-radius: 10px;
-          gap: 12px;
-          transition: background 0.15s;
-        " onmouseover="this.style.background='var(--surface-hover,rgba(0,0,0,0.03))'" onmouseout="this.style.background='var(--surface)'">
+          margin-bottom: 8px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+          transition: background 0.15s, box-shadow 0.15s;
+        " onmouseover="this.style.background='var(--surface-hover,rgba(0,0,0,0.02))'" onmouseout="this.style.background='var(--surface)'">
 
-          <!-- Left: info -->
-          <div style="flex:1; min-width:0;">
-            <div style="font-weight:700; font-size:0.92rem; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${r.material}</div>
-            <div style="display:flex; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap;">
-              <span style="background:${bgLight}; color:${color}; border:1px solid ${borderClr}; border-radius:4px; padding:1px 7px; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px;">${label}</span>
-              <span style="color:var(--text-tertiary); font-size:0.75rem;">Ref: ${r.ref}</span>
-              ${sqFtFmt ? `<span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:1px 7px; font-size:0.7rem; font-weight:700;">${sqFtFmt} sq ft</span>` : ''}
+          <!-- Header Bar of Movement Card -->
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <span style="background:${bgLight}; color:${color}; border:1px solid ${borderClr}; border-radius:6px; padding:3px 10px; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:0.4px;">
+                ${isReturn ? '↩ Returned' : '📦 Received'}
+              </span>
+              <span style="font-weight: 700; color: var(--text-primary); font-size: 0.9rem;">📅 ${safeFormatDate(r.date)}</span>
+              <span style="color: var(--text-tertiary); font-size: 0.8rem; background: var(--bg-body); padding: 2px 8px; border-radius: 4px; border: 1px solid var(--border-color);">Ref: ${r.ref}</span>
+              ${sqFtFmt ? `<span style="background:#dcfce7; color:#15803d; border-radius:4px; padding:2px 8px; font-size:0.75rem; font-weight:700;">${sqFtFmt} sq ft</span>` : ''}
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="font-weight: 800; font-size: 1.15rem; color: ${color};">
+                ${sign}${r.qty.toLocaleString('en-IN')} <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);">${itemsList.length === 1 ? itemsList[0].unit : 'Units'}</span>
+              </div>
+              ${r.outgoingId ? `
+                <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteDispatch('${r.outgoingId}')" title="Delete Dispatch Record" style="color:var(--danger); padding:4px;">
+                  ${Icons.trash}
+                </button>
+              ` : ''}
+              ${r.incomingId ? `
+                <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteIncoming('${r.incomingId}')" title="Delete Direct Dispatch Record" style="color:var(--danger); padding:4px;">
+                  ${Icons.trash}
+                </button>
+              ` : ''}
+              ${(r.returnId || (r.returnIds && r.returnIds.length)) ? `
+                <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteReturn('${(r.returnIds || [r.returnId]).join(',')}')" title="Delete Return Record" style="color:var(--danger); padding:4px;">
+                  ${Icons.trash}
+                </button>
+              ` : ''}
             </div>
           </div>
 
-          <!-- Right: qty + date + action -->
-          <div style="display:flex; align-items:center; gap:12px;">
-            <div style="text-align:right; flex-shrink:0;">
-              <div style="font-weight:800; font-size:1.1rem; color:${color}; white-space:nowrap;">
-                ${sign}${r.qty.toLocaleString('en-IN')} <span style="font-size:0.78rem; font-weight:500; color:var(--text-secondary);">${r.unit}</span>
+          <!-- Items Pills List -->
+          <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color);">
+            ${itemsList.map(item => `
+              <div style="background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 6px; padding: 5px 12px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 8px;">
+                <span style="font-weight: 600; color: var(--text-primary);">${item.name}</span>
+                <span class="badge ${isReturn ? 'badge-danger' : 'badge-success'}" style="font-weight: 700; font-size: 0.78rem; padding: 2px 7px; border-radius: 4px;">${item.qty} ${item.unit}</span>
               </div>
-              <div style="font-size:0.72rem; color:var(--text-tertiary); margin-top:3px;">${safeFormatDate(r.date)}</div>
-            </div>
-            ${r.outgoingId ? `
-              <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteDispatch('${r.outgoingId}')" title="Delete Dispatch Record (Challan)" style="color:var(--danger); padding:4px;">
-                ${Icons.trash}
-              </button>
-            ` : ''}
-            ${r.incomingId ? `
-              <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteIncoming('${r.incomingId}')" title="Delete Direct Dispatch Record (Challan)" style="color:var(--danger); padding:4px;">
-                ${Icons.trash}
-              </button>
-            ` : ''}
-            ${r.returnId ? `
-              <button class="btn btn-sm btn-ghost" onclick="SiteDetailsPage.deleteReturn('${r.returnId}')" title="Delete Return Record" style="color:var(--danger); padding:4px;">
-                ${Icons.trash}
-              </button>
-            ` : ''}
+            `).join('')}
           </div>
         </div>
       `;
     });
+
+
 
     // Sq Ft Summary Footer
     if (totalSqFtIssued > 0 || totalSqFtReturned > 0) {
