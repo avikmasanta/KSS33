@@ -8,6 +8,11 @@ var RentalsPage = {
   selectedId: null,
   searchTerm: '',
   selectedCustomerFilter: '',
+  selectedCustomerFilters: [], // Multi-select customers array (empty = All)
+  selectedSiteFilters: [],     // Multi-select sites array (empty = All)
+  customerFilterSearch: '',
+  siteFilterSearch: '',
+  openDropdown: null,          // 'customer' | 'site' | null
   viewMode: 'all', // 'all' (list view) or 'grouped' (customer-wise categorization)
   activeTab: 'contracts', // 'contracts' or 'monthly-register'
   selectedMonth: new Date().toISOString().slice(0, 7), // 'YYYY-MM'
@@ -26,7 +31,118 @@ var RentalsPage = {
 
   onCustomerFilterChange(val) {
     this.selectedCustomerFilter = val || '';
+    this.selectedCustomerFilters = val ? [val] : [];
+    this.cleanupOrphanSiteFilters();
     this.refresh();
+  },
+
+  toggleCustomerFilter(custName) {
+    if (!this.selectedCustomerFilters) this.selectedCustomerFilters = [];
+    const idx = this.selectedCustomerFilters.indexOf(custName);
+    if (idx >= 0) {
+      this.selectedCustomerFilters.splice(idx, 1);
+    } else {
+      this.selectedCustomerFilters.push(custName);
+    }
+    this.cleanupOrphanSiteFilters();
+    this.refresh();
+  },
+
+  toggleAllCustomers(select) {
+    if (!select) {
+      this.selectedCustomerFilters = [];
+      this.selectedSiteFilters = [];
+    } else {
+      const allCusts = this.getAvailableCustomers();
+      this.selectedCustomerFilters = [...allCusts];
+    }
+    this.refresh();
+  },
+
+  toggleSiteFilter(siteName) {
+    if (!this.selectedSiteFilters) this.selectedSiteFilters = [];
+    const idx = this.selectedSiteFilters.indexOf(siteName);
+    if (idx >= 0) {
+      this.selectedSiteFilters.splice(idx, 1);
+    } else {
+      this.selectedSiteFilters.push(siteName);
+    }
+    this.refresh();
+  },
+
+  toggleAllSites(select) {
+    if (!select) {
+      this.selectedSiteFilters = [];
+    } else {
+      const availableSites = this.getAvailableSites();
+      this.selectedSiteFilters = [...availableSites];
+    }
+    this.refresh();
+  },
+
+  clearAllFilters() {
+    this.selectedCustomerFilters = [];
+    this.selectedSiteFilters = [];
+    this.customerFilterSearch = '';
+    this.siteFilterSearch = '';
+    this.openDropdown = null;
+    this.refresh();
+  },
+
+  toggleDropdown(type) {
+    this.openDropdown = (this.openDropdown === type) ? null : type;
+    this.refresh();
+  },
+
+  closeDropdowns() {
+    this.openDropdown = null;
+    this.refresh();
+  },
+
+  onCustomerSearch(val) {
+    this.customerFilterSearch = val || '';
+    this.refresh();
+  },
+
+  onSiteSearch(val) {
+    this.siteFilterSearch = val || '';
+    this.refresh();
+  },
+
+  cleanupOrphanSiteFilters() {
+    if (!this.selectedCustomerFilters || this.selectedCustomerFilters.length === 0) return;
+    const validSites = this.getAvailableSites();
+    this.selectedSiteFilters = (this.selectedSiteFilters || []).filter(s => validSites.includes(s));
+  },
+
+  getAvailableCustomers() {
+    const allRecords = Store.RentalSites ? Store.RentalSites.getAll() : [];
+    const allCusts = Store.Customers ? Store.Customers.getAll() : [];
+    const rentalCustNames = [...new Set(allRecords.map(r => r.customerName).filter(Boolean))];
+    return [...new Set([
+      ...allCusts.map(c => c.name).filter(Boolean),
+      ...rentalCustNames
+    ])].sort((a, b) => a.localeCompare(b));
+  },
+
+  getAvailableSites() {
+    const allRecords = Store.RentalSites ? Store.RentalSites.getAll() : [];
+    const allSites = Store.Sites ? Store.Sites.getAll() : [];
+
+    let filteredRecords = allRecords;
+    if (this.selectedCustomerFilters && this.selectedCustomerFilters.length > 0) {
+      const lowerCusts = this.selectedCustomerFilters.map(c => c.toLowerCase());
+      filteredRecords = filteredRecords.filter(r => lowerCusts.includes((r.customerName || '').toLowerCase()));
+    }
+
+    const rentalSites = [...new Set(filteredRecords.map(r => r.siteName).filter(Boolean))];
+    const systemSites = allSites.filter(s => {
+      if (!this.selectedCustomerFilters || this.selectedCustomerFilters.length === 0) return true;
+      const lowerCusts = this.selectedCustomerFilters.map(c => c.toLowerCase());
+      return lowerCusts.includes((s.customerName || '').toLowerCase());
+    }).map(s => s.name).filter(Boolean);
+
+    return [...new Set([...rentalSites, ...systemSites])].sort((a, b) => a.localeCompare(b));
   },
 
   setViewMode(mode) {
@@ -38,8 +154,16 @@ var RentalsPage = {
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     let records = Store.RentalSites.getAll().sort((a, b) => new Date(b.createdAt || b.goingDate) - new Date(a.createdAt || a.goingDate));
 
-    if (this.selectedCustomerFilter) {
+    if (this.selectedCustomerFilters && this.selectedCustomerFilters.length > 0) {
+      const lowerCusts = this.selectedCustomerFilters.map(c => c.toLowerCase());
+      records = records.filter(r => lowerCusts.includes((r.customerName || '').toLowerCase()));
+    } else if (this.selectedCustomerFilter) {
       records = records.filter(r => (r.customerName || '').toLowerCase() === this.selectedCustomerFilter.toLowerCase());
+    }
+
+    if (this.selectedSiteFilters && this.selectedSiteFilters.length > 0) {
+      const lowerSites = this.selectedSiteFilters.map(s => s.toLowerCase());
+      records = records.filter(r => lowerSites.includes((r.siteName || '').toLowerCase()));
     }
 
     if (this.searchTerm) {
@@ -245,18 +369,14 @@ var RentalsPage = {
   },
 
   renderMonthlyRegister() {
-    const allRecords = Store.RentalSites.getAll();
+    const allRecords = Store.RentalSites ? Store.RentalSites.getAll() : [];
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
 
-    const allCustomers = Store.Customers ? Store.Customers.getAll() : [];
-    const rentalCustNames = [...new Set(allRecords.map(r => r.customerName).filter(Boolean))];
-    const customerOptions = [...new Set([
-      ...allCustomers.map(c => c.name).filter(Boolean),
-      ...rentalCustNames
-    ])].sort((a, b) => a.localeCompare(b));
+    const customerOptions = this.getAvailableCustomers();
+    const siteOptions = this.getAvailableSites();
 
-    // Filter records applicable to selected month & selected customer
-    let monthRecords = allRecords.filter(r => {
+    // Base records for the selected month
+    const monthAllRecords = allRecords.filter(r => {
       if (!r.goingDate) return false;
       const goingMonth = r.goingDate.slice(0, 7);
       const comingMonth = r.comingDate ? r.comingDate.slice(0, 7) : '';
@@ -267,8 +387,19 @@ var RentalsPage = {
       return startedInOrBefore && endedInOrAfter;
     });
 
-    if (this.selectedCustomerFilter) {
+    // Apply customer & site filters
+    let monthRecords = monthAllRecords;
+
+    if (this.selectedCustomerFilters && this.selectedCustomerFilters.length > 0) {
+      const lowerCusts = this.selectedCustomerFilters.map(c => c.toLowerCase());
+      monthRecords = monthRecords.filter(r => lowerCusts.includes((r.customerName || '').toLowerCase()));
+    } else if (this.selectedCustomerFilter) {
       monthRecords = monthRecords.filter(r => (r.customerName || '').toLowerCase() === this.selectedCustomerFilter.toLowerCase());
+    }
+
+    if (this.selectedSiteFilters && this.selectedSiteFilters.length > 0) {
+      const lowerSites = this.selectedSiteFilters.map(s => s.toLowerCase());
+      monthRecords = monthRecords.filter(r => lowerSites.includes((r.siteName || '').toLowerCase()));
     }
 
     monthRecords.sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
@@ -293,8 +424,35 @@ var RentalsPage = {
 
     const monthLabel = new Date(this.selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
+    // Customer button label
+    let custBtnLabel = 'All Customers';
+    if (this.selectedCustomerFilters && this.selectedCustomerFilters.length === 1) {
+      custBtnLabel = `👤 ${this.selectedCustomerFilters[0]}`;
+    } else if (this.selectedCustomerFilters && this.selectedCustomerFilters.length > 1) {
+      custBtnLabel = `👥 ${this.selectedCustomerFilters.length} Customers`;
+    }
+
+    // Site button label
+    let siteBtnLabel = 'All Sites';
+    if (this.selectedSiteFilters && this.selectedSiteFilters.length === 1) {
+      siteBtnLabel = `📍 ${this.selectedSiteFilters[0]}`;
+    } else if (this.selectedSiteFilters && this.selectedSiteFilters.length > 1) {
+      siteBtnLabel = `📍 ${this.selectedSiteFilters.length} Sites`;
+    }
+
+    // Search filter for customer popover
+    const searchCust = (this.customerFilterSearch || '').toLowerCase();
+    const popoverCustList = customerOptions.filter(c => c.toLowerCase().includes(searchCust));
+
+    // Search filter for site popover
+    const searchSite = (this.siteFilterSearch || '').toLowerCase();
+    const popoverSiteList = siteOptions.filter(s => s.toLowerCase().includes(searchSite));
+
+    const isCustAllChecked = !this.selectedCustomerFilters || this.selectedCustomerFilters.length === 0;
+    const isSiteAllChecked = !this.selectedSiteFilters || this.selectedSiteFilters.length === 0;
+
     return `
-      <!-- Monthly Header & Selector Bar -->
+      <!-- Monthly Header & Multi-Select Selector Bar -->
       <div class="card" style="margin-bottom: 24px;">
         <div class="card-body" style="padding: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
@@ -302,22 +460,117 @@ var RentalsPage = {
               <h3 style="margin:0; font-size: 1.25rem; color: var(--text-primary);">Monthly Rental Dispatch Register</h3>
               <p style="margin:4px 0 0 0; color: var(--text-tertiary); font-size: 0.85rem;">Date-wise inclusive statement of materials dispatched in <strong>${monthLabel}</strong></p>
             </div>
+            
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-              <label for="rental-month-customer-select" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;">Filter Customer:</label>
-              <select id="rental-month-customer-select" class="form-control" onchange="RentalsPage.onCustomerFilterChange(this.value)" style="width: 200px; font-weight:600;">
-                <option value="">All Customers</option>
-                ${customerOptions.map(cName => `
-                  <option value="${cName}" ${this.selectedCustomerFilter.toLowerCase() === cName.toLowerCase() ? 'selected' : ''}>👤 ${cName}</option>
-                `).join('')}
-              </select>
+              
+              <!-- Multi-Customer Dropdown Picker -->
+              <div class="multi-select-container" style="position: relative;">
+                <button class="btn btn-outline" onclick="event.stopPropagation(); RentalsPage.toggleDropdown('customer')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; background: var(--bg-body); border-color: ${this.selectedCustomerFilters && this.selectedCustomerFilters.length > 0 ? 'var(--primary)' : 'var(--border-color)'}; color: var(--text-primary); font-size: 0.88rem;">
+                  <span>${custBtnLabel}</span>
+                  <span style="font-size: 0.7rem; opacity: 0.7;">▼</span>
+                </button>
 
-              <label for="rental-month-select" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;">Select Month:</label>
-              <input type="month" id="rental-month-select" class="form-control" value="${this.selectedMonth}" onchange="RentalsPage.onMonthChange(this.value)" style="width: 170px;">
+                ${this.openDropdown === 'customer' ? `
+                  <div class="card multi-select-popover" style="position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 1000; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 10px; padding: 12px;" onclick="event.stopPropagation();">
+                    <div style="margin-bottom: 8px;">
+                      <input type="text" class="form-control" placeholder="🔍 Search customers..." value="${this.customerFilterSearch || ''}" onkeyup="RentalsPage.onCustomerSearch(this.value)" style="font-size: 0.85rem; padding: 6px 10px; background: var(--bg-body);">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 8px;">
+                      <button class="btn btn-xs btn-ghost" onclick="RentalsPage.toggleAllCustomers(true)" style="font-size: 0.75rem; color: var(--primary);">Select All</button>
+                      <button class="btn btn-xs btn-ghost" onclick="RentalsPage.toggleAllCustomers(false)" style="font-size: 0.75rem; color: var(--danger);">Clear All</button>
+                    </div>
+                    <div style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+                      ${popoverCustList.length === 0 ? '<div style="font-size:0.8rem; color:var(--text-tertiary); padding:8px; text-align:center;">No customers found</div>' : popoverCustList.map(cName => {
+                        const isChecked = !isCustAllChecked && this.selectedCustomerFilters.includes(cName);
+                        const count = monthAllRecords.filter(r => (r.customerName || '').toLowerCase() === cName.toLowerCase()).length;
+                        return `
+                          <label style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; background: ${isChecked ? 'rgba(59,130,246,0.12)' : 'transparent'};">
+                            <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+                              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="RentalsPage.toggleCustomerFilter('${cName.replace(/'/g, "\\'")}')">
+                              <span style="font-weight: ${isChecked ? '700' : '400'}; color: var(--text-primary);">${cName}</span>
+                            </div>
+                            <span class="badge badge-neutral" style="font-size: 0.7rem;">${count}</span>
+                          </label>
+                        `;
+                      }).join('')}
+                    </div>
+                    <div style="padding-top: 8px; border-top: 1px solid var(--border-color); margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: 0.75rem; color: var(--text-tertiary);">${this.selectedCustomerFilters.length} selected</span>
+                      <button class="btn btn-sm btn-primary" onclick="RentalsPage.closeDropdowns()" style="padding: 4px 12px; font-size: 0.8rem;">Done</button>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Multi-Site Dropdown Picker -->
+              <div class="multi-select-container" style="position: relative;">
+                <button class="btn btn-outline" onclick="event.stopPropagation(); RentalsPage.toggleDropdown('site')" style="display: inline-flex; align-items: center; gap: 8px; font-weight: 600; background: var(--bg-body); border-color: ${this.selectedSiteFilters && this.selectedSiteFilters.length > 0 ? 'var(--primary)' : 'var(--border-color)'}; color: var(--text-primary); font-size: 0.88rem;">
+                  <span>${siteBtnLabel}</span>
+                  <span style="font-size: 0.7rem; opacity: 0.7;">▼</span>
+                </button>
+
+                ${this.openDropdown === 'site' ? `
+                  <div class="card multi-select-popover" style="position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 1000; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 10px; padding: 12px;" onclick="event.stopPropagation();">
+                    <div style="margin-bottom: 8px;">
+                      <input type="text" class="form-control" placeholder="🔍 Search sites..." value="${this.siteFilterSearch || ''}" onkeyup="RentalsPage.onSiteSearch(this.value)" style="font-size: 0.85rem; padding: 6px 10px; background: var(--bg-body);">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; border-bottom: 1px solid var(--border-color); margin-bottom: 8px;">
+                      <button class="btn btn-xs btn-ghost" onclick="RentalsPage.toggleAllSites(true)" style="font-size: 0.75rem; color: var(--primary);">Select All</button>
+                      <button class="btn btn-xs btn-ghost" onclick="RentalsPage.toggleAllSites(false)" style="font-size: 0.75rem; color: var(--danger);">Clear All</button>
+                    </div>
+                    <div style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;">
+                      ${popoverSiteList.length === 0 ? '<div style="font-size:0.8rem; color:var(--text-tertiary); padding:8px; text-align:center;">No sites found</div>' : popoverSiteList.map(sName => {
+                        const isChecked = !isSiteAllChecked && this.selectedSiteFilters.includes(sName);
+                        const count = monthAllRecords.filter(r => (r.siteName || '').toLowerCase() === sName.toLowerCase()).length;
+                        return `
+                          <label style="display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; background: ${isChecked ? 'rgba(59,130,246,0.12)' : 'transparent'};">
+                            <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;">
+                              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="RentalsPage.toggleSiteFilter('${sName.replace(/'/g, "\\'")}')">
+                              <span style="font-weight: ${isChecked ? '700' : '400'}; color: var(--text-primary);">📍 ${sName}</span>
+                            </div>
+                            <span class="badge badge-neutral" style="font-size: 0.7rem;">${count}</span>
+                          </label>
+                        `;
+                      }).join('')}
+                    </div>
+                    <div style="padding-top: 8px; border-top: 1px solid var(--border-color); margin-top: 8px; display: flex; justify-content: space-between; align-items: center;">
+                      <span style="font-size: 0.75rem; color: var(--text-tertiary);">${this.selectedSiteFilters.length} selected</span>
+                      <button class="btn btn-sm btn-primary" onclick="RentalsPage.closeDropdowns()" style="padding: 4px 12px; font-size: 0.8rem;">Done</button>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+
+              <label for="rental-month-select" style="font-weight: 600; color: var(--text-secondary); font-size: 0.9rem;">Month:</label>
+              <input type="month" id="rental-month-select" class="form-control" value="${this.selectedMonth}" onchange="RentalsPage.onMonthChange(this.value)" style="width: 160px; font-weight:600; background: var(--bg-body);">
+
               <button class="btn btn-outline" onclick="RentalsPage.printMonthlyRegister()" style="display:inline-flex; align-items:center; gap:6px;">
                 ${Icons.printer} Print Monthly Bill Statement
               </button>
             </div>
           </div>
+
+          <!-- Active Filter Chips Bar -->
+          ${((this.selectedCustomerFilters && this.selectedCustomerFilters.length > 0) || (this.selectedSiteFilters && this.selectedSiteFilters.length > 0)) ? `
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--border-color);">
+              <span style="font-size: 0.75rem; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase;">Active Filters:</span>
+              ${(this.selectedCustomerFilters || []).map(cName => `
+                <span class="badge badge-primary" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.8rem; border-radius: 20px;">
+                  👤 ${cName}
+                  <span style="cursor: pointer; font-weight: bold; margin-left: 2px;" onclick="RentalsPage.toggleCustomerFilter('${cName.replace(/'/g, "\\'")}')" title="Remove customer filter">✕</span>
+                </span>
+              `).join('')}
+              ${(this.selectedSiteFilters || []).map(sName => `
+                <span class="badge badge-info" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 0.8rem; border-radius: 20px;">
+                  📍 ${sName}
+                  <span style="cursor: pointer; font-weight: bold; margin-left: 2px;" onclick="RentalsPage.toggleSiteFilter('${sName.replace(/'/g, "\\'")}')" title="Remove site filter">✕</span>
+                </span>
+              `).join('')}
+              <button class="btn btn-xs btn-ghost" onclick="RentalsPage.clearAllFilters()" style="font-size: 0.75rem; color: var(--danger); text-decoration: underline; margin-left: 4px;">
+                Clear All Filters
+              </button>
+            </div>
+          ` : ''}
         </div>
       </div>
 
@@ -355,7 +608,7 @@ var RentalsPage = {
             </thead>
             <tbody>
               ${monthRecords.length === 0 ? `
-                <tr><td colspan="8" style="text-align:center; padding: 48px; color: var(--text-tertiary);">No rental dispatches found for ${monthLabel}.</td></tr>
+                <tr><td colspan="8" style="text-align:center; padding: 48px; color: var(--text-tertiary);">No rental dispatches found for ${monthLabel}${this.selectedCustomerFilters.length || this.selectedSiteFilters.length ? ' matching the selected filters' : ''}.</td></tr>
               ` : monthRecords.map(r => {
                 const days = this.getDaysInMonth(r.goingDate, r.comingDate, this.selectedMonth);
                 const isMonthly = r.billingBasis === 'Monthly';
@@ -420,6 +673,16 @@ var RentalsPage = {
         if (!item.classList.contains('active')) item.style.backgroundColor = 'transparent';
       });
     });
+
+    if (!this._hasClickOutsideListener) {
+      this._hasClickOutsideListener = true;
+      document.addEventListener('click', (e) => {
+        if (RentalsPage.openDropdown && !e.target.closest('.multi-select-container')) {
+          RentalsPage.openDropdown = null;
+          RentalsPage.refresh();
+        }
+      });
+    }
   },
 
   onSearch(e) {
@@ -1269,10 +1532,10 @@ var RentalsPage = {
   },
 
   printMonthlyRegister() {
-    const allRecords = Store.RentalSites.getAll();
+    const allRecords = Store.RentalSites ? Store.RentalSites.getAll() : [];
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
 
-    const monthRecords = allRecords.filter(r => {
+    let monthRecords = allRecords.filter(r => {
       if (!r.goingDate) return false;
       const goingMonth = r.goingDate.slice(0, 7);
       const comingMonth = r.comingDate ? r.comingDate.slice(0, 7) : '';
@@ -1281,7 +1544,21 @@ var RentalsPage = {
       const endedInOrAfter = !r.comingDate || comingMonth >= this.selectedMonth;
 
       return startedInOrBefore && endedInOrAfter;
-    }).sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
+    });
+
+    if (this.selectedCustomerFilters && this.selectedCustomerFilters.length > 0) {
+      const lowerCusts = this.selectedCustomerFilters.map(c => c.toLowerCase());
+      monthRecords = monthRecords.filter(r => lowerCusts.includes((r.customerName || '').toLowerCase()));
+    } else if (this.selectedCustomerFilter) {
+      monthRecords = monthRecords.filter(r => (r.customerName || '').toLowerCase() === this.selectedCustomerFilter.toLowerCase());
+    }
+
+    if (this.selectedSiteFilters && this.selectedSiteFilters.length > 0) {
+      const lowerSites = this.selectedSiteFilters.map(s => s.toLowerCase());
+      monthRecords = monthRecords.filter(r => lowerSites.includes((r.siteName || '').toLowerCase()));
+    }
+
+    monthRecords.sort((a, b) => new Date(a.goingDate) - new Date(b.goingDate));
 
     const monthLabel = new Date(this.selectedMonth + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
     const yearStr = this.selectedMonth.split('-')[0];
@@ -1289,6 +1566,22 @@ var RentalsPage = {
 
     const lastDay = new Date(yearStr, monthStr, 0).getDate();
     const dateRangeStr = `01-${monthStr}-${yearStr} TO ${lastDay}-${monthStr}-${yearStr}`;
+
+    let custFilterLabel = 'All Customers';
+    if (this.selectedCustomerFilters && this.selectedCustomerFilters.length === 1) {
+      custFilterLabel = this.selectedCustomerFilters[0];
+    } else if (this.selectedCustomerFilters && this.selectedCustomerFilters.length > 1) {
+      custFilterLabel = `${this.selectedCustomerFilters.length} Customers (${this.selectedCustomerFilters.join(', ')})`;
+    } else if (this.selectedCustomerFilter) {
+      custFilterLabel = this.selectedCustomerFilter;
+    }
+
+    let siteFilterLabel = 'All Sites';
+    if (this.selectedSiteFilters && this.selectedSiteFilters.length === 1) {
+      siteFilterLabel = this.selectedSiteFilters[0];
+    } else if (this.selectedSiteFilters && this.selectedSiteFilters.length > 1) {
+      siteFilterLabel = `${this.selectedSiteFilters.length} Sites (${this.selectedSiteFilters.join(', ')})`;
+    }
 
     let grandMonthlyBill = 0;
     let sNoCounter = 1;
@@ -1335,6 +1628,7 @@ var RentalsPage = {
           .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-end; }
           .title { font-size: 22px; font-weight: 800; color: #1e40af; text-transform: uppercase; }
           .sub { font-size: 11px; color: #475569; margin-top: 4px; }
+          .filter-bar { font-size: 11px; color: #334155; margin-top: 6px; background: #f1f5f9; padding: 4px 10px; border-radius: 4px; display: inline-flex; gap: 16px; }
           .table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }
           .table th { background: #0f172a; color: white; padding: 10px; text-align: left; font-size: 11px; text-transform: uppercase; border: 1px solid #0f172a; }
           .table td { padding: 10px; border: 1px solid #cbd5e1; }
@@ -1348,6 +1642,10 @@ var RentalsPage = {
           <div>
             <div class="title">KSS CONSTRUCTION MATERIALS</div>
             <div class="sub">Monthly Rental Bill & Dispatch Register | Month: <strong>${monthLabel}</strong></div>
+            <div class="filter-bar">
+              <span><strong>Customer(s):</strong> ${custFilterLabel}</span>
+              <span><strong>Site(s):</strong> ${siteFilterLabel}</span>
+            </div>
           </div>
           <div style="text-align:right; font-size:10px; color:#64748b;">
             <div>Printed on: ${new Date().toLocaleString('en-IN')}</div>
@@ -1367,7 +1665,7 @@ var RentalsPage = {
             </tr>
           </thead>
           <tbody>
-            ${tableRowsHtml.length > 0 ? tableRowsHtml : '<tr><td colspan="6" style="text-align:center; padding:20px;">No rental dispatches found for this month</td></tr>'}
+            ${tableRowsHtml.length > 0 ? tableRowsHtml : '<tr><td colspan="6" style="text-align:center; padding:20px;">No rental dispatches found for this month matching the selected filters</td></tr>'}
           </tbody>
         </table>
 

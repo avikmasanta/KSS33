@@ -260,7 +260,7 @@ const Store = (() => {
           if (res.ok) {
             const savedItem = await res.json();
             // Update the temporary ID with the official database ID in memory
-            const idx = cache[cacheKey].findIndex(x => x.id === id);
+            const idx = cache[cacheKey].findIndex(x => x && String(x.id || x._id) === String(id || ''));
             if (idx > -1) {
               cache[cacheKey][idx] = savedItem;
               persistLocal(lsKey, cache[cacheKey]);
@@ -288,7 +288,7 @@ const Store = (() => {
           });
           if (res.ok) {
             const savedItem = await res.json();
-            const idx = cache[cacheKey].findIndex(x => x.id === id);
+            const idx = cache[cacheKey].findIndex(x => x && String(x.id || x._id) === String(id || ''));
             if (idx > -1) {
               cache[cacheKey][idx] = savedItem;
               persistLocal(lsKey, cache[cacheKey]);
@@ -303,7 +303,7 @@ const Store = (() => {
 
       update: (id, data) => {
         // 1. Instantly update in-memory cache
-        const idx = cache[cacheKey].findIndex(x => x.id === id);
+        const idx = cache[cacheKey].findIndex(x => x && String(x.id || x._id) === String(id || ''));
         if (idx > -1) {
           cache[cacheKey][idx] = { ...cache[cacheKey][idx], ...data };
           persistLocal(lsKey, cache[cacheKey]);
