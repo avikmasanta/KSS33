@@ -994,8 +994,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
             const matId = String(item.materialId);
             if (!matId || !materialsMap[matId]) return;
             dispatchedMatIds.add(matId);
-            const rowKey = String(record._id || record.id || (record.date + '-out-' + index));
-            dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.ticketNo || '-' };
+            const rowKey = String(record.date);
+            dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: 'DISPATCH' };
             dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
           });
         });
@@ -1005,8 +1005,8 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
             const matId = String(item.materialId);
             if (!matId || !materialsMap[matId]) return;
             dispatchedMatIds.add(matId);
-            const rowKey = String(record._id || record.id || (record.date + '-inc-' + index));
-            dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.invoiceNo || 'Direct' };
+            const rowKey = String(record.date);
+            dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: 'DIRECT-DISPATCH' };
             dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
           });
         });
@@ -1015,7 +1015,7 @@ async function generateDailyWarehouseSummary({ date, models, includeSiteChallans
           const matId = String(record.materialId);
           if (!matId || !materialsMap[matId]) return;
           returnedMatIds.add(matId);
-          const rowKey = String(record._id || record.id || (record.date + '-ret-' + index));
+          const rowKey = String(record.date);
           returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
           returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
         });

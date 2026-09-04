@@ -627,8 +627,8 @@ var SitesPage = {
           const matId = _resolveMatId(item.materialId);
           if (!matId || !Store.Materials.getById(matId)) return;
           dispatchedMatIds.add(matId);
-          const rowKey = record.id || (record.date + '-out-' + index);
-          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || '-' };
+          const rowKey = record.date;
+          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: 'DISPATCH' };
           dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
         });
       });
@@ -638,8 +638,8 @@ var SitesPage = {
           const matId = _resolveMatId(item.materialId);
           if (!matId || !Store.Materials.getById(matId)) return;
           dispatchedMatIds.add(matId);
-          const rowKey = record.id || (record.date + '-inc-' + index);
-          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: record.referenceNo || record.invoiceNo || 'Direct' };
+          const rowKey = record.date;
+          dispatchMap[rowKey] = dispatchMap[rowKey] || { date: record.date, ref: 'DIRECT-DISPATCH' };
           dispatchMap[rowKey][matId] = (dispatchMap[rowKey][matId] || 0) + (parseFloat(item.quantity) || 0);
         });
       });
@@ -648,9 +648,8 @@ var SitesPage = {
         const matId = _resolveMatId(record.materialId);
         if (!matId || !Store.Materials.getById(matId)) return;
         returnedMatIds.add(matId);
-        const refStr = (record.referenceNo && record.referenceNo !== 'SITE-RETURN') ? record.referenceNo : 'SITE-RETURN';
-        const rowKey = record.date + '_' + refStr;
-        returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: refStr };
+        const rowKey = record.date;
+        returnMap[rowKey] = returnMap[rowKey] || { date: record.date, ref: 'SITE-RETURN' };
         returnMap[rowKey][matId] = (returnMap[rowKey][matId] || 0) + (parseFloat(record.quantity) || 0);
       });
 
