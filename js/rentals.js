@@ -471,7 +471,7 @@ var RentalsPage = {
                 </button>
 
                 ${this.openDropdown === 'customer' ? `
-                  <div class="card multi-select-popover" style="position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 1000; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 10px; padding: 12px;" onclick="event.stopPropagation();">
+                  <div class="card multi-select-popover" style="position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 1000; width: 300px; max-width: calc(100vw - 32px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 10px; padding: 12px;" onclick="event.stopPropagation();">
                     <div style="margin-bottom: 8px;">
                       <input type="text" class="form-control" placeholder="🔍 Search customers..." value="${this.customerFilterSearch || ''}" onkeyup="RentalsPage.onCustomerSearch(this.value)" style="font-size: 0.85rem; padding: 6px 10px; background: var(--bg-body);">
                     </div>
@@ -510,7 +510,7 @@ var RentalsPage = {
                 </button>
 
                 ${this.openDropdown === 'site' ? `
-                  <div class="card multi-select-popover" style="position: absolute; top: 100%; right: 0; margin-top: 6px; z-index: 1000; width: 300px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 10px; padding: 12px;" onclick="event.stopPropagation();">
+                  <div class="card multi-select-popover" style="position: absolute; top: 100%; left: 0; margin-top: 6px; z-index: 1000; width: 300px; max-width: calc(100vw - 32px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); border: 1px solid var(--border-color); background: var(--bg-card); border-radius: 10px; padding: 12px;" onclick="event.stopPropagation();">
                     <div style="margin-bottom: 8px;">
                       <input type="text" class="form-control" placeholder="🔍 Search sites..." value="${this.siteFilterSearch || ''}" onkeyup="RentalsPage.onSiteSearch(this.value)" style="font-size: 0.85rem; padding: 6px 10px; background: var(--bg-body);">
                     </div>
