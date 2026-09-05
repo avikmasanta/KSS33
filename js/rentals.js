@@ -453,7 +453,7 @@ var RentalsPage = {
 
     return `
       <!-- Monthly Header & Multi-Select Selector Bar -->
-      <div class="card" style="margin-bottom: 24px;">
+      <div class="card" style="margin-bottom: 24px; position: relative; z-index: 100;">
         <div class="card-body" style="padding: 20px;">
           <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
             <div>
