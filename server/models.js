@@ -164,11 +164,23 @@ const RentalSiteSchema = new mongoose.Schema({
   siteName: String,
   goingDate: String,
   comingDate: String,
+  billingBasis: { type: String, default: 'Daily' },
   status: { type: String, default: 'Active' },
   items: [{
     materialId: String,
     quantity: Number,
     rate: Number
+  }],
+  returns: [{
+    _id: String,
+    id: String,
+    returnDate: String,
+    notes: String,
+    items: [{
+      materialId: String,
+      quantity: Number
+    }],
+    createdAt: String
   }],
   createdAt: String
 }, schemaOptions);

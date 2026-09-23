@@ -607,10 +607,23 @@ const Store = (() => {
 
         const warehouseStock = (totalPurchased + totalReturned) - totalSent - (() => {
           let totalRented = 0;
-          (cache.rentalSites || []).filter(r => r.status === 'Active').forEach(r => {
+          (cache.rentalSites || []).forEach(r => {
             (r.items || []).forEach(i => {
               if (resolveId(i.materialId) === resolveId(material.id)) {
-                totalRented += (parseFloat(i.quantity) || 0);
+                const leasedQty = parseFloat(i.quantity) || 0;
+                let returnedQty = 0;
+                if (Array.isArray(r.returns) && r.returns.length > 0) {
+                  r.returns.forEach(ret => {
+                    (ret.items || []).forEach(ri => {
+                      if (resolveId(ri.materialId) === resolveId(material.id)) {
+                        returnedQty += parseFloat(ri.quantity) || 0;
+                      }
+                    });
+                  });
+                } else if (r.status === 'Returned' || r.comingDate) {
+                  returnedQty = leasedQty;
+                }
+                totalRented += Math.max(0, leasedQty - returnedQty);
               }
             });
           });
@@ -647,13 +660,26 @@ const Store = (() => {
       let totalRented = 0;
       (cache.rentalSites || []).forEach(r => {
         if (r.goingDate <= date) {
-          if (r.status === 'Active' || (r.comingDate && r.comingDate > date)) {
-            (r.items || []).forEach(i => {
-              if (resolveId(i.materialId) === resolveId(materialId)) {
-                totalRented += (parseFloat(i.quantity) || 0);
+          (r.items || []).forEach(i => {
+            if (resolveId(i.materialId) === resolveId(materialId)) {
+              const leasedQty = parseFloat(i.quantity) || 0;
+              let returnedQty = 0;
+              if (Array.isArray(r.returns) && r.returns.length > 0) {
+                r.returns.forEach(ret => {
+                  if (ret.returnDate <= date) {
+                    (ret.items || []).forEach(ri => {
+                      if (resolveId(ri.materialId) === resolveId(materialId)) {
+                        returnedQty += parseFloat(ri.quantity) || 0;
+                      }
+                    });
+                  }
+                });
+              } else if (r.status === 'Returned' || (r.comingDate && r.comingDate <= date)) {
+                returnedQty = leasedQty;
               }
-            });
-          }
+              totalRented += Math.max(0, leasedQty - returnedQty);
+            }
+          });
         }
       });
       return totalIn - totalOut - totalRented;
@@ -675,10 +701,23 @@ const Store = (() => {
         (r.items || []).forEach(i => { if (resolveId(i.materialId) === resolveId(materialId)) totalOut += (parseFloat(i.quantity) || 0); });
       });
       let totalRented = 0;
-      (cache.rentalSites || []).filter(r => r.status === 'Active').forEach(r => {
+      (cache.rentalSites || []).forEach(r => {
         (r.items || []).forEach(i => {
           if (resolveId(i.materialId) === resolveId(materialId)) {
-            totalRented += (parseFloat(i.quantity) || 0);
+            const leasedQty = parseFloat(i.quantity) || 0;
+            let returnedQty = 0;
+            if (Array.isArray(r.returns) && r.returns.length > 0) {
+              r.returns.forEach(ret => {
+                (ret.items || []).forEach(ri => {
+                  if (resolveId(ri.materialId) === resolveId(materialId)) {
+                    returnedQty += parseFloat(ri.quantity) || 0;
+                  }
+                });
+              });
+            } else if (r.status === 'Returned' || r.comingDate) {
+              returnedQty = leasedQty;
+            }
+            totalRented += Math.max(0, leasedQty - returnedQty);
           }
         });
       });

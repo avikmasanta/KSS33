@@ -28,7 +28,7 @@ const schemas = {
   siteExpenses: new mongoose.Schema({ _id: String, siteId: String, date: String, amount: Number, category: String, description: String, createdAt: String }, schemaOptions),
   sitePayments: new mongoose.Schema({ _id: String, siteId: String, date: String, amount: Number, paymentMode: String, reference: String, notes: String, createdAt: String }, schemaOptions),
   transactions: new mongoose.Schema({ _id: String, materialId: String, materialName: String, quantity: Number, action: String, siteId: String, siteName: String, date: String, user: String, createdAt: String }, schemaOptions),
-  rentalSites: new mongoose.Schema({ _id: String, customerName: String, siteName: String, goingDate: String, comingDate: String, status: { type: String, default: 'Active' }, items: [{ materialId: String, quantity: Number, rate: Number }], createdAt: String }, schemaOptions),
+  rentalSites: new mongoose.Schema({ _id: String, customerName: String, siteName: String, goingDate: String, comingDate: String, billingBasis: { type: String, default: 'Daily' }, status: { type: String, default: 'Active' }, items: [{ materialId: String, quantity: Number, rate: Number }], returns: [{ _id: String, id: String, returnDate: String, notes: String, items: [{ materialId: String, quantity: Number }], createdAt: String }], createdAt: String }, schemaOptions),
   categories: new mongoose.Schema({ _id: String, sortOrder: { type: Number, default: 999 }, createdAt: String }, schemaOptions),
   telegramChats: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),
   smsContacts: new mongoose.Schema({ _id: String, name: String, createdAt: String }, schemaOptions),

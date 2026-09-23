@@ -235,10 +235,7 @@ var RentalsPage = {
           const siteList = groups[cName];
           const totalUnits = siteList.reduce((sum, r) => sum + (r.items ? r.items.reduce((s, i) => s + parseFloat(i.quantity || 0), 0) : 0), 0);
           const totalRev = siteList.reduce((sum, r) => {
-            const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
-            const isMonthly = r.billingBasis === 'Monthly';
-            const mult = isMonthly ? (days / 30) : days;
-            return sum + (r.items ? r.items.reduce((s, i) => s + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * mult), 0) : 0);
+            return sum + (r.items ? r.items.reduce((s, i) => s + RentalsPage.calculateItemBilling(r, i).amount, 0) : 0);
           }, 0);
 
           return `
@@ -261,14 +258,13 @@ var RentalsPage = {
                   const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
                   const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
                   const isMonthly = r.billingBasis === 'Monthly';
-                  const durationMultiplier = isMonthly ? (days / 30) : days;
-                  const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+                  const totalVal = r.items ? r.items.reduce((sum, i) => sum + RentalsPage.calculateItemBilling(r, i).amount, 0) : 0;
 
                   return `
                     <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer; padding: 12px 14px; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;" onclick="RentalsPage.selectRecord('${r.id}')">
                       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                         <div style="font-weight: 700; color: var(--text-primary); font-size: 0.88rem;">📍 Site: ${r.siteName || '-'}</div>
-                        <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}" style="font-size: 0.7rem;">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
+                        ${RentalsPage.getContractStatusBadge(r)}
                       </div>
                       <div style="font-size: 0.8rem; color: var(--text-tertiary); display:flex; justify-content:space-between; align-items:center;">
                         <span>Qty: ${totalItems} • ${days} Days • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.65rem;">${isMonthly ? 'Monthly' : 'Daily'}</span></span>
@@ -288,8 +284,7 @@ var RentalsPage = {
         const totalItems = r.items ? r.items.reduce((sum, i) => sum + parseFloat(i.quantity || 0), 0) : 0;
         const days = RentalsPage.getInclusiveDays(r.goingDate, r.comingDate);
         const isMonthly = r.billingBasis === 'Monthly';
-        const durationMultiplier = isMonthly ? (days / 30) : days;
-        const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+        const totalVal = r.items ? r.items.reduce((sum, i) => sum + RentalsPage.calculateItemBilling(r, i).amount, 0) : 0;
 
         return `
           <div class="list-item ${this.selectedId === r.id ? 'active' : ''}" style="cursor: pointer; padding: 16px; border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;" onclick="RentalsPage.selectRecord('${r.id}')">
@@ -297,7 +292,7 @@ var RentalsPage = {
               <div class="item-title" style="font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
                 👤 ${r.customerName}
               </div>
-              <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
+              ${RentalsPage.getContractStatusBadge(r)}
             </div>
             <div class="item-sub" style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
               📍 Site: ${r.siteName || '-'} • <span class="badge ${isMonthly ? 'badge-neutral' : 'badge-primary'}" style="font-size:0.7rem;">${isMonthly ? '📅 Monthly' : '☀️ Daily'}</span>
@@ -411,13 +406,11 @@ var RentalsPage = {
 
     monthRecords.forEach(r => {
       const days = this.getDaysInMonth(r.goingDate, r.comingDate, this.selectedMonth);
-      const isMonthly = r.billingBasis === 'Monthly';
-      const durationMultiplier = isMonthly ? (days / 30) : days;
 
       if (r.items && days > 0) {
         r.items.forEach(i => {
           totalItemsLeased += parseFloat(i.quantity || 0);
-          totalMonthlyBill += parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier;
+          totalMonthlyBill += RentalsPage.calculateItemBilling(r, i, this.selectedMonth).amount;
         });
       }
     });
@@ -612,8 +605,10 @@ var RentalsPage = {
               ` : monthRecords.map(r => {
                 const days = this.getDaysInMonth(r.goingDate, r.comingDate, this.selectedMonth);
                 const isMonthly = r.billingBasis === 'Monthly';
-                const durationMultiplier = isMonthly ? (days / 30) : days;
-                const totalVal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+                let totalVal = 0;
+                (r.items || []).forEach(i => {
+                  totalVal += RentalsPage.calculateItemBilling(r, i, this.selectedMonth).amount;
+                });
                 
                 const itemsSummary = (r.items || []).map(i => {
                   const m = materials.find(x => x.id === i.materialId);
@@ -646,7 +641,7 @@ var RentalsPage = {
                       ₹${Math.round(totalVal).toLocaleString('en-IN')}
                     </td>
                     <td>
-                      <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased' : 'Returned'}</span>
+                      ${RentalsPage.getContractStatusBadge(r)}
                     </td>
                     <td style="text-align: right;">
                       <button class="btn btn-sm btn-ghost" onclick="RentalsPage.selectRecord('${r.id}'); RentalsPage.switchTab('contracts');" title="View Contract Details">
@@ -762,6 +757,115 @@ var RentalsPage = {
     return months;
   },
 
+  getContractReturnSummary(r) {
+    const summary = {};
+    (r.items || []).forEach(i => {
+      summary[i.materialId] = {
+        materialId: i.materialId,
+        leased: parseFloat(i.quantity) || 0,
+        rate: parseFloat(i.rate) || 0,
+        returned: 0,
+        remaining: parseFloat(i.quantity) || 0
+      };
+    });
+
+    if (Array.isArray(r.returns) && r.returns.length > 0) {
+      r.returns.forEach(ret => {
+        (ret.items || []).forEach(ri => {
+          if (summary[ri.materialId]) {
+            summary[ri.materialId].returned += parseFloat(ri.quantity) || 0;
+          }
+        });
+      });
+      Object.keys(summary).forEach(mId => {
+        summary[mId].remaining = Math.max(0, summary[mId].leased - summary[mId].returned);
+      });
+    } else if (r.status === 'Returned' || r.comingDate) {
+      Object.keys(summary).forEach(mId => {
+        summary[mId].returned = summary[mId].leased;
+        summary[mId].remaining = 0;
+      });
+    }
+
+    return summary;
+  },
+
+  calculateItemBilling(r, item, targetMonth = null) {
+    const isMonthly = r.billingBasis === 'Monthly';
+    const mId = item.materialId;
+    const initialQty = parseFloat(item.quantity) || 0;
+    const rate = parseFloat(item.rate) || 0;
+
+    let totalAmount = 0;
+    let totalActiveDaysWeighted = 0;
+
+    const returnsForMat = [];
+    if (Array.isArray(r.returns) && r.returns.length > 0) {
+      r.returns.forEach(ret => {
+        (ret.items || []).forEach(ri => {
+          if (ri.materialId === mId && parseFloat(ri.quantity) > 0) {
+            returnsForMat.push({
+              returnDate: ret.returnDate,
+              qty: parseFloat(ri.quantity)
+            });
+          }
+        });
+      });
+    } else if (r.status === 'Returned' && r.comingDate) {
+      returnsForMat.push({
+        returnDate: r.comingDate,
+        qty: initialQty
+      });
+    }
+
+    let returnedSum = 0;
+    returnsForMat.forEach(b => {
+      returnedSum += b.qty;
+      const days = targetMonth
+        ? this.getDaysInMonth(r.goingDate, b.returnDate, targetMonth)
+        : this.getInclusiveDays(r.goingDate, b.returnDate);
+      const mult = isMonthly ? (days / 30) : days;
+      totalAmount += b.qty * rate * mult;
+      totalActiveDaysWeighted += b.qty * days;
+    });
+
+    const remainingQty = Math.max(0, initialQty - returnedSum);
+    if (remainingQty > 0) {
+      const endDate = r.comingDate || window.localDateStr();
+      const days = targetMonth
+        ? this.getDaysInMonth(r.goingDate, endDate, targetMonth)
+        : this.getInclusiveDays(r.goingDate, endDate);
+      const mult = isMonthly ? (days / 30) : days;
+      totalAmount += remainingQty * rate * mult;
+      totalActiveDaysWeighted += remainingQty * days;
+    }
+
+    return {
+      amount: totalAmount,
+      avgDays: initialQty > 0 ? (totalActiveDaysWeighted / initialQty) : 0,
+      returnedQty: returnedSum,
+      remainingQty: remainingQty
+    };
+  },
+
+  getContractStatusBadge(r) {
+    const summary = this.getContractReturnSummary(r);
+    let totalLeased = 0;
+    let totalReturned = 0;
+    Object.values(summary).forEach(s => {
+      totalLeased += s.leased;
+      totalReturned += s.returned;
+    });
+
+    if (r.status === 'Returned' || (totalLeased > 0 && totalReturned >= totalLeased)) {
+      return '<span class="badge badge-success" style="font-size: 0.75rem;">🟢 Fully Returned</span>';
+    } else if (totalReturned > 0) {
+      return `<span class="badge badge-info" style="font-size: 0.75rem;">🔵 Partial (${totalReturned}/${totalLeased} Returned)</span>`;
+    } else {
+      return '<span class="badge badge-warning" style="font-size: 0.75rem;">🟡 Active (Leased)</span>';
+    }
+  },
+
   renderDetails() {
     if (!this.selectedId) {
       return `
@@ -779,8 +883,23 @@ var RentalsPage = {
     const materials = Store.Materials.getSorted().filter(m => m.status !== 'Archived');
     const days = this.getInclusiveDays(r.goingDate, r.comingDate);
     const isMonthly = r.billingBasis === 'Monthly';
-    const durationMultiplier = isMonthly ? (days / 30) : days;
-    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
+
+    const summary = this.getContractReturnSummary(r);
+    let grandTotal = 0;
+    let totalLeasedQty = 0;
+    let totalReturnedQty = 0;
+    let totalRemainingQty = 0;
+
+    (r.items || []).forEach(i => {
+      const b = this.calculateItemBilling(r, i);
+      grandTotal += b.amount;
+      const s = summary[i.materialId] || {};
+      totalLeasedQty += (s.leased || 0);
+      totalReturnedQty += (s.returned || 0);
+      totalRemainingQty += (s.remaining || 0);
+    });
+
+    const isFullyReturned = totalRemainingQty === 0 && totalLeasedQty > 0;
     const contractMonths = this.getContractMonths(r.goingDate, r.comingDate);
 
     return `
@@ -792,12 +911,12 @@ var RentalsPage = {
           </p>
         </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          ${r.status === 'Active' ? `
-            <button class="btn btn-success" onclick="RentalsPage.markReturned()" style="display:inline-flex;align-items:center;gap:6px;">
-              ${Icons.check} Mark Returned
+          ${!isFullyReturned ? `
+            <button class="btn btn-success" onclick="RentalsPage.openSplitReturnModal('${r.id}')" style="display:inline-flex;align-items:center;gap:6px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.3);">
+              ↩️ Record Partial Return
             </button>
-            <button class="btn btn-primary" onclick="RentalsPage.setComingDatePrompt('${r.id}')" style="display:inline-flex;align-items:center;gap:6px;">
-              📅 Set Return Date
+            <button class="btn btn-primary" onclick="RentalsPage.markReturned()" style="display:inline-flex;align-items:center;gap:6px;">
+              ${Icons.check} Mark All Returned
             </button>
           ` : ''}
           <button class="btn btn-outline" onclick="RentalsPage.printChallan()" style="display:inline-flex;align-items:center;gap:6px;">
@@ -820,9 +939,9 @@ var RentalsPage = {
           </div>
         </div>
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
-          <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Coming Date (Return)</div>
+          <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Return Status</div>
           <div style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem; display:flex; align-items:center; gap:6px;">
-            ${Icons.calendar} ${r.comingDate || '<span style="color:#eab308;">Active / Ongoing</span>'}
+            ${isFullyReturned ? `📅 ${r.comingDate || 'Returned'}` : `<span style="color:#eab308; font-size:0.95rem;">Active (${totalRemainingQty} Pcs Remaining)</span>`}
           </div>
         </div>
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
@@ -834,26 +953,38 @@ var RentalsPage = {
         <div style="background: var(--bg-body); padding: 16px; border-radius: 10px; border: 1px solid var(--border-color);">
           <div style="font-size: 0.8rem; color: var(--text-tertiary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Contract Status</div>
           <div style="font-weight: 700;">
-            <span class="badge ${r.status === 'Active' ? 'badge-warning' : 'badge-success'}">${r.status === 'Active' ? 'Leased Out' : 'Returned'}</span>
+            ${this.getContractStatusBadge(r)}
           </div>
         </div>
       </div>
 
-      <h4 style="margin: 0 0 12px 0; font-size: 1.1rem; color: var(--text-primary);">Leased Materials</h4>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h4 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">Leased Materials & Return Progress</h4>
+        ${!isFullyReturned ? `
+          <button class="btn btn-sm btn-success" onclick="RentalsPage.openSplitReturnModal('${r.id}')" style="display:inline-flex; align-items:center; gap:4px; font-size:0.8rem;">
+            ↩️ Record Return Now
+          </button>
+        ` : ''}
+      </div>
+
       <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; margin-bottom:24px;">
         <table class="data-table" style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: var(--bg-body);">
               <th align="left" style="padding: 12px 16px;">Material</th>
-              <th align="center" style="padding: 12px 16px; text-align:center;">Qty Leased</th>
+              <th align="center" style="padding: 12px 16px; text-align:center;">Initial Leased</th>
+              <th align="center" style="padding: 12px 16px; text-align:center;">Returned</th>
+              <th align="center" style="padding: 12px 16px; text-align:center;">Remaining Active</th>
               <th align="right" style="padding: 12px 16px; text-align:right;">Rate (${isMonthly ? 'per Month' : 'per Day'})</th>
-              <th align="right" style="padding: 12px 16px; text-align:right;">Total Amount</th>
+              <th align="right" style="padding: 12px 16px; text-align:right;">Total Accrued</th>
             </tr>
           </thead>
           <tbody>
             ${r.items.map(i => {
               const mat = materials.find(m => m.id === i.materialId);
-              const total = parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier;
+              const b = this.calculateItemBilling(r, i);
+              const sum = summary[i.materialId] || { leased: i.quantity, returned: 0, remaining: i.quantity };
+
               return `
                 <tr style="border-bottom: 1px solid var(--border-color);">
                   <td style="padding: 14px 16px;">
@@ -861,13 +992,23 @@ var RentalsPage = {
                     <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat ? mat.sku : '-'}</div>
                   </td>
                   <td align="center" style="padding: 14px 16px; text-align:center; font-weight: 600;">
-                    ${i.quantity} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-secondary);">${mat ? mat.unit : ''}</span>
+                    ${sum.leased} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-secondary);">${mat ? mat.unit : ''}</span>
+                  </td>
+                  <td align="center" style="padding: 14px 16px; text-align:center; font-weight: 600;">
+                    <span class="badge ${sum.returned > 0 ? 'badge-success' : 'badge-neutral'}" style="font-size:0.85rem;">
+                      ${sum.returned} ${mat ? mat.unit : ''}
+                    </span>
+                  </td>
+                  <td align="center" style="padding: 14px 16px; text-align:center; font-weight: 700;">
+                    <span class="badge ${sum.remaining > 0 ? 'badge-warning' : 'badge-success'}" style="font-size:0.85rem;">
+                      ${sum.remaining} ${mat ? mat.unit : ''}
+                    </span>
                   </td>
                   <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 600; color: var(--text-secondary);">
                     ₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'mo' : 'day'}
                   </td>
                   <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 700; color: var(--success);">
-                    ₹${Math.round(total).toLocaleString('en-IN')}
+                    ₹${Math.round(b.amount).toLocaleString('en-IN')}
                   </td>
                 </tr>
               `;
@@ -876,7 +1017,13 @@ var RentalsPage = {
         </table>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; align-items: center; background: var(--bg-body); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-body); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 24px;">
+        <div>
+          <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Contract Material Progress</div>
+          <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
+            ${totalReturnedQty} of ${totalLeasedQty} items returned (${totalRemainingQty} active on site)
+          </div>
+        </div>
         <div style="text-align: right;">
           <div style="font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; margin-bottom: 4px;">Grand Total Revenue</div>
           <div style="font-size: 2rem; font-weight: 800; color: var(--success); line-height: 1;">
@@ -885,13 +1032,66 @@ var RentalsPage = {
         </div>
       </div>
 
+      <!-- Partial / Split Return Logs Section -->
+      ${(Array.isArray(r.returns) && r.returns.length > 0) ? `
+        <div class="card" style="padding: 20px; border: 1px solid var(--border-color); margin-bottom: 24px; background: var(--bg-card);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary); font-weight:700; display:flex; align-items:center; gap:8px;">
+              ↩️ Partial / Split Return Logs (${r.returns.length} Shipment Returns)
+            </h4>
+            ${!isFullyReturned ? `
+              <button class="btn btn-xs btn-success" onclick="RentalsPage.openSplitReturnModal('${r.id}')">+ Add Return</button>
+            ` : ''}
+          </div>
+          <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+            <table class="data-table" style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: var(--bg-body);">
+                  <th style="padding: 10px 14px; text-align: left;">Return Date</th>
+                  <th style="padding: 10px 14px; text-align: left;">Items Returned</th>
+                  <th style="padding: 10px 14px; text-align: left;">Notes / Slip</th>
+                  <th style="padding: 10px 14px; text-align: right;">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${r.returns.slice().sort((a,b) => new Date(b.returnDate) - new Date(a.returnDate)).map(ret => {
+                  const retItemsSummary = (ret.items || []).map(ri => {
+                    const mat = materials.find(m => m.id === ri.materialId);
+                    return `<strong>${ri.quantity}</strong> ${mat ? mat.name : 'Item'}`;
+                  }).join(', ');
+
+                  return `
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                      <td style="padding: 10px 14px; font-weight: 700; color: var(--text-primary);">
+                        📅 ${ret.returnDate}
+                      </td>
+                      <td style="padding: 10px 14px; color: var(--text-primary);">
+                        ${retItemsSummary || '-'}
+                      </td>
+                      <td style="padding: 10px 14px; color: var(--text-tertiary); font-size: 0.85rem;">
+                        ${ret.notes || '-'}
+                      </td>
+                      <td style="padding: 10px 14px; text-align: right;">
+                        <button class="btn btn-xs btn-ghost" onclick="RentalsPage.deleteSplitReturn('${ret.id || ret._id}')" style="color: var(--danger);" title="Delete this return log">
+                          ${Icons.trash || '✕'} Delete Log
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ` : ''}
+
       <!-- Month-Wise Rental Breakdown Card -->
       <div class="card" style="padding: 20px; border: 1px solid var(--border-color);">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
           <div>
             <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary); font-weight:700;">📅 Month-Wise Rental Breakdown & Slips</h4>
             <p style="margin:4px 0 0 0; font-size:0.85rem; color:var(--text-secondary);">
-              ${r.status === 'Active' ? '<span style="color:#059669; font-weight:700;">🔄 Auto Month-Addition Active:</span> Customer hasn\'t returned material yet. Every new month gets automatically added to the bill as time passes.' : 'Rental items returned. Final month-by-month breakdown below.'}
+              ${!isFullyReturned ? '<span style="color:#059669; font-weight:700;">🔄 Auto Month-Addition Active:</span> Customer hasn\'t fully returned material yet. Every new month gets automatically added to the bill as time passes.' : 'Rental items fully returned. Final month-by-month breakdown below.'}
             </p>
           </div>
         </div>
@@ -910,11 +1110,15 @@ var RentalsPage = {
               ${contractMonths.map((mStr, idx) => {
                 const isCurrentMonth = mStr === new Date().toISOString().slice(0, 7);
                 const mDays = RentalsPage.getDaysInMonth(r.goingDate, r.comingDate, mStr);
-                const mMultiplier = isMonthly ? (mDays / 30) : mDays;
-                const mTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * mMultiplier), 0) : 0;
+
+                let mTotal = 0;
+                (r.items || []).forEach(i => {
+                  mTotal += RentalsPage.calculateItemBilling(r, i, mStr).amount;
+                });
+
                 const mLabel = new Date(mStr + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 
-                const statusBadge = isCurrentMonth && r.status === 'Active'
+                const statusBadge = isCurrentMonth && !isFullyReturned
                   ? '<span class="badge badge-warning" style="font-size:0.75rem;">⏳ Current Month (Auto-Adding Daily)</span>'
                   : '<span class="badge badge-success" style="font-size:0.75rem;">✅ Month Bill Added</span>';
 
@@ -1222,6 +1426,219 @@ var RentalsPage = {
     this.refresh();
   },
 
+  openSplitReturnModal(contractId) {
+    const r = Store.RentalSites.getById(contractId || this.selectedId);
+    if (!r) return;
+    this.splitReturnContractId = r.id;
+
+    const materials = Store.Materials.getAll();
+    const summary = this.getContractReturnSummary(r);
+
+    const activeItems = r.items.filter(i => (summary[i.materialId]?.remaining || 0) > 0);
+    if (activeItems.length === 0) {
+      alert('All items in this contract are already fully returned!');
+      return;
+    }
+
+    const todayStr = window.localDateStr();
+
+    let modalHtml = `
+      <div class="modal-backdrop active" id="split-return-modal" style="display:flex; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:10000; padding:16px;">
+        <div class="modal card" style="max-width: 620px; width:100%; border-radius:12px; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); background:var(--bg-card);">
+          <div class="modal-header" style="padding:16px 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin: 0; font-size:1.2rem;">
+              ↩️ Record Partial / Split Return
+            </h3>
+            <button class="modal-close btn btn-ghost" onclick="RentalsPage.closeSplitReturnModal()" style="font-size:1.2rem; cursor:pointer;">${Icons.x || '✕'}</button>
+          </div>
+          <form onsubmit="event.preventDefault(); RentalsPage.saveSplitReturn();">
+            <div class="modal-body" style="padding: 20px; max-height:75vh; overflow-y:auto;">
+              <div style="background: var(--bg-body); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px;">
+                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">👤 ${r.customerName}</div>
+                <div style="font-size: 0.85rem; color: var(--text-tertiary);">📍 Site: ${r.siteName || '-'} • Dispatch Date: ${r.goingDate}</div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom:6px; display:block;">Return Date *</label>
+                <input type="date" class="form-control" id="split-return-date" required value="${todayStr}" min="${r.goingDate}" style="background: var(--bg-body); width:100%;">
+              </div>
+
+              <div class="form-group" style="margin-bottom: 16px;">
+                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; display: block;">Items Being Returned Now *</label>
+                <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+                  <table class="data-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                      <tr style="background: var(--bg-body);">
+                        <th style="padding: 10px 12px; text-align: left;">Material</th>
+                        <th style="padding: 10px 12px; text-align: center;">Leased / Returned</th>
+                        <th style="padding: 10px 12px; text-align: center;">Remaining</th>
+                        <th style="padding: 10px 12px; text-align: right; width: 140px;">Return Now</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${activeItems.map(i => {
+                        const mat = materials.find(m => m.id === i.materialId);
+                        const sum = summary[i.materialId];
+                        return `
+                          <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 10px 12px;">
+                              <strong style="color: var(--text-primary);">${mat ? mat.name : 'Material'}</strong>
+                            </td>
+                            <td align="center" style="padding: 10px 12px; font-size: 0.85rem; color: var(--text-secondary);">
+                              ${sum.leased} / ${sum.returned} ${mat ? mat.unit : ''}
+                            </td>
+                            <td align="center" style="padding: 10px 12px;">
+                              <span class="badge badge-warning" style="font-size: 0.85rem;">${sum.remaining} ${mat ? mat.unit : ''}</span>
+                            </td>
+                            <td align="right" style="padding: 10px 12px;">
+                              <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end;">
+                                <input type="number" class="form-control split-ret-qty" data-mat-id="${i.materialId}" data-max-qty="${sum.remaining}" min="0" max="${sum.remaining}" placeholder="0" style="width: 80px; text-align: right; background: var(--bg-body); font-weight: 700;">
+                                <button type="button" class="btn btn-xs btn-outline" onclick="this.previousElementSibling.value = ${sum.remaining}" title="Set max remaining">All</button>
+                              </div>
+                            </td>
+                          </tr>
+                        `;
+                      }).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="form-group" style="margin-bottom: 0;">
+                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom:6px; display:block;">Notes / Slip No. (Optional)</label>
+                <input type="text" class="form-control" id="split-return-notes" placeholder="e.g. Challan #104, Truck UP14-XX-1234" style="background: var(--bg-body); width:100%;">
+              </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background:var(--bg-card);">
+              <button type="button" class="btn btn-outline" onclick="RentalsPage.closeSplitReturnModal()">Cancel</button>
+              <button type="submit" class="btn btn-success" style="display: inline-flex; align-items: center; gap: 6px;">
+                ${Icons.check || '✓'} Save Partial Return Log
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    const existingModal = document.getElementById('split-return-modal');
+    if (existingModal) existingModal.remove();
+
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  },
+
+  closeSplitReturnModal() {
+    const el = document.getElementById('split-return-modal');
+    if (el) el.remove();
+  },
+
+  saveSplitReturn() {
+    if (!this.splitReturnContractId) return;
+    const r = Store.RentalSites.getById(this.splitReturnContractId);
+    if (!r) return;
+
+    const returnDate = document.getElementById('split-return-date')?.value;
+    if (!returnDate) {
+      alert('Please enter return date.');
+      return;
+    }
+    if (returnDate < r.goingDate) {
+      alert(`Return date cannot be earlier than going date (${r.goingDate}).`);
+      return;
+    }
+
+    const qtyInputs = document.querySelectorAll('.split-ret-qty');
+    const returnItems = [];
+    let hasQuantity = false;
+    let overflowError = false;
+
+    qtyInputs.forEach(inp => {
+      const matId = inp.getAttribute('data-mat-id');
+      const maxQty = parseFloat(inp.getAttribute('data-max-qty')) || 0;
+      const qty = parseFloat(inp.value) || 0;
+
+      if (qty > maxQty) {
+        alert(`Returned quantity cannot exceed remaining quantity (${maxQty}).`);
+        overflowError = true;
+        return;
+      }
+      if (qty > 0) {
+        hasQuantity = true;
+        returnItems.push({ materialId: matId, quantity: qty });
+      }
+    });
+
+    if (overflowError) return;
+
+    if (!hasQuantity) {
+      alert('Please enter a quantity greater than 0 for at least one item.');
+      return;
+    }
+
+    const notes = document.getElementById('split-return-notes')?.value.trim() || '';
+
+    const newReturnLog = {
+      id: 'ret_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+      returnDate: returnDate,
+      notes: notes,
+      items: returnItems,
+      createdAt: new Date().toISOString()
+    };
+
+    const existingReturns = Array.isArray(r.returns) ? [...r.returns] : [];
+    existingReturns.push(newReturnLog);
+
+    const summary = this.getContractReturnSummary({ ...r, returns: existingReturns });
+    let totalLeased = 0;
+    let totalReturned = 0;
+    Object.values(summary).forEach(s => {
+      totalLeased += s.leased;
+      totalReturned += s.returned;
+    });
+
+    const isFullyReturned = totalReturned >= totalLeased && totalLeased > 0;
+    const latestReturnDate = existingReturns.reduce((maxDate, ret) => (!maxDate || ret.returnDate > maxDate) ? ret.returnDate : maxDate, '');
+
+    Store.RentalSites.update(this.splitReturnContractId, {
+      returns: existingReturns,
+      status: isFullyReturned ? 'Returned' : 'Active',
+      comingDate: isFullyReturned ? latestReturnDate : (r.comingDate || '')
+    });
+
+    this.closeSplitReturnModal();
+    alert('Partial return recorded successfully!');
+    this.refresh();
+  },
+
+  deleteSplitReturn(returnId) {
+    if (!this.selectedId) return;
+    const r = Store.RentalSites.getById(this.selectedId);
+    if (!r || !Array.isArray(r.returns)) return;
+
+    if (!confirm('Are you sure you want to delete this return log entry? Remaining item balances will be adjusted.')) {
+      return;
+    }
+
+    const updatedReturns = r.returns.filter(ret => (ret.id || ret._id) !== returnId);
+    const summary = this.getContractReturnSummary({ ...r, returns: updatedReturns });
+    let totalLeased = 0;
+    let totalReturned = 0;
+    Object.values(summary).forEach(s => {
+      totalLeased += s.leased;
+      totalReturned += s.returned;
+    });
+
+    const isFullyReturned = totalReturned >= totalLeased && totalLeased > 0;
+
+    Store.RentalSites.update(this.selectedId, {
+      returns: updatedReturns,
+      status: isFullyReturned ? 'Returned' : 'Active',
+      comingDate: isFullyReturned ? (r.comingDate || window.localDateStr()) : ''
+    });
+
+    alert('Return log entry deleted.');
+    this.refresh();
+  },
+
   setComingDatePrompt(contractId) {
     const c = Store.RentalSites.getById(contractId);
     if (!c) return;
@@ -1243,12 +1660,32 @@ var RentalsPage = {
     if (!c) return;
 
     const returnDate = c.comingDate || window.localDateStr();
-    if (confirm(`Mark this rental contract as returned on ${returnDate}?`)) {
+    if (confirm(`Mark all remaining rental items as returned on ${returnDate}?`)) {
+      const summary = this.getContractReturnSummary(c);
+      const remainingItems = [];
+      Object.values(summary).forEach(s => {
+        if (s.remaining > 0) {
+          remainingItems.push({ materialId: s.materialId, quantity: s.remaining });
+        }
+      });
+
+      const existingReturns = Array.isArray(c.returns) ? [...c.returns] : [];
+      if (remainingItems.length > 0) {
+        existingReturns.push({
+          id: 'ret_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+          returnDate: returnDate,
+          notes: 'Full Return Completed',
+          items: remainingItems,
+          createdAt: new Date().toISOString()
+        });
+      }
+
       Store.RentalSites.update(this.selectedId, {
+        returns: existingReturns,
         comingDate: returnDate,
         status: 'Returned'
       });
-      alert('Rental contract status updated to Returned!');
+      alert('Rental contract status updated to Fully Returned!');
       this.refresh();
     }
   },
@@ -1271,26 +1708,61 @@ var RentalsPage = {
     const materials = Store.Materials.getAll();
     const days = this.getInclusiveDays(r.goingDate, r.comingDate);
     const isMonthly = r.billingBasis === 'Monthly';
-    const durationMultiplier = isMonthly ? (days / 30) : days;
-    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
-    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const summary = this.getContractReturnSummary(r);
 
-    const rows = r.items.map((i, idx) => {
+    let grandTotal = 0;
+    const rows = (r.items || []).map((i, idx) => {
       const mat = materials.find(m => m.id === i.materialId);
-      const total = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
+      const b = this.calculateItemBilling(r, i);
+      grandTotal += b.amount;
+      const s = summary[i.materialId] || { leased: i.quantity, returned: 0, remaining: i.quantity };
+
       return `
         <tr>
           <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${idx + 1}</td>
           <td style="border: 1px solid #cbd5e1; padding: 10px;">
-            <strong>${mat ? mat.name : 'Unknown Material'}</strong> (${i.quantity} ${mat ? mat.unit : ''})
+            <strong>${mat ? mat.name : 'Unknown Material'}</strong>
+            <div style="font-size:11px; color:#64748b;">Leased: ${s.leased} ${mat ? mat.unit : ''} | Returned: ${s.returned} | Remaining: ${s.remaining}</div>
           </td>
           <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${r.goingDate}</td>
-          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center; font-weight: bold;">${days} Days</td>
-          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}</td>
-          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-weight: bold; color: #059669;">₹${total.toLocaleString('en-IN')}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center; font-weight: bold;">${Math.round(b.avgDays)} Days avg</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'mo' : 'day'}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-weight: bold; color: #059669;">₹${Math.round(b.amount).toLocaleString('en-IN')}</td>
         </tr>
       `;
     }).join('');
+
+    const returnsHtml = (Array.isArray(r.returns) && r.returns.length > 0) ? `
+      <div style="margin-bottom: 24px;">
+        <h4 style="color: #1e40af; margin-bottom: 8px; font-size: 13px; text-transform: uppercase;">Shipment Return Logs (Partial Returns Received)</h4>
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 120px;">Return Date</th>
+              <th>Items Returned</th>
+              <th>Notes / Slip No</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${r.returns.slice().sort((a,b) => new Date(a.returnDate) - new Date(b.returnDate)).map(ret => {
+              const itemsList = (ret.items || []).map(ri => {
+                const mat = materials.find(m => m.id === ri.materialId);
+                return `${ri.quantity} ${mat ? mat.name : 'Item'}`;
+              }).join(', ');
+              return `
+                <tr>
+                  <td><strong>${ret.returnDate}</strong></td>
+                  <td>${itemsList || '-'}</td>
+                  <td>${ret.notes || '-'}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    ` : '';
+
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`<!DOCTYPE html>
@@ -1306,12 +1778,12 @@ var RentalsPage = {
           .card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
           .card h4 { color: #1e40af; margin-bottom: 8px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; }
           .card p { font-size: 13px; margin-bottom: 4px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
           th { background: #0f172a; color: white; border: 1px solid #0f172a; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; }
           td { border: 1px solid #cbd5e1; padding: 10px; font-size: 13px; }
           .total-section { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
           .total-card { border: 2px solid #10b981; background: #ecfdf5; border-radius: 8px; padding: 16px; min-width: 250px; text-align: right; }
-          .footer { margin-top: 50px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
+          .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 20px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; }
           .sig-line { border-top: 1px solid #94a3b8; width: 200px; margin-top: 40px; text-align: center; padding-top: 8px; }
         </style>
       </head>
@@ -1338,7 +1810,7 @@ var RentalsPage = {
             <p><strong>Going Date:</strong> ${r.goingDate}</p>
             <p><strong>Coming Date:</strong> ${r.comingDate || 'Active / Ongoing'}</p>
             <p><strong>Billing Basis:</strong> ${isMonthly ? 'MONTHLY BASIS' : 'DAILY BASIS'}</p>
-            <p><strong>Duration:</strong> ${days} Days ${r.comingDate ? `(${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})` : '(Active Till Today)'}</p>
+            <p><strong>Total Duration:</strong> ${days} Days ${r.comingDate ? `(${isMonthly ? (days/30).toFixed(1) + ' Months' : 'Inclusive'})` : '(Active Till Today)'}</p>
           </div>
         </div>
 
@@ -1346,9 +1818,9 @@ var RentalsPage = {
           <thead>
             <tr>
               <th style="width: 60px; text-align: center;">S.No</th>
-              <th>ITEM Description</th>
+              <th>ITEM Description & Balance</th>
               <th style="width: 120px; text-align: center;">Date</th>
-              <th style="width: 90px; text-align: center;">Days</th>
+              <th style="width: 100px; text-align: center;">Duration</th>
               <th style="width: 110px; text-align: right;">Rate (₹)</th>
               <th style="width: 130px; text-align: right;">Amount (₹)</th>
             </tr>
@@ -1357,6 +1829,8 @@ var RentalsPage = {
             ${rows}
           </tbody>
         </table>
+
+        ${returnsHtml}
 
         <div class="total-section">
           <div style="font-weight: 700; font-size: 14px; color: #1e40af; border: 1px solid #93c5fd; background: #eff6ff; padding: 10px 16px; border-radius: 6px;">
@@ -1403,20 +1877,12 @@ var RentalsPage = {
     const materials = Store.Materials.getAll();
     const daysInMonth = this.getDaysInMonth(r.goingDate, r.comingDate, targetMonthStr);
     const isMonthly = r.billingBasis === 'Monthly';
-    const durationMultiplier = isMonthly ? (daysInMonth / 30) : daysInMonth;
 
-    const grandTotal = r.items ? r.items.reduce((sum, i) => sum + (parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier), 0) : 0;
-    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-
-    const monthLabel = new Date(targetMonthStr + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-    const yearStr = targetMonthStr.split('-')[0];
-    const monthStr = targetMonthStr.split('-')[1];
-    const lastDayNum = new Date(yearStr, monthStr, 0).getDate();
-    const monthRangeStr = `01-${monthStr}-${yearStr} TO ${lastDayNum}-${monthStr}-${yearStr}`;
-
+    let grandTotal = 0;
     const rows = (r.items || []).map((i, idx) => {
       const mat = materials.find(m => m.id === i.materialId);
-      const total = Math.round(parseFloat(i.quantity || 0) * parseFloat(i.rate || 0) * durationMultiplier);
+      const b = this.calculateItemBilling(r, i, targetMonthStr);
+      grandTotal += b.amount;
       return `
         <tr>
           <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${idx + 1}</td>
@@ -1426,10 +1892,18 @@ var RentalsPage = {
           <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center;">${r.goingDate}</td>
           <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: center; font-weight: bold;">${daysInMonth} Days</td>
           <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right;">₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'mo' : 'day'}</td>
-          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-weight: bold; color: #059669;">₹${total.toLocaleString('en-IN')}</td>
+          <td style="border: 1px solid #cbd5e1; padding: 10px; text-align: right; font-weight: bold; color: #059669;">₹${Math.round(b.amount).toLocaleString('en-IN')}</td>
         </tr>
       `;
     }).join('');
+
+    const today = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const monthLabel = new Date(targetMonthStr + '-01').toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+    const yearStr = targetMonthStr.split('-')[0];
+    const monthStr = targetMonthStr.split('-')[1];
+    const lastDayNum = new Date(yearStr, monthStr, 0).getDate();
+    const monthRangeStr = `01-${monthStr}-${yearStr} TO ${lastDayNum}-${monthStr}-${yearStr}`;
 
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`<!DOCTYPE html>
