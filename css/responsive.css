@@ -388,3 +388,91 @@ body {
     max-width: 120px;
   }
 }
+
+/* ===== RENTAL SITES & SPLIT RETURN MOBILE / IPAD OPTIMIZATIONS ===== */
+
+/* Split layout on iPad and Mobile */
+@media (max-width: 1024px) {
+  .split-layout {
+    grid-template-columns: 1fr !important;
+    height: auto !important;
+    gap: 16px !important;
+  }
+
+  .split-layout .side-list {
+    max-height: 380px !important;
+  }
+
+  .split-layout .detail-panel {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+}
+
+/* Split Return Modal on Mobile (<640px) */
+@media (max-width: 640px) {
+  #split-return-modal {
+    padding: 0 !important;
+    align-items: flex-end !important;
+  }
+
+  #split-return-modal .modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 90vh !important;
+  }
+
+  #split-return-modal .modal-body {
+    max-height: calc(90vh - 120px) !important;
+    padding: 14px !important;
+  }
+
+  /* Prevent iOS zoom on input focus */
+  #split-return-modal input,
+  #split-return-modal select {
+    font-size: 16px !important;
+  }
+
+  .split-ret-qty {
+    width: 70px !important;
+    font-size: 16px !important;
+  }
+
+  /* Compact button styling on mobile header */
+  .page-header-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .page-header-actions .btn {
+    flex: 1;
+    min-width: 140px;
+    justify-content: center;
+  }
+}
+
+/* iPad / Tablet (768px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  #split-return-modal .modal {
+    max-width: 580px !important;
+    width: 90vw !important;
+  }
+}
+
+/* Multi-select Popovers on Mobile */
+@media (max-width: 480px) {
+  .multi-select-popover {
+    width: calc(100vw - 32px) !important;
+    left: -10px !important;
+  }
+
+  .multi-select-container {
+    width: 100%;
+  }
+
+  .multi-select-container .btn {
+    width: 100%;
+    justify-content: space-between;
+  }
+}

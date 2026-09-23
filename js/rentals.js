@@ -1376,6 +1376,12 @@ var RentalsPage = {
     this.selectedId = id;
     this.isEditing = false;
     this.refresh();
+    if (window.innerWidth <= 1024) {
+      setTimeout(() => {
+        const detailEl = document.querySelector('.detail-panel');
+        if (detailEl) detailEl.scrollIntoView({ behavior: 'smooth' });
+      }, 50);
+    }
   },
 
   save() {
