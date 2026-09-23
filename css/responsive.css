@@ -420,12 +420,45 @@ body {
     max-width: 100% !important;
     width: 100% !important;
     border-radius: 20px 20px 0 0 !important;
-    max-height: 90vh !important;
+    max-height: 85vh !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  #split-return-modal form {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+    margin: 0 !important;
   }
 
   #split-return-modal .modal-body {
-    max-height: calc(90vh - 120px) !important;
+    flex: 1 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
     padding: 14px !important;
+    max-height: none !important;
+  }
+
+  #split-return-modal .modal-footer {
+    flex-shrink: 0 !important;
+    padding: 12px 14px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 8px !important;
+    background: var(--bg-card) !important;
+    border-top: 1px solid var(--border-color) !important;
+  }
+
+  #split-return-modal .modal-footer .btn {
+    flex: 1 !important;
+    min-width: 0 !important;
+    font-size: 0.88rem !important;
+    padding: 10px 8px !important;
+    height: 42px !important;
   }
 
   /* Prevent iOS zoom on input focus */
@@ -435,7 +468,7 @@ body {
   }
 
   .split-ret-qty {
-    width: 70px !important;
+    width: 75px !important;
     font-size: 16px !important;
   }
 

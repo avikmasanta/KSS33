@@ -1450,75 +1450,66 @@ var RentalsPage = {
 
     let modalHtml = `
       <div class="modal-backdrop active" id="split-return-modal" style="display:flex; align-items:center; justify-content:center; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.5); z-index:10000; padding:16px;">
-        <div class="modal card" style="max-width: 620px; width:100%; border-radius:12px; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); background:var(--bg-card);">
-          <div class="modal-header" style="padding:16px 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin: 0; font-size:1.2rem;">
+        <div class="modal card" style="max-width: 580px; width:100%; border-radius:14px; overflow:hidden; box-shadow:0 20px 25px -5px rgba(0,0,0,0.3); background:var(--bg-card); max-height:85vh; display:flex; flex-direction:column;">
+          <div class="modal-header" style="padding:14px 18px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border-bottom: 1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+            <h3 style="color: var(--text-primary); display: flex; align-items: center; gap: 8px; margin: 0; font-size:1.15rem;">
               ↩️ Record Partial / Split Return
             </h3>
             <button class="modal-close btn btn-ghost" onclick="RentalsPage.closeSplitReturnModal()" style="font-size:1.2rem; cursor:pointer;">${Icons.x || '✕'}</button>
           </div>
-          <form onsubmit="event.preventDefault(); RentalsPage.saveSplitReturn();">
-            <div class="modal-body" style="padding: 20px; max-height:75vh; overflow-y:auto;">
-              <div style="background: var(--bg-body); padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 16px;">
+          <form onsubmit="event.preventDefault(); RentalsPage.saveSplitReturn();" style="display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden; margin:0;">
+            <div class="modal-body" style="padding: 16px 18px; overflow-y:auto; flex:1; min-height:0;">
+              <div style="background: var(--bg-body); padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 14px;">
                 <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">👤 ${r.customerName}</div>
-                <div style="font-size: 0.85rem; color: var(--text-tertiary);">📍 Site: ${r.siteName || '-'} • Dispatch Date: ${r.goingDate}</div>
+                <div style="font-size: 0.8rem; color: var(--text-tertiary); margin-top:2px;">📍 Site: ${r.siteName || '-'} • Dispatch Date: ${r.goingDate}</div>
               </div>
 
-              <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom:6px; display:block;">Return Date *</label>
-                <input type="date" class="form-control" id="split-return-date" required value="${todayStr}" min="${r.goingDate}" style="background: var(--bg-body); width:100%;">
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom:6px; display:block; font-size:0.88rem;">Return Date *</label>
+                <input type="date" class="form-control" id="split-return-date" required value="${todayStr}" min="${r.goingDate}" style="background: var(--bg-body); width:100%; height:40px; font-weight:600;">
               </div>
 
-              <div class="form-group" style="margin-bottom: 16px;">
-                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; display: block;">Items Being Returned Now *</label>
-                <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
-                  <table class="data-table" style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                      <tr style="background: var(--bg-body);">
-                        <th style="padding: 10px 12px; text-align: left;">Material</th>
-                        <th style="padding: 10px 12px; text-align: center;">Leased / Returned</th>
-                        <th style="padding: 10px 12px; text-align: center;">Remaining</th>
-                        <th style="padding: 10px 12px; text-align: right; width: 140px;">Return Now</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${activeItems.map(i => {
-                        const mat = materials.find(m => m.id === i.materialId);
-                        const sum = summary[i.materialId];
-                        return `
-                          <tr style="border-bottom: 1px solid var(--border-color);">
-                            <td style="padding: 10px 12px;">
-                              <strong style="color: var(--text-primary);">${mat ? mat.name : 'Material'}</strong>
-                            </td>
-                            <td align="center" style="padding: 10px 12px; font-size: 0.85rem; color: var(--text-secondary);">
-                              ${sum.leased} / ${sum.returned} ${mat ? mat.unit : ''}
-                            </td>
-                            <td align="center" style="padding: 10px 12px;">
-                              <span class="badge badge-warning" style="font-size: 0.85rem;">${sum.remaining} ${mat ? mat.unit : ''}</span>
-                            </td>
-                            <td align="right" style="padding: 10px 12px;">
-                              <div style="display: flex; gap: 6px; align-items: center; justify-content: flex-end;">
-                                <input type="number" class="form-control split-ret-qty" data-mat-id="${i.materialId}" data-max-qty="${sum.remaining}" min="0" max="${sum.remaining}" placeholder="0" style="width: 80px; text-align: right; background: var(--bg-body); font-weight: 700;">
-                                <button type="button" class="btn btn-xs btn-outline" onclick="this.previousElementSibling.value = ${sum.remaining}" title="Set max remaining">All</button>
-                              </div>
-                            </td>
-                          </tr>
-                        `;
-                      }).join('')}
-                    </tbody>
-                  </table>
+              <div class="form-group" style="margin-bottom: 14px;">
+                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; display: block; font-size:0.88rem;">Items Being Returned Now *</label>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  ${activeItems.map(i => {
+                    const mat = materials.find(m => m.id === i.materialId);
+                    const sum = summary[i.materialId];
+                    return `
+                      <div style="background: var(--bg-body); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; transition: border-color 0.2s;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+                          <div>
+                            <strong style="font-size: 0.95rem; color: var(--text-primary); display:block;">${mat ? mat.name : 'Material'}</strong>
+                            <div style="font-size: 0.78rem; color: var(--text-tertiary); margin-top: 2px;">
+                              Leased: ${sum.leased} ${mat ? mat.unit : ''} • Returned: ${sum.returned} ${mat ? mat.unit : ''}
+                            </div>
+                          </div>
+                          <span class="badge badge-warning" style="font-size: 0.8rem; padding: 4px 8px; flex-shrink:0;">
+                            ${sum.remaining} ${mat ? mat.unit : ''} Left
+                          </span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; background: var(--bg-card); padding: 8px 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+                          <label style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin:0;">Return Qty Now:</label>
+                          <div style="display: flex; gap: 6px; align-items: center;">
+                            <input type="number" class="form-control split-ret-qty" data-mat-id="${i.materialId}" data-max-qty="${sum.remaining}" min="0" max="${sum.remaining}" placeholder="0" style="width: 85px; text-align: right; background: var(--bg-body); font-weight: 700; height: 36px; font-size: 1rem;">
+                            <button type="button" class="btn btn-xs btn-outline" onclick="this.previousElementSibling.value = ${sum.remaining}" style="padding: 6px 10px; font-weight: 600; white-space:nowrap;" title="Set max remaining">All</button>
+                          </div>
+                        </div>
+                      </div>
+                    `;
+                  }).join('')}
                 </div>
               </div>
 
               <div class="form-group" style="margin-bottom: 0;">
-                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom:6px; display:block;">Notes / Slip No. (Optional)</label>
-                <input type="text" class="form-control" id="split-return-notes" placeholder="e.g. Challan #104, Truck UP14-XX-1234" style="background: var(--bg-body); width:100%;">
+                <label style="font-weight: 600; color: var(--text-secondary); margin-bottom:6px; display:block; font-size:0.88rem;">Notes / Slip No. (Optional)</label>
+                <input type="text" class="form-control" id="split-return-notes" placeholder="e.g. Challan #104, Truck UP14-XX-1234" style="background: var(--bg-body); width:100%; height:40px;">
               </div>
             </div>
-            <div class="modal-footer" style="padding: 16px 20px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background:var(--bg-card);">
-              <button type="button" class="btn btn-outline" onclick="RentalsPage.closeSplitReturnModal()">Cancel</button>
-              <button type="submit" class="btn btn-success" style="display: inline-flex; align-items: center; gap: 6px;">
-                ${Icons.check || '✓'} Save Partial Return Log
+            <div class="modal-footer" style="padding: 12px 18px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; gap: 10px; background:var(--bg-card); flex-shrink:0;">
+              <button type="button" class="btn btn-outline" onclick="RentalsPage.closeSplitReturnModal()" style="flex:1; max-width:130px; justify-content:center; height:42px;">Cancel</button>
+              <button type="submit" class="btn btn-success" style="flex:1; max-width:200px; justify-content:center; display: inline-flex; align-items: center; gap: 6px; height:42px; font-weight:700;">
+                ${Icons.check || '✓'} Save Return Log
               </button>
             </div>
           </form>
