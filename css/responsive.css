@@ -124,37 +124,38 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ===== DATA TABLES (Touch-scrollable & Non-distorted on Mobile) ===== */
+.table-container {
+  width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  border-radius: var(--card-radius);
+}
+
 @media (max-width: 768px), html[data-view-mode="mobile"] {
   .data-table {
-    min-width: 100% !important;
-    width: 100% !important;
-    table-layout: auto;
+    min-width: 640px !important;
+    width: 100%;
+    table-layout: auto !important;
   }
 
   .data-table th,
   .data-table td {
-    padding: 8px 6px !important;
-    font-size: 0.78rem !important;
-    white-space: normal !important;
-    word-break: break-word;
+    padding: 10px 12px !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
   }
 
   .table-actions {
-    flex-wrap: wrap !important;
-    gap: 4px;
+    flex-wrap: nowrap !important;
+    gap: 6px;
   }
 
   .btn-icon {
-    width: 32px;
-    height: 32px;
-  }
-}
-
-@media (max-width: 480px) {
-  .data-table th,
-  .data-table td {
-    padding: 6px 4px !important;
-    font-size: 0.72rem !important;
+    width: 34px;
+    height: 34px;
   }
 }
 
