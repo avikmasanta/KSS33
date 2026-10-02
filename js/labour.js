@@ -976,21 +976,21 @@ var LabourPage = {
 
     return `
       <div class="card" style="margin-bottom: 24px;">
-        <div class="card-body" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between;">
-          <div class="form-group" style="margin:0; min-width:200px;">
-            <label style="font-weight:600;margin-bottom:4px;">Attendance Date</label>
+        <div class="card-body log-controls-bar" style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; justify-content:space-between;">
+          <div class="form-group log-control-item" style="margin:0; min-width:200px;">
+            <label style="font-weight:600;margin-bottom:4px;display:block;">Attendance Date</label>
             <input type="date" id="daily-log-date" class="form-control" value="${this.logDate}" onchange="LabourPage.onLogDateChange(event)">
           </div>
-          <div class="form-group" style="margin:0; min-width:240px;">
-            <label style="font-weight:600;margin-bottom:4px;">Bulk Set Site (Optional)</label>
+          <div class="form-group log-control-item" style="margin:0; min-width:240px;">
+            <label style="font-weight:600;margin-bottom:4px;display:block;">Bulk Set Site (Optional)</label>
             <select id="global-site-select" class="form-control" onchange="LabourPage.onGlobalSiteChange(event)">
               <option value="">-- No Global Site (Individual override) --</option>
               ${sites.map(s => `<option value="${s.id}" ${this.globalSiteId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
             </select>
           </div>
-          <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <div class="log-actions-bar" style="display:flex; gap:10px; flex-wrap:wrap;">
             <button class="btn btn-outline" onclick="LabourPage.printDailyAttendanceSheet()" style="height:42px; display:inline-flex; align-items:center; gap:6px;">
-              ${Icons.printer || Icons.fileText} Print Daily Attendance Sheet
+              ${Icons.printer || Icons.fileText} Print Sheet
             </button>
             <button class="btn btn-success" onclick="LabourPage.saveDailyLogs()" style="height:42px; display:inline-flex; align-items:center; gap:6px;">
               ${Icons.check} Save All logs
@@ -1000,11 +1000,12 @@ var LabourPage = {
       </div>
 
       <div class="card">
-        <div class="card-header">
-          <h3>Daily Log sheet</h3>
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <h3 style="margin:0;">Daily Log sheet</h3>
+          <span class="badge badge-primary mobile-only-inline" style="display:none; font-size:0.75rem;">📱 Mobile Cards View</span>
         </div>
-        <div class="table-container">
-          <table class="data-table" style="min-width: 900px;">
+        <div class="table-container log-table-container">
+          <table class="data-table responsive-log-table">
             <thead>
               <tr>
                 <th>Labour Name</th>
@@ -1044,12 +1045,14 @@ var LabourPage = {
 
                 return `
                   <tr data-labour-id="${l.id}">
-                    <td>
-                      <strong>${l.name}</strong>
-                      ${l.nickname ? `<br><span style="font-size:11px;color:var(--text-tertiary);">(${l.nickname})</span>` : ''}
+                    <td data-label="Labour Name" class="td-labour-name">
+                      <div class="labour-name-wrapper">
+                        <strong>${l.name}</strong>
+                        ${l.nickname ? `<span class="labour-nickname">(${l.nickname})</span>` : ''}
+                      </div>
                     </td>
-                    <td>
-                      <div class="attendance-buttons" style="display:flex; gap:4px;">
+                    <td data-label="Attendance Status" class="td-attendance">
+                      <div class="attendance-buttons" style="display:flex; gap:4px; width:100%;">
                         <button type="button" class="btn btn-sm att-btn ${att === 'Present' ? 'btn-success' : 'btn-outline'}" 
                                 style="flex:1; border-color:var(--success); color:${att === 'Present' ? 'white' : 'var(--success)'}; font-weight:600;"
                                 onclick="LabourPage.setAttStatus(this, 'Present')">Present</button>
@@ -1061,27 +1064,27 @@ var LabourPage = {
                                 onclick="LabourPage.setAttStatus(this, 'Absent')">Absent</button>
                       </div>
                     </td>
-                    <td>
-                      <select class="form-control log-site" style="height:36px; padding:0 8px;" onchange="LabourPage.markDirty()">
-                        <option value="">-- Select --</option>
+                    <td data-label="Site Location" class="td-site">
+                      <select class="form-control log-site" style="height:36px; padding:0 8px; width:100%;" onchange="LabourPage.markDirty()">
+                        <option value="">-- Select Site --</option>
                         ${sites.map(s => `<option value="${s.id}" ${siteId === s.id ? 'selected' : ''}>${s.name}</option>`).join('')}
                       </select>
                     </td>
-                    <td>
-                      <input type="number" class="form-control log-wage" value="${wage || ''}" style="height:36px; text-align:right; font-weight:600;" min="0" oninput="LabourPage.updateOtDisplay(this)" onfocus="if(this.value==='0') this.value=''; this.select()">
+                    <td data-label="Daily Wage (₹)" class="td-wage">
+                      <input type="number" class="form-control log-wage" value="${wage || ''}" style="height:36px; text-align:right; font-weight:600; width:100%;" min="0" oninput="LabourPage.updateOtDisplay(this)" onfocus="if(this.value==='0') this.value=''; this.select()">
                     </td>
-                    <td>
-                      <div style="display:flex; flex-direction:column; gap:2px;">
-                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours || ''}" style="height:36px; text-align:right; font-weight:600;" min="0" step="0.5" placeholder="0" oninput="LabourPage.updateOtDisplay(this)" onfocus="if(this.value==='0') this.value=''; this.select()">
+                    <td data-label="Overtime Hrs" class="td-ot">
+                      <div style="display:flex; flex-direction:column; gap:2px; width:100%;">
+                        <input type="number" class="form-control log-ot-hours" value="${overtimeHours || ''}" style="height:36px; text-align:right; font-weight:600; width:100%;" min="0" step="0.5" placeholder="0" oninput="LabourPage.updateOtDisplay(this)" onfocus="if(this.value==='0') this.value=''; this.select()">
                         <input type="hidden" class="log-ot-time" value="${otTime}">
                         <span class="log-ot-calc" style="font-size:11px; font-weight:600; color:#7c3aed; text-align:right; display:${overtimeHours > 0 ? 'block' : 'none'};">= ₹${otPay}</span>
                       </div>
                     </td>
-                    <td>
-                      <input type="number" class="form-control log-money" value="${money || ''}" style="height:36px; text-align:right; font-weight:600;" min="0" placeholder="0" oninput="LabourPage.markDirty()" onfocus="if(this.value==='0') this.value=''; this.select()">
+                    <td data-label="Money Paid (₹)" class="td-money">
+                      <input type="number" class="form-control log-money" value="${money || ''}" style="height:36px; text-align:right; font-weight:600; width:100%;" min="0" placeholder="0" oninput="LabourPage.markDirty()" onfocus="if(this.value==='0') this.value=''; this.select()">
                     </td>
-                    <td>
-                      <input type="text" class="form-control log-notes" value="${note}" placeholder="Optional notes" style="height:36px;" oninput="LabourPage.markDirty()">
+                    <td data-label="Notes / Remarks" class="td-notes">
+                      <input type="text" class="form-control log-notes" value="${note}" placeholder="Optional notes" style="height:36px; width:100%;" oninput="LabourPage.markDirty()">
                     </td>
                   </tr>
                 `;
@@ -1089,6 +1092,11 @@ var LabourPage = {
               ${activeLabours.length === 0 ? '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-tertiary);">No active labours to log attendance. Create active labours in the Labour Master tab first.</td></tr>' : ''}
             </tbody>
           </table>
+        </div>
+        <div style="padding: 16px; background: var(--card-bg); border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end;">
+          <button class="btn btn-success btn-lg mobile-full-btn" onclick="LabourPage.saveDailyLogs()" style="height:46px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-size:1rem; font-weight:700; padding:0 24px;">
+            ${Icons.check} Save All Logs Sheet
+          </button>
         </div>
       </div>
     `;

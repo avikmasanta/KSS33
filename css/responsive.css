@@ -385,6 +385,175 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
   }
 }
 
+/* ===== RESPONSIVE DAILY LOG SHEET MOBILE CARDS TRANSFORM ===== */
+@media (max-width: 768px), html[data-view-mode="mobile"] {
+  .mobile-only-inline {
+    display: inline-flex !important;
+  }
+
+  .log-controls-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 12px !important;
+  }
+
+  .log-control-item {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+  }
+
+  .log-actions-bar {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .log-actions-bar .btn {
+    flex: 1 !important;
+    min-height: 44px !important;
+    justify-content: center !important;
+    font-size: 0.88rem !important;
+  }
+
+  .mobile-full-btn {
+    width: 100% !important;
+    min-height: 48px !important;
+  }
+
+  /* Transform Daily Log Table into Mobile Cards */
+  .log-table-container {
+    border: none !important;
+    background: transparent !important;
+    overflow-x: visible !important;
+    margin-bottom: 0 !important;
+    box-shadow: none !important;
+  }
+
+  table.responsive-log-table {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    border: none !important;
+  }
+
+  table.responsive-log-table thead {
+    display: none !important;
+  }
+
+  table.responsive-log-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+
+  table.responsive-log-table tr[data-labour-id] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    padding: 16px 18px !important;
+    background: var(--card-bg) !important;
+    border: 1.5px solid var(--border-color) !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05) !important;
+    width: 100% !important;
+  }
+
+  table.responsive-log-table td {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    padding: 0 !important;
+    border: none !important;
+    width: 100% !important;
+    white-space: normal !important;
+  }
+
+  table.responsive-log-table td::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Header of worker card */
+  table.responsive-log-table td.td-labour-name {
+    border-bottom: 1px solid var(--border-color) !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 2px !important;
+  }
+
+  table.responsive-log-table td.td-labour-name::before {
+    display: none !important;
+  }
+
+  table.responsive-log-table .labour-name-wrapper {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  table.responsive-log-table .labour-name-wrapper strong {
+    font-size: 1.15rem;
+    color: var(--text-primary);
+    font-weight: 700;
+  }
+
+  table.responsive-log-table .labour-nickname {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+
+  /* Touch Attendance Buttons */
+  table.responsive-log-table .attendance-buttons {
+    display: flex !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  table.responsive-log-table .attendance-buttons .att-btn {
+    min-height: 42px !important;
+    font-size: 0.88rem !important;
+    border-radius: 8px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* Inputs on mobile card */
+  table.responsive-log-table .form-control {
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 16px !important; /* Prevents iOS auto-zoom */
+    border-radius: 8px !important;
+    text-align: left !important;
+    padding: 0 12px !important;
+  }
+
+  /* Notes Input section: 100% full width, spacious and easy to read */
+  table.responsive-log-table td.td-notes {
+    margin-top: 4px !important;
+    width: 100% !important;
+  }
+
+  table.responsive-log-table .log-notes {
+    width: 100% !important;
+    min-height: 46px !important;
+    font-size: 16px !important;
+    padding: 10px 14px !important;
+    border-radius: 10px !important;
+    border: 1.5px solid var(--border-color) !important;
+    background: var(--page-bg) !important;
+    color: var(--text-primary) !important;
+  }
+}
+
+
 /* ===== MODALS & BOTTOM SHEETS ON MOBILE ===== */
 @media (max-width: 640px), html[data-view-mode="mobile"] {
   .modal-backdrop {
