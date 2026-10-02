@@ -66,6 +66,8 @@
     if (localStorage.getItem('theme') === 'dark') {
       document.documentElement.setAttribute('data-theme', 'dark');
     }
+    var viewMode = localStorage.getItem('kss_view_mode') || 'auto';
+    document.documentElement.setAttribute('data-view-mode', viewMode);
     window.onerror = function(message, source, lineno, colno, error) {
       console.error("JavaScript Error: " + message + " | Line: " + lineno);
       return true;

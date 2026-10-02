@@ -106,6 +106,116 @@ var App = (() => {
     navigate(getHash());
   }
 
+  function getViewMode() {
+    return localStorage.getItem('kss_view_mode') || 'auto';
+  }
+
+  function setViewMode(mode) {
+    if (!['auto', 'mobile', 'desktop'].includes(mode)) mode = 'auto';
+    localStorage.setItem('kss_view_mode', mode);
+    document.documentElement.setAttribute('data-view-mode', mode);
+    updateViewModeBadges();
+    if (window.showToast) {
+      const modeNames = { mobile: '📱 Phone / Mobile Mode', desktop: '💻 Laptop / Desktop Mode', auto: '🔄 Auto Mode' };
+      window.showToast('Display mode set to ' + modeNames[mode]);
+    }
+  }
+
+  function updateViewModeBadges() {
+    const mode = getViewMode();
+    const modeLabels = {
+      mobile: '📱 Mobile',
+      desktop: '💻 Laptop',
+      auto: '🔄 Auto'
+    };
+    document.querySelectorAll('.view-mode-badge-label').forEach(el => {
+      el.textContent = modeLabels[mode] || '🔄 Auto';
+    });
+  }
+
+  function showViewModeModal() {
+    let modal = document.getElementById('view-mode-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'view-mode-modal';
+      modal.className = 'modal-backdrop';
+      document.body.appendChild(modal);
+    }
+
+    const currentMode = getViewMode();
+
+    modal.innerHTML = `
+      <div class="modal" style="max-width:440px; border-radius:16px;">
+        <div class="modal-header" style="border-bottom:1px solid var(--border-color); padding:16px 20px;">
+          <h3 style="margin:0; font-size:1.1rem; font-weight:700; display:flex; align-items:center; gap:8px;">
+            <span>🖥️</span> View Mode Options / Display
+          </h3>
+          <button class="btn-icon btn-ghost" id="close-view-mode-modal">${Icons.x}</button>
+        </div>
+        <div class="modal-body" style="padding:20px; display:flex; flex-direction:column; gap:12px;">
+          <p style="font-size:0.85rem; color:var(--text-tertiary); margin:0 0 4px 0;">
+            Choose interface mode according to your screen preference:
+          </p>
+
+          <label class="view-mode-option ${currentMode === 'mobile' ? 'selected' : ''}" data-mode="mobile">
+            <input type="radio" name="view_mode_choice" value="mobile" ${currentMode === 'mobile' ? 'checked' : ''} style="accent-color:var(--primary-500);">
+            <div class="view-mode-opt-icon">📱</div>
+            <div class="view-mode-opt-info">
+              <div class="opt-title">Mobile Mode (Phone View)</div>
+              <div class="opt-desc">Optimized single-column view, quick bottom bar, swipeable cards & bottom sheets.</div>
+            </div>
+          </label>
+
+          <label class="view-mode-option ${currentMode === 'desktop' ? 'selected' : ''}" data-mode="desktop">
+            <input type="radio" name="view_mode_choice" value="desktop" ${currentMode === 'desktop' ? 'checked' : ''} style="accent-color:var(--primary-500);">
+            <div class="view-mode-opt-icon">💻</div>
+            <div class="view-mode-opt-info">
+              <div class="opt-title">Laptop Mode (Desktop View)</div>
+              <div class="opt-desc">Full widescreen view with left menu sidebar and horizontal table overview.</div>
+            </div>
+          </label>
+
+          <label class="view-mode-option ${currentMode === 'auto' ? 'selected' : ''}" data-mode="auto">
+            <input type="radio" name="view_mode_choice" value="auto" ${currentMode === 'auto' ? 'checked' : ''} style="accent-color:var(--primary-500);">
+            <div class="view-mode-opt-icon">🔄</div>
+            <div class="view-mode-opt-info">
+              <div class="opt-title">Auto Detect (Default)</div>
+              <div class="opt-desc">Automatically adjusts layout based on your device screen resolution.</div>
+            </div>
+          </label>
+        </div>
+        <div class="modal-footer" style="padding:14px 20px; border-top:1px solid var(--border-color); display:flex; justify-content:flex-end;">
+          <button class="btn btn-primary" id="save-view-mode-btn" style="width:100%;">Apply Mode</button>
+        </div>
+      </div>
+    `;
+
+    modal.classList.add('active');
+
+    modal.querySelectorAll('.view-mode-option').forEach(opt => {
+      opt.addEventListener('click', () => {
+        modal.querySelectorAll('.view-mode-option').forEach(o => o.classList.remove('selected'));
+        opt.classList.add('selected');
+        const radio = opt.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+      });
+    });
+
+    document.getElementById('close-view-mode-modal')?.addEventListener('click', () => {
+      modal.classList.remove('active');
+    });
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) modal.classList.remove('active');
+    });
+
+    document.getElementById('save-view-mode-btn')?.addEventListener('click', () => {
+      const selected = modal.querySelector('input[name="view_mode_choice"]:checked')?.value || 'auto';
+      setViewMode(selected);
+      modal.classList.remove('active');
+    });
+  }
+
   function getHash() {
     return window.location.hash.replace('#', '') || 'dashboard';
   }
@@ -116,6 +226,11 @@ var App = (() => {
 
     // Update sidebar active
     document.querySelectorAll('.nav-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.page === page);
+    });
+
+    // Update bottom nav active
+    document.querySelectorAll('.bottom-nav-item').forEach(el => {
       el.classList.toggle('active', el.dataset.page === page);
     });
 
@@ -149,6 +264,8 @@ var App = (() => {
   function renderShell() {
     const user = Store.Auth.getUser();
     const initials = user.name.split(' ').map(n => n[0]).join('').toUpperCase();
+    const mode = getViewMode();
+    const modeLabels = { mobile: '📱 Mobile', desktop: '💻 Laptop', auto: '🔄 Auto' };
 
     const navItems = [
       { key: 'dashboard', label: 'Dashboard', icon: 'home' },
@@ -196,7 +313,13 @@ var App = (() => {
                 <span class="role">${user.role}</span>
               </div>
             </div>
-            <div style="display: flex; gap: 8px;">
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button class="view-mode-badge-btn" id="view-mode-sidebar-btn" title="Switch View Mode">
+                <span class="view-mode-badge-label">${modeLabels[mode] || '🔄 Auto'}</span>
+              </button>
+              <a class="sidebar-logout" href="https://github.com/avikmasanta/KSS33" target="_blank" rel="noopener noreferrer" title="GitHub Repository" style="display:inline-flex; align-items:center; text-decoration:none;">
+                ${Icons.github}
+              </a>
               <div class="sidebar-logout" id="theme-toggle-btn" title="Toggle Dark Mode">
                 ${document.documentElement.getAttribute('data-theme') === 'dark' ? Icons.sun : Icons.moon}
               </div>
@@ -211,7 +334,7 @@ var App = (() => {
         <div class="main-area">
           <!-- Mobile Header -->
           <header class="mobile-header">
-            <button class="menu-toggle" id="menu-toggle">
+            <button class="menu-toggle" id="menu-toggle" aria-label="Open Menu">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="3" y1="12" x2="21" y2="12"></line>
                 <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -219,9 +342,41 @@ var App = (() => {
               </svg>
             </button>
             <div class="mobile-header-title">KSS 33</div>
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 8px;">
+              <button class="view-mode-badge-btn" id="view-mode-header-btn" title="Switch Mobile / Laptop Mode">
+                <span class="view-mode-badge-label">${modeLabels[mode] || '🔄 Auto'}</span>
+              </button>
+              <button class="btn-icon btn-ghost" id="theme-toggle-header" title="Toggle Dark Mode" style="width:36px; height:36px;">
+                ${document.documentElement.getAttribute('data-theme') === 'dark' ? Icons.sun : Icons.moon}
+              </button>
+            </div>
           </header>
           
           <main class="content-area" id="app-content"></main>
+
+          <!-- Mobile Bottom Navigation Bar -->
+          <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+            <a class="bottom-nav-item" data-page="dashboard" href="#dashboard">
+              ${Icons.home}
+              <span>Dashboard</span>
+            </a>
+            <a class="bottom-nav-item" data-page="sites" href="#sites">
+              ${Icons.mapPin}
+              <span>Sites</span>
+            </a>
+            <a class="bottom-nav-item" data-page="labour" href="#labour">
+              ${Icons.users}
+              <span>Labour</span>
+            </a>
+            <a class="bottom-nav-item" data-page="rentals" href="#rentals">
+              ${Icons.truck}
+              <span>Rentals</span>
+            </a>
+            <button class="bottom-nav-item" id="bottom-nav-menu-btn">
+              ${Icons.menu}
+              <span>Menu</span>
+            </button>
+          </nav>
         </div>
       </div>
     `;
@@ -231,17 +386,29 @@ var App = (() => {
     // Hash change navigation
     window.addEventListener('hashchange', () => navigate(getHash()));
 
-    // Sidebar nav clicks
+    // Sidebar & Bottom nav clicks
     document.addEventListener('click', (e) => {
-      const navItem = e.target.closest('.nav-item[data-page]');
+      const navItem = e.target.closest('.nav-item[data-page], .bottom-nav-item[data-page]');
       if (navItem) {
         e.preventDefault();
         navigate(navItem.dataset.page);
       }
     });
 
-    // Mobile menu toggle
+    // View mode clicks
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('#view-mode-header-btn') || e.target.closest('#view-mode-sidebar-btn')) {
+        showViewModeModal();
+      }
+    });
+
+    // Mobile menu toggles
     document.getElementById('menu-toggle')?.addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('open');
+      document.getElementById('sidebar-overlay').classList.toggle('active');
+    });
+
+    document.getElementById('bottom-nav-menu-btn')?.addEventListener('click', () => {
       document.getElementById('sidebar').classList.toggle('open');
       document.getElementById('sidebar-overlay').classList.toggle('active');
     });
@@ -258,21 +425,24 @@ var App = (() => {
     });
 
     // Theme Toggle
-    document.getElementById('theme-toggle-btn')?.addEventListener('click', () => {
+    const toggleTheme = () => {
       const currentTheme = document.documentElement.getAttribute('data-theme');
       if (currentTheme === 'dark') {
         document.documentElement.removeAttribute('data-theme');
         localStorage.setItem('theme', 'light');
-        document.getElementById('theme-toggle-btn').innerHTML = Icons.moon;
+        document.querySelectorAll('#theme-toggle-btn, #theme-toggle-header').forEach(el => el.innerHTML = Icons.moon);
       } else {
         document.documentElement.setAttribute('data-theme', 'dark');
         localStorage.setItem('theme', 'dark');
-        document.getElementById('theme-toggle-btn').innerHTML = Icons.sun;
+        document.querySelectorAll('#theme-toggle-btn, #theme-toggle-header').forEach(el => el.innerHTML = Icons.sun);
       }
-    });
+    };
+
+    document.getElementById('theme-toggle-btn')?.addEventListener('click', toggleTheme);
+    document.getElementById('theme-toggle-header')?.addEventListener('click', toggleTheme);
   }
 
-  return { init, navigate, eventsBound: false };
+  return { init, navigate, getViewMode, setViewMode, showViewModeModal, eventsBound: false };
 })();
 
 // Boot & PWA ServiceWorker Registration

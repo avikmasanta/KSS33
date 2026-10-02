@@ -124,31 +124,37 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), html[data-view-mode="mobile"] {
   .data-table {
-    min-width: 540px;
+    min-width: 100% !important;
+    width: 100% !important;
+    table-layout: auto;
   }
 
   .data-table th,
   .data-table td {
-    padding: 10px 12px;
-    font-size: 0.8rem;
+    padding: 8px 6px !important;
+    font-size: 0.78rem !important;
+    white-space: normal !important;
+    word-break: break-word;
   }
 
   .table-actions {
-    flex-wrap: nowrap;
+    flex-wrap: wrap !important;
     gap: 4px;
   }
 
   .btn-icon {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
   }
 }
 
 @media (max-width: 480px) {
-  .data-table {
-    min-width: 480px;
+  .data-table th,
+  .data-table td {
+    padding: 6px 4px !important;
+    font-size: 0.72rem !important;
   }
 }
 
@@ -508,4 +514,243 @@ body {
     width: 100%;
     justify-content: space-between;
   }
+}
+
+/* ============================================
+   KSS33 — VIEW MODE SWITCHER & MOBILE OPTIMIZATIONS
+   ============================================ */
+
+/* ==== View Mode Badge & Selector Modal ==== */
+.view-mode-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary-500);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.view-mode-badge-btn:hover {
+  background: rgba(37, 99, 235, 0.2);
+  transform: translateY(-1px);
+}
+
+.view-mode-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.view-mode-option:hover {
+  border-color: var(--primary-500);
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.view-mode-option.selected {
+  border-color: var(--primary-500);
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.15);
+}
+
+.view-mode-opt-icon {
+  font-size: 1.5rem;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--page-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.view-mode-opt-info {
+  flex: 1;
+}
+
+.view-mode-opt-info .opt-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-primary);
+}
+
+.view-mode-opt-info .opt-desc {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+  line-height: 1.35;
+}
+
+/* ==== Mobile Bottom Navigation Bar ==== */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--card-bg);
+  border-top: 1px solid var(--border-color);
+  z-index: 998;
+  padding: 4px 8px;
+  justify-content: space-around;
+  align-items: center;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+}
+
+html[data-view-mode="mobile"] .mobile-bottom-nav {
+  display: flex !important;
+}
+
+html[data-view-mode="desktop"] .mobile-bottom-nav {
+  display: none !important;
+}
+
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  flex: 1;
+  max-width: 72px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.bottom-nav-item svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
+  transition: transform 0.2s ease;
+}
+
+.bottom-nav-item:active {
+  transform: scale(0.92);
+}
+
+.bottom-nav-item.active {
+  color: var(--primary-500);
+  font-weight: 700;
+}
+
+.bottom-nav-item.active svg {
+  transform: translateY(-2px);
+}
+
+/* Content bottom margin for bottom nav */
+@media (max-width: 768px) {
+  .content-area {
+    padding: 16px 14px 80px 14px !important;
+  }
+}
+
+html[data-view-mode="mobile"] .content-area {
+  padding: 16px 14px 80px 14px !important;
+}
+
+/* ==== FORCED MOBILE MODE RULES ==== */
+html[data-view-mode="mobile"] .sidebar {
+  position: fixed !important;
+  left: -280px !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  height: 100% !important;
+  z-index: 1000 !important;
+  width: 260px !important;
+  min-width: 260px !important;
+}
+
+html[data-view-mode="mobile"] .sidebar.open {
+  left: 0 !important;
+}
+
+html[data-view-mode="mobile"] .mobile-header {
+  display: flex !important;
+}
+
+html[data-view-mode="mobile"] .stats-grid {
+  grid-template-columns: 1fr !important;
+}
+
+html[data-view-mode="mobile"] .dashboard-grid,
+html[data-view-mode="mobile"] .dashboard-bottom,
+html[data-view-mode="mobile"] .split-layout,
+html[data-view-mode="mobile"] .reports-grid,
+html[data-view-mode="mobile"] .inventory-summary {
+  grid-template-columns: 1fr !important;
+}
+
+/* ==== FORCED DESKTOP / LAPTOP MODE RULES ==== */
+html[data-view-mode="desktop"] {
+  min-width: 1024px;
+}
+
+html[data-view-mode="desktop"] body {
+  min-width: 1024px;
+  overflow-x: auto !important;
+}
+
+html[data-view-mode="desktop"] .app-shell {
+  width: 1024px;
+  min-width: 1024px;
+}
+
+html[data-view-mode="desktop"] .sidebar {
+  position: static !important;
+  left: 0 !important;
+  width: var(--sidebar-width) !important;
+  min-width: var(--sidebar-width) !important;
+  transform: none !important;
+  height: 100vh !important;
+  box-shadow: none !important;
+}
+
+html[data-view-mode="desktop"] .sidebar-overlay {
+  display: none !important;
+}
+
+html[data-view-mode="desktop"] .mobile-header {
+  display: none !important;
+}
+
+html[data-view-mode="desktop"] .mobile-bottom-nav {
+  display: none !important;
+}
+
+html[data-view-mode="desktop"] .content-area {
+  padding: 32px 40px !important;
+}
+
+html[data-view-mode="desktop"] .stats-grid {
+  grid-template-columns: repeat(6, 1fr) !important;
 }

@@ -1524,7 +1524,7 @@ var LabourPage = {
             });
             const payLogs = Object.values(payMap).sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(p => {
               const notesStr = p.notes ? ` (${p.notes})` : '';
-              const safeNotes = (p.notes || '').replace(/'/g, "\\'");
+              const safeNotes = (p.notes || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, ' ');
               const lId = l.id || l._id;
               return `<span style="background:#ecfdf5;color:#047857;border:1px solid #a7f3d0;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:4px;">
                 ${fmt(p.date)}: ₹${Math.round(p.amount)}${notesStr}
