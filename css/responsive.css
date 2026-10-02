@@ -331,7 +331,7 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
 /* ===== TOUCH DATA TABLES (Smooth Touch-Scrollable with Headers Intact) ===== */
 .table-container {
   width: 100%;
-  overflow-x: auto !important;
+  overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   border-radius: var(--card-radius);
   border: 1px solid var(--border-color);
@@ -341,15 +341,19 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
 }
 
 @media (max-width: 768px), html[data-view-mode="mobile"] {
+  .table-container {
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
   .data-table {
-    min-width: 640px !important;
     width: 100%;
     border-collapse: collapse;
   }
 
   .data-table th {
     font-size: 0.76rem !important;
-    padding: 11px 14px !important;
+    padding: 11px 12px !important;
     white-space: nowrap !important;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -363,9 +367,7 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
 
   .data-table td {
     font-size: 0.85rem !important;
-    padding: 12px 14px !important;
-    white-space: nowrap !important;
-    word-break: normal !important;
+    padding: 11px 12px !important;
     border-bottom: 1px solid var(--border-color);
   }
 
@@ -383,10 +385,8 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
     width: 36px;
     height: 36px;
   }
-}
 
-/* ===== RESPONSIVE DAILY LOG SHEET MOBILE CARDS TRANSFORM ===== */
-@media (max-width: 768px), html[data-view-mode="mobile"] {
+  /* ===== RESPONSIVE DAILY LOG SHEET MOBILE CARDS TRANSFORM ===== */
   .mobile-only-inline {
     display: inline-flex !important;
   }
