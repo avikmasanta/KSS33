@@ -755,3 +755,144 @@ html[data-view-mode="desktop"] .content-area {
 html[data-view-mode="desktop"] .stats-grid {
   grid-template-columns: repeat(6, 1fr) !important;
 }
+
+/* ============================================
+   KSS33 — MOBILE CARD TRANSFORMATION & SEAMLESS CONNECT
+   ============================================ */
+
+body {
+  background-color: var(--page-bg);
+}
+
+.app-shell {
+  background: var(--page-bg);
+}
+
+.mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 990;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+/* Mobile Card List Transformation for Data Tables */
+@media (max-width: 768px), html[data-view-mode="mobile"] {
+  .table-container {
+    overflow-x: visible !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .data-table {
+    min-width: 100% !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .data-table thead {
+    display: none !important;
+  }
+
+  .data-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    width: 100% !important;
+  }
+
+  .data-table tbody tr {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--card-bg) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+    gap: 8px !important;
+    width: 100% !important;
+    position: relative !important;
+  }
+
+  .data-table tbody tr td {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 6px 0 !important;
+    border: none !important;
+    border-bottom: 1px dashed var(--border-color) !important;
+    font-size: 0.88rem !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    width: 100% !important;
+    text-align: left !important;
+  }
+
+  .data-table tbody tr td:last-child {
+    border-bottom: none !important;
+  }
+
+  .data-table tbody tr td .table-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    width: 100% !important;
+    justify-content: flex-end !important;
+    padding-top: 8px !important;
+    margin-top: 4px !important;
+    border-top: 1px solid var(--border-color) !important;
+  }
+
+  .data-table tbody tr td .table-actions .btn {
+    flex: 1 !important;
+    justify-content: center !important;
+    min-height: 40px !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+/* Explicit Laptop Mode Overrides */
+html[data-view-mode="desktop"] .table-container {
+  overflow-x: auto !important;
+  border-radius: var(--card-radius);
+}
+
+html[data-view-mode="desktop"] .data-table {
+  display: table !important;
+  min-width: 100% !important;
+  width: 100% !important;
+}
+
+html[data-view-mode="desktop"] .data-table thead {
+  display: table-header-group !important;
+}
+
+html[data-view-mode="desktop"] .data-table tbody {
+  display: table-row-group !important;
+}
+
+html[data-view-mode="desktop"] .data-table tbody tr {
+  display: table-row !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+html[data-view-mode="desktop"] .data-table tbody tr td {
+  display: table-cell !important;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid var(--border-color) !important;
+  white-space: nowrap !important;
+}
