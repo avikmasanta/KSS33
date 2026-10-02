@@ -967,16 +967,16 @@ var RentalsPage = {
         ` : ''}
       </div>
 
-      <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; margin-bottom:24px;">
+      <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; margin-bottom:24px;">
         <table class="data-table" style="width: 100%; border-collapse: collapse;">
           <thead>
             <tr style="background: var(--bg-body);">
-              <th align="left" style="padding: 12px 16px;">Material</th>
-              <th align="center" style="padding: 12px 16px; text-align:center;">Initial Leased</th>
-              <th align="center" style="padding: 12px 16px; text-align:center;">Returned</th>
-              <th align="center" style="padding: 12px 16px; text-align:center;">Remaining Active</th>
-              <th align="right" style="padding: 12px 16px; text-align:right;">Rate (${isMonthly ? 'per Month' : 'per Day'})</th>
-              <th align="right" style="padding: 12px 16px; text-align:right;">Total Accrued</th>
+              <th align="left" style="padding: 12px 14px;">Material</th>
+              <th align="center" style="padding: 12px 14px; text-align:center;">Initial Leased</th>
+              <th align="center" style="padding: 12px 14px; text-align:center;">Returned</th>
+              <th align="center" style="padding: 12px 14px; text-align:center;">Remaining Active</th>
+              <th align="right" style="padding: 12px 14px; text-align:right;">Rate (${isMonthly ? 'per Month' : 'per Day'})</th>
+              <th align="right" style="padding: 12px 14px; text-align:right;">Total Accrued</th>
             </tr>
           </thead>
           <tbody>
@@ -987,27 +987,27 @@ var RentalsPage = {
 
               return `
                 <tr style="border-bottom: 1px solid var(--border-color);">
-                  <td style="padding: 14px 16px;">
+                  <td data-label="Material" style="padding: 12px 14px;">
                     <div style="font-weight: 600; color: var(--text-primary);">${mat ? mat.name : 'Unknown Material'}</div>
                     <div style="font-size: 0.75rem; color: var(--text-tertiary); margin-top: 2px;">${mat ? mat.sku : '-'}</div>
                   </td>
-                  <td align="center" style="padding: 14px 16px; text-align:center; font-weight: 600;">
+                  <td data-label="Initial Leased" align="center" style="padding: 12px 14px; text-align:center; font-weight: 600;">
                     ${sum.leased} <span style="font-size:0.8rem; font-weight:normal; color:var(--text-secondary);">${mat ? mat.unit : ''}</span>
                   </td>
-                  <td align="center" style="padding: 14px 16px; text-align:center; font-weight: 600;">
+                  <td data-label="Returned" align="center" style="padding: 12px 14px; text-align:center; font-weight: 600;">
                     <span class="badge ${sum.returned > 0 ? 'badge-success' : 'badge-neutral'}" style="font-size:0.85rem;">
                       ${sum.returned} ${mat ? mat.unit : ''}
                     </span>
                   </td>
-                  <td align="center" style="padding: 14px 16px; text-align:center; font-weight: 700;">
+                  <td data-label="Remaining Active" align="center" style="padding: 12px 14px; text-align:center; font-weight: 700;">
                     <span class="badge ${sum.remaining > 0 ? 'badge-warning' : 'badge-success'}" style="font-size:0.85rem;">
                       ${sum.remaining} ${mat ? mat.unit : ''}
                     </span>
                   </td>
-                  <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 600; color: var(--text-secondary);">
+                  <td data-label="Rate" align="right" style="padding: 12px 14px; text-align:right; font-weight: 600; color: var(--text-secondary);">
                     ₹${parseFloat(i.rate || 0).toLocaleString('en-IN')}/${isMonthly ? 'mo' : 'day'}
                   </td>
-                  <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 700; color: var(--success);">
+                  <td data-label="Total Accrued" align="right" style="padding: 12px 14px; text-align:right; font-weight: 700; color: var(--success);">
                     ₹${Math.round(b.amount).toLocaleString('en-IN')}
                   </td>
                 </tr>
@@ -1017,7 +1017,7 @@ var RentalsPage = {
         </table>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-body); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-body); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
         <div>
           <div style="font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">Contract Material Progress</div>
           <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">
@@ -1035,7 +1035,7 @@ var RentalsPage = {
       <!-- Partial / Split Return Logs Section -->
       ${(Array.isArray(r.returns) && r.returns.length > 0) ? `
         <div class="card" style="padding: 20px; border: 1px solid var(--border-color); margin-bottom: 24px; background: var(--bg-card);">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px;">
             <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary); font-weight:700; display:flex; align-items:center; gap:8px;">
               ↩️ Partial / Split Return Logs (${r.returns.length} Shipment Returns)
             </h4>
@@ -1043,7 +1043,7 @@ var RentalsPage = {
               <button class="btn btn-xs btn-success" onclick="RentalsPage.openSplitReturnModal('${r.id}')">+ Add Return</button>
             ` : ''}
           </div>
-          <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
+          <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px;">
             <table class="data-table" style="width: 100%; border-collapse: collapse;">
               <thead>
                 <tr style="background: var(--bg-body);">
@@ -1062,16 +1062,16 @@ var RentalsPage = {
 
                   return `
                     <tr style="border-bottom: 1px solid var(--border-color);">
-                      <td style="padding: 10px 14px; font-weight: 700; color: var(--text-primary);">
+                      <td data-label="Return Date" style="padding: 10px 14px; font-weight: 700; color: var(--text-primary);">
                         📅 ${ret.returnDate}
                       </td>
-                      <td style="padding: 10px 14px; color: var(--text-primary);">
+                      <td data-label="Items Returned" style="padding: 10px 14px; color: var(--text-primary);">
                         ${retItemsSummary || '-'}
                       </td>
-                      <td style="padding: 10px 14px; color: var(--text-tertiary); font-size: 0.85rem;">
+                      <td data-label="Notes / Slip" style="padding: 10px 14px; color: var(--text-tertiary); font-size: 0.85rem;">
                         ${ret.notes || '-'}
                       </td>
-                      <td style="padding: 10px 14px; text-align: right;">
+                      <td data-label="Action" style="padding: 10px 14px; text-align: right;">
                         <button class="btn btn-xs btn-ghost" onclick="RentalsPage.deleteSplitReturn('${ret.id || ret._id}')" style="color: var(--danger);" title="Delete this return log">
                           ${Icons.trash || '✕'} Delete Log
                         </button>
@@ -1095,15 +1095,15 @@ var RentalsPage = {
             </p>
           </div>
         </div>
-        <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;">
-          <table class="data-table" style="width: 100%; border-collapse: collapse;">
+        <div class="table-container" style="border: 1px solid var(--border-color); border-radius: 8px;">
+          <table class="data-table responsive-breakdown-table" style="width: 100%; border-collapse: collapse;">
             <thead>
               <tr style="background: var(--bg-body);">
-                <th align="left" style="padding: 12px 16px;">Billing Month</th>
-                <th align="center" style="padding: 12px 16px; text-align:center;">Active Days in Month</th>
-                <th align="center" style="padding: 12px 16px; text-align:center;">Month Status</th>
-                <th align="right" style="padding: 12px 16px; text-align:right;">Monthly Bill Total</th>
-                <th align="right" style="padding: 12px 16px; text-align:right;">Print Slip</th>
+                <th align="left" style="padding: 12px 14px;">Billing Month</th>
+                <th align="center" style="padding: 12px 14px; text-align:center;">Active Days in Month</th>
+                <th align="center" style="padding: 12px 14px; text-align:center;">Month Status</th>
+                <th align="right" style="padding: 12px 14px; text-align:right;">Monthly Bill Total</th>
+                <th align="right" style="padding: 12px 14px; text-align:right;">Print Slip</th>
               </tr>
             </thead>
             <tbody>
@@ -1124,19 +1124,19 @@ var RentalsPage = {
 
                 return `
                   <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 14px 16px; font-weight: 700; color: var(--text-primary);">
+                    <td data-label="Billing Month" style="padding: 12px 14px; font-weight: 700; color: var(--text-primary);">
                       📅 ${mLabel}
                     </td>
-                    <td align="center" style="padding: 14px 16px; text-align:center;">
+                    <td data-label="Active Days" align="center" style="padding: 12px 14px; text-align:center;">
                       <span class="badge badge-info" style="font-size:0.85rem; padding: 4px 10px;">${mDays} Days</span>
                     </td>
-                    <td align="center" style="padding: 14px 16px; text-align:center;">
+                    <td data-label="Month Status" align="center" style="padding: 12px 14px; text-align:center;">
                       ${statusBadge}
                     </td>
-                    <td align="right" style="padding: 14px 16px; text-align:right; font-weight: 800; color: #059669; font-size:1.05rem;">
+                    <td data-label="Monthly Bill Total" align="right" style="padding: 12px 14px; text-align:right; font-weight: 800; color: #059669; font-size:1.05rem;">
                       ₹${Math.round(mTotal).toLocaleString('en-IN')}
                     </td>
-                    <td align="right" style="padding: 14px 16px; text-align:right;">
+                    <td data-label="Print Slip" align="right" style="padding: 12px 14px; text-align:right;">
                       <button class="btn btn-sm btn-outline" onclick="RentalsPage.printMonthlyChallan('${r.id}', '${mStr}')" style="display:inline-flex; align-items:center; gap:6px;">
                         ${Icons.printer} Print ${mLabel} Slip
                       </button>
@@ -1206,7 +1206,7 @@ var RentalsPage = {
             <h4 style="margin:0; font-size:1.1rem; color:var(--text-primary);">Leased Materials</h4>
             <div style="font-size:0.9rem; color:var(--text-secondary); font-weight:600;" id="rental-form-days-label">Duration: 1 Day (Inclusive)</div>
           </div>
-          <div class="table-container" style="border:1px solid var(--border-color); border-radius:8px; overflow:hidden;">
+          <div class="table-container" style="border:1px solid var(--border-color); border-radius:8px;">
             <table class="inline-table">
               <thead>
                 <tr style="background: var(--bg-body);">

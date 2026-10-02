@@ -344,6 +344,9 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
   .table-container {
     border-radius: 12px;
     margin-bottom: 12px;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
   }
 
   .data-table {
@@ -374,6 +377,31 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
   .data-table .badge {
     font-size: 0.75rem !important;
     padding: 4px 8px !important;
+  }
+
+  /* Compact padding for month breakdown table so all columns fit cleanly */
+  table.responsive-breakdown-table th {
+    padding: 10px 8px !important;
+    font-size: 0.7rem !important;
+    white-space: nowrap !important;
+  }
+
+  table.responsive-breakdown-table td {
+    padding: 10px 8px !important;
+    font-size: 0.82rem !important;
+    white-space: nowrap !important;
+  }
+
+  table.responsive-breakdown-table .btn {
+    padding: 4px 8px !important;
+    font-size: 0.75rem !important;
+    min-height: 34px !important;
+    white-space: nowrap !important;
+  }
+
+  table.responsive-breakdown-table .badge {
+    font-size: 0.7rem !important;
+    padding: 3px 6px !important;
   }
 
   .table-actions {
