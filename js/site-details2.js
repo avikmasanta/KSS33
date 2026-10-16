@@ -209,7 +209,7 @@ var SiteDetailsPage = {
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="SiteDetailsPage.closeDispatchModal()">Cancel</button>
-            <button class="btn btn-secondary" onclick="SiteDetailsPage.saveDispatch()">Save Dispatch</button>
+            <button class="btn btn-primary" onclick="SiteDetailsPage.saveDispatch()">Save Dispatch</button>
           </div>
         </div>
       </div>
@@ -618,6 +618,7 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-dispatch-modal');
     if (modal) {
       modal.classList.add('active');
+      document.body.classList.add('modal-open');
       const ticket = modal.querySelector('#site-dispatch-ticket');
       if (ticket) ticket.value = '';
     }
@@ -628,6 +629,7 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-dispatch-modal');
     if (modal) {
       modal.classList.remove('active');
+      document.body.classList.remove('modal-open');
       this.dispatchItems = [];
     }
   },
@@ -711,7 +713,7 @@ var SiteDetailsPage = {
     html += `
         </tbody>
       </table>
-      <div style="margin-top:12px; margin-bottom:40px;">
+      <div style="margin-top:12px; margin-bottom:14px;">
         <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; padding:6px 12px; background:rgba(59,130,246,0.1); border-radius:6px; border:1px solid rgba(59,130,246,0.2);" onclick="SiteDetailsPage.addDispatchItem()">
           ${Icons.plus} Add Material Row
         </a>
@@ -879,6 +881,16 @@ var SiteDetailsPage = {
     const items = [];
     (this.dispatchItems || []).forEach(item => {
       const qty = parseFloat(item.quantity) || 0;
+      if (!item.materialId && item.searchQuery) {
+        const qClean = item.searchQuery.toLowerCase().trim();
+        const allMats = Store.Materials.getAll();
+        const found = allMats.find(m => 
+          (m.name || '').toLowerCase().trim() === qClean ||
+          `${m.name || ''} (${m.unit || 'Pcs'})`.toLowerCase().trim() === qClean ||
+          qClean.startsWith((m.name || '').toLowerCase().trim())
+        );
+        if (found) item.materialId = found.id;
+      }
       if (item.materialId && qty > 0) {
         const material = Store.Materials.getById(item.materialId);
         items.push({
@@ -908,6 +920,10 @@ var SiteDetailsPage = {
       Store.logTransaction(i.materialId, i.quantity, 'Dispatch', this.siteId);
     });
 
+    if (window.showToast) {
+      window.showToast('Material dispatch logged successfully!', 'success');
+    }
+
     this.closeDispatchModal();
     this.refresh();
   },
@@ -917,6 +933,7 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-return-modal');
     if (modal) {
       modal.classList.add('active');
+      document.body.classList.add('modal-open');
     }
     this.renderReturnItems();
   },
@@ -925,6 +942,7 @@ var SiteDetailsPage = {
     const modal = document.getElementById('site-return-modal');
     if (modal) {
       modal.classList.remove('active');
+      document.body.classList.remove('modal-open');
       this.returnItems = [];
     }
   },
@@ -1008,7 +1026,7 @@ var SiteDetailsPage = {
     html += `
         </tbody>
       </table>
-      <div style="margin-top:12px; margin-bottom:40px;">
+      <div style="margin-top:12px; margin-bottom:14px;">
         <a class="add-row-link" style="cursor:pointer; color:var(--primary); font-weight:600; display:inline-flex; align-items:center; gap:6px; font-size:0.88rem; padding:6px 12px; background:rgba(59,130,246,0.1); border-radius:6px; border:1px solid rgba(59,130,246,0.2);" onclick="SiteDetailsPage.addReturnItem()">
           ${Icons.plus} Add Material Row
         </a>
@@ -1044,6 +1062,16 @@ var SiteDetailsPage = {
     let saved = 0;
     (this.returnItems || []).forEach(item => {
       const qty = parseFloat(item.quantity) || 0;
+      if (!item.materialId && item.searchQuery) {
+        const qClean = item.searchQuery.toLowerCase().trim();
+        const allMats = Store.Materials.getAll();
+        const found = allMats.find(m => 
+          (m.name || '').toLowerCase().trim() === qClean ||
+          `${m.name || ''} (${m.unit || 'Pcs'})`.toLowerCase().trim() === qClean ||
+          qClean.startsWith((m.name || '').toLowerCase().trim())
+        );
+        if (found) item.materialId = found.id;
+      }
       if (item.materialId && qty > 0) {
         Store.SiteReturns.add({
           siteId: this.siteId,
@@ -1059,6 +1087,10 @@ var SiteDetailsPage = {
     if (saved === 0) {
       alert('Please select at least one material and enter a valid quantity.');
       return;
+    }
+
+    if (window.showToast) {
+      window.showToast('Material return logged successfully!', 'success');
     }
 
     this.closeReturnModal();
@@ -1452,13 +1484,17 @@ var SiteDetailsPage = {
 
   openCollectModal() {
     const modal = document.getElementById('site-collect-modal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+      modal.classList.add('active');
+      document.body.classList.add('modal-open');
+    }
   },
 
   closeCollectModal() {
     const modal = document.getElementById('site-collect-modal');
     if (modal) {
       modal.classList.remove('active');
+      document.body.classList.remove('modal-open');
       document.getElementById('site-collect-amount').value = '';
       document.getElementById('site-collect-ref').value = '';
     }

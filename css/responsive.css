@@ -583,23 +583,38 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
 
 
 /* ===== MODALS & BOTTOM SHEETS ON MOBILE ===== */
-@media (max-width: 640px), html[data-view-mode="mobile"] {
+@media (max-width: 768px) {
   .modal-backdrop {
-    padding: 0;
-    align-items: flex-end;
+    padding: 0 !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    z-index: 2000 !important;
+    position: fixed !important;
+    inset: 0 !important;
+    height: 100% !important;
+    height: 100dvh !important;
+  }
+
+  body.modal-open .mobile-bottom-nav,
+  body:has(.modal-backdrop.active) .mobile-bottom-nav,
+  .modal-backdrop.active ~ .mobile-bottom-nav {
+    display: none !important;
   }
 
   .modal {
     max-width: 100% !important;
     width: 100% !important;
     border-radius: 20px 20px 0 0 !important;
-    max-height: 92vh !important;
+    max-height: 88vh !important;
+    max-height: 88dvh !important;
     height: auto !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
     box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25) !important;
     animation: slideUpModal 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    z-index: 2010 !important;
+    margin: 0 !important;
   }
 
   @keyframes slideUpModal {
@@ -609,7 +624,7 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
 
   .modal-header {
     position: relative;
-    padding: 18px 20px 14px 20px;
+    padding: 16px 20px 14px 20px;
     flex-shrink: 0;
   }
 
@@ -628,24 +643,38 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
   .modal-body {
     padding: 16px 20px;
     overflow-y: auto;
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
     -webkit-overflow-scrolling: touch;
   }
 
   .modal-footer {
-    padding: 14px 20px;
-    gap: 10px;
-    flex-direction: column;
-    flex-shrink: 0;
-    background: var(--card-bg);
-    border-top: 1px solid var(--border-color);
+    padding: 12px 16px !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+    gap: 12px !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+    background: var(--card-bg) !important;
+    border-top: 1px solid var(--border-color) !important;
   }
 
   .modal-footer .btn {
-    width: 100%;
-    min-height: 44px;
-    justify-content: center;
+    flex: 1 1 0 !important;
+    width: auto !important;
+    min-height: 46px !important;
+    justify-content: center !important;
+    font-size: 0.95rem !important;
+    font-weight: 600 !important;
+    margin: 0 !important;
+  }
+
+  .modal-footer .btn-primary,
+  .modal-footer .btn-success,
+  .modal-footer .btn-secondary,
+  .modal-footer [type="submit"] {
+    flex: 1.5 1 0 !important;
   }
 
   .form-row {
@@ -657,6 +686,66 @@ html[data-view-mode="desktop"] .mobile-bottom-nav {
     font-size: 16px !important; /* Prevents Safari iOS auto-zoom */
     min-height: 44px !important;
   }
+}
+
+/* Forced Mobile Mode Rules for Modals */
+html[data-view-mode="mobile"] .modal-backdrop {
+  padding: 0 !important;
+  align-items: flex-end !important;
+  justify-content: center !important;
+  z-index: 2000 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  height: 100% !important;
+  height: 100dvh !important;
+}
+
+html[data-view-mode="mobile"] body:has(.modal-backdrop.active) .mobile-bottom-nav,
+html[data-view-mode="mobile"] .modal-backdrop.active ~ .mobile-bottom-nav {
+  display: none !important;
+}
+
+html[data-view-mode="mobile"] .modal {
+  max-width: 100% !important;
+  width: 100% !important;
+  border-radius: 20px 20px 0 0 !important;
+  max-height: 88vh !important;
+  max-height: 88dvh !important;
+  height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.25) !important;
+  z-index: 2010 !important;
+  margin: 0 !important;
+}
+
+html[data-view-mode="mobile"] .modal-footer {
+  padding: 12px 16px !important;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+  gap: 12px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+  background: var(--card-bg) !important;
+  border-top: 1px solid var(--border-color) !important;
+}
+
+html[data-view-mode="mobile"] .modal-footer .btn {
+  flex: 1 1 0 !important;
+  width: auto !important;
+  min-height: 46px !important;
+  justify-content: center !important;
+  font-size: 0.95rem !important;
+  font-weight: 600 !important;
+}
+
+html[data-view-mode="mobile"] .modal-footer .btn-primary,
+html[data-view-mode="mobile"] .modal-footer .btn-success,
+html[data-view-mode="mobile"] .modal-footer .btn-secondary,
+html[data-view-mode="mobile"] .modal-footer [type="submit"] {
+  flex: 1.5 1 0 !important;
 }
 
 /* ===== SIDEBAR SLIDE DRAWER ON MOBILE ===== */
