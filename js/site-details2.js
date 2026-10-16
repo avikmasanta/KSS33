@@ -843,6 +843,7 @@ var SiteDetailsPage = {
             onmouseenter="this.style.background='var(--bg-hover, rgba(59,130,246,0.12))'; this.style.color='var(--primary-500, #2563eb)';"
             onmouseleave="this.style.background='transparent'; this.style.color='var(--text-primary)';"
             onmousedown="SiteDetailsPage.selectMatOption('${type}', ${idx}, '${m.id}')"
+            ontouchend="SiteDetailsPage.selectMatOption('${type}', ${idx}, '${m.id}')"
           >
             <div style="font-weight:600; font-size:0.86rem; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
               ${m.name}${detailStr}
@@ -873,22 +874,52 @@ var SiteDetailsPage = {
   },
 
   saveDispatch() {
-    const date = document.getElementById('site-dispatch-date').value;
-    const ticketNo = document.getElementById('site-dispatch-ticket').value.trim();
+    if (!this.siteId) {
+      try { this.siteId = sessionStorage.getItem('selectedSiteId'); } catch(e){}
+    }
+
+    const date = document.getElementById('site-dispatch-date')?.value;
+    const ticketNo = (document.getElementById('site-dispatch-ticket')?.value || '').trim();
 
     if (!date) { alert('Please choose a date.'); return; }
+
+    // Fallback sync directly from DOM inputs to ensure values are never lost
+    const container = document.getElementById('site-dispatch-items-container');
+    if (container) {
+      const rows = container.querySelectorAll('tbody tr');
+      rows.forEach((tr, idx) => {
+        if (!this.dispatchItems) this.dispatchItems = [];
+        if (!this.dispatchItems[idx]) this.dispatchItems[idx] = { materialId: '', quantity: '', searchQuery: '' };
+        const matInput = tr.querySelector('input[id^="mat-input-dispatch-"]');
+        const qtyInput = tr.querySelector('input[type="number"]');
+        if (matInput && matInput.value && !this.dispatchItems[idx].searchQuery) {
+          this.dispatchItems[idx].searchQuery = matInput.value.trim();
+        }
+        if (qtyInput && qtyInput.value !== '' && (!this.dispatchItems[idx].quantity || parseFloat(this.dispatchItems[idx].quantity) === 0)) {
+          this.dispatchItems[idx].quantity = qtyInput.value;
+        }
+      });
+    }
+
+    const allMats = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
+      .filter(m => m && m.status !== 'Archived');
 
     const items = [];
     (this.dispatchItems || []).forEach(item => {
       const qty = parseFloat(item.quantity) || 0;
       if (!item.materialId && item.searchQuery) {
         const qClean = item.searchQuery.toLowerCase().trim();
-        const allMats = Store.Materials.getAll();
-        const found = allMats.find(m => 
-          (m.name || '').toLowerCase().trim() === qClean ||
-          `${m.name || ''} (${m.unit || 'Pcs'})`.toLowerCase().trim() === qClean ||
-          qClean.startsWith((m.name || '').toLowerCase().trim())
-        );
+        const found = allMats.find(m => {
+          const mName = (m.name || '').toLowerCase().trim();
+          const mUnit = (m.unit || 'Pcs').toLowerCase().trim();
+          const withUnit = `${mName} (${mUnit})`;
+          return mName === qClean ||
+                 withUnit === qClean ||
+                 qClean.startsWith(mName) ||
+                 mName.startsWith(qClean) ||
+                 mName.includes(qClean) ||
+                 qClean.includes(mName);
+        });
         if (found) item.materialId = found.id;
       }
       if (item.materialId && qty > 0) {
@@ -1056,20 +1087,50 @@ var SiteDetailsPage = {
   },
 
   saveReturn() {
-    const date = document.getElementById('site-return-date').value;
+    if (!this.siteId) {
+      try { this.siteId = sessionStorage.getItem('selectedSiteId'); } catch(e){}
+    }
+
+    const date = document.getElementById('site-return-date')?.value;
     if (!date) { alert('Please choose a date.'); return; }
+
+    // Fallback sync directly from DOM inputs to ensure values are never lost
+    const container = document.getElementById('site-return-items-container');
+    if (container) {
+      const rows = container.querySelectorAll('tbody tr');
+      rows.forEach((tr, idx) => {
+        if (!this.returnItems) this.returnItems = [];
+        if (!this.returnItems[idx]) this.returnItems[idx] = { materialId: '', quantity: '', searchQuery: '' };
+        const matInput = tr.querySelector('input[id^="mat-input-return-"]');
+        const qtyInput = tr.querySelector('input[type="number"]');
+        if (matInput && matInput.value && !this.returnItems[idx].searchQuery) {
+          this.returnItems[idx].searchQuery = matInput.value.trim();
+        }
+        if (qtyInput && qtyInput.value !== '' && (!this.returnItems[idx].quantity || parseFloat(this.returnItems[idx].quantity) === 0)) {
+          this.returnItems[idx].quantity = qtyInput.value;
+        }
+      });
+    }
+
+    const allMats = (Store.Materials.getSorted ? Store.Materials.getSorted() : Store.Materials.getAll())
+      .filter(m => m && m.status !== 'Archived');
 
     let saved = 0;
     (this.returnItems || []).forEach(item => {
       const qty = parseFloat(item.quantity) || 0;
       if (!item.materialId && item.searchQuery) {
         const qClean = item.searchQuery.toLowerCase().trim();
-        const allMats = Store.Materials.getAll();
-        const found = allMats.find(m => 
-          (m.name || '').toLowerCase().trim() === qClean ||
-          `${m.name || ''} (${m.unit || 'Pcs'})`.toLowerCase().trim() === qClean ||
-          qClean.startsWith((m.name || '').toLowerCase().trim())
-        );
+        const found = allMats.find(m => {
+          const mName = (m.name || '').toLowerCase().trim();
+          const mUnit = (m.unit || 'Pcs').toLowerCase().trim();
+          const withUnit = `${mName} (${mUnit})`;
+          return mName === qClean ||
+                 withUnit === qClean ||
+                 qClean.startsWith(mName) ||
+                 mName.startsWith(qClean) ||
+                 mName.includes(qClean) ||
+                 qClean.includes(mName);
+        });
         if (found) item.materialId = found.id;
       }
       if (item.materialId && qty > 0) {
